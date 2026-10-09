@@ -56,6 +56,42 @@ from .world_order import order_world_fields
 # Only this explicitly approved non-observation tool survives the adapter.
 PASSTHROUGH_TOOLS = frozenset({"wiki", "inspect_actions", "inspect_threats"})
 
+SITUATION_OBJECT = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["kind"],
+    "properties": {
+        "kind": {"const": "situation"},
+        "map": {"type": "string", "default": "current"},
+    },
+    "description": (
+        "Colony situation board: clock, active conditions, hostile groups on the map and "
+        "archived letters plus threat messages of the last game day. Entries carry labels, "
+        "ticks and subject IDs only; look up subjects for their state. Dismissed letters remain."
+    ),
+}
+
+
+def extend_situation_schema(spec):
+    """Offer the situation board as one more look object, with aspects fixed to state."""
+    spec = copy.deepcopy(spec)
+    props = spec["parameters"]["properties"]
+    current = props["object"]
+    variants = current["oneOf"] if isinstance(current.get("oneOf"), list) else [current]
+    props["object"] = {"oneOf": [*variants, copy.deepcopy(SITUATION_OBJECT)]}
+    rule = {
+        "if": {
+            "properties": {"object": {"properties": {"kind": {"const": "situation"}}, "required": ["kind"]}},
+            "required": ["object"],
+        },
+        "then": {
+            "properties": {"aspects": {"items": {"enum": ["state"]}}},
+            "not": {"anyOf": [{"required": [key]} for key in props if key not in ("object", "aspects")]},
+        },
+    }
+    spec["parameters"]["allOf"] = [*spec["parameters"].get("allOf", []), rule]
+    return spec
+
 
 
 def _with_field_semantics(result):
@@ -200,6 +236,8 @@ class SemanticInteraction(ReadOnlyResearchSurface):
                 from .context_tools import configure_read_spec
 
                 tool = configure_read_spec(tool)
+            if tool["name"] == "look" and "read_situation" in self.original:
+                tool = extend_situation_schema(tool)
             handler = handlers[tool["name"]]
 
             async def guarded(args, handler=handler):
@@ -384,6 +422,8 @@ class SemanticInteraction(ReadOnlyResearchSurface):
     # -- tools ------------------------------------------------------------
 
     async def look(self, args: dict[str, Any]) -> dict[str, Any]:
+        if isinstance(args, dict) and isinstance(args.get("object"), dict) and args["object"].get("kind") == "situation":
+            return await self._look_situation(args)
         if self.object_reader:
             return await self.object_reader.look(args)
         if any(key in args for key in ("stats", "actor", "user")):
@@ -418,6 +458,31 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             }
             return result
         return await self._look_legacy(args)
+
+    async def _look_situation(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Read the colony situation board as one native observation.
+
+        The Mod decides granularity at the source (one condition, one hostile
+        group, one archived threat letter per entry), so nothing is capped,
+        merged or reordered here.
+        """
+        if "read_situation" not in self.original:
+            raise SurfaceError("This connection does not provide the situation board")
+        if set(args) - {"object", "aspects"} or args.get("aspects", ["state"]) != ["state"]:
+            raise SurfaceError("situation accepts object and aspects=[state] only")
+        obj = args["object"]
+        if set(obj) - {"kind", "map"} or ("map" in obj and (not isinstance(obj["map"], str) or not obj["map"])):
+            raise SurfaceError("situation object accepts kind and optional map")
+        native = await self.execute_native(
+            {"map": obj.get("map", "current")},
+            tool_name="read_situation",
+        )
+        return {
+            "observation_id": native["observation_id"],
+            "status": native["status"],
+            "situation": native["data"],
+            "issues": native["issues"],
+        }
 
     def _validate_capabilities(self, obj):
         if "capabilities" in obj:

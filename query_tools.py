@@ -104,6 +104,18 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
 
             world_tools.append(ToolSpec(spec["name"], spec["description"], copy.deepcopy(spec["parameters"]), inspect))
         directory["native_behavior"] = copy.deepcopy(behavior)
+    situation = catalog.get("situation")
+    if isinstance(situation, dict) and situation.get("version") == "situation.v1":
+        if situation.get("operation") != "read_situation" or not isinstance(situation.get("parameters"), dict):
+            raise ToolExecutionError("invalid_catalog", "Invalid situation operation")
+
+        # Internal native read; the model reaches it only through look kind situation.
+        async def read_situation(arguments):
+            return await query({"operation": "read_situation", "arguments": copy.deepcopy(arguments)})
+
+        world_tools.append(
+            ToolSpec("read_situation", situation.get("description", ""), copy.deepcopy(situation["parameters"]), read_situation)
+        )
     if isinstance(catalog.get("game_implementation"), dict):
         directory["game_implementation"] = copy.deepcopy(catalog["game_implementation"])
     context_blocks = (
