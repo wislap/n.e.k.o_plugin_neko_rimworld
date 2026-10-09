@@ -146,10 +146,8 @@ def survey_view(value, arguments):
             for key in ("objects", "objects_summary", "object_state_scope", "page"):
                 result.pop(key, None)
         result.update(environment_included=environment, objects_included=objects)
-        region = result.get("region")
-        if "geometry" not in included and isinstance(region, dict) and "area_zone_intersections" in region:
-            region.pop("area_zone_intersections")
-            region["area_zone_intersections_included"] = False
+        # area_zone_intersections stays regardless of geometry: it is a few
+        # rows, and dropping it led authors to assert "no stockpile here".
     # Bind the native spatial distance to its actual origin, never to an actor
     # or the closest node on a route. This is a name change, not a computation.
     region = result.get("region")

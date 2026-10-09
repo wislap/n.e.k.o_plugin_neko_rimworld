@@ -15,9 +15,9 @@ The look/count interface is mandatory: missing or uncompiled public query direct
 
 With native world support, the model sees `look`, `count`, `survey_space`, `evaluate_activity`, `inspect_actions`, `inspect_threats`, available `wiki`, and `submit_response`. Actual tools depend on negotiated capabilities and ready indexes. The activity tool replaces overlapping public path tools while retaining their native readers internally.
 
-- `look`: explicit aspects; physical `state` does not include Pawn health/skills/work/gear. `focus` selects skills/work/capacities/state facets; `stats` requests exact StatDefs; `include=[body_parts]` retains full anatomy detail.
+- `look`: explicit aspects; physical `state` does not include Pawn health/skills/work/gear. `focus` selects skills/work/capacities/state facets; `stats` requests exact StatDefs; `include=[body_parts]` retains full anatomy detail. Pawn `identity` carries native gender where the schema has it, so pronouns are read rather than guessed from names.
 - `count`: records or stack units, grouping and bounded examples. Holder membership is not ownership.
-- `survey_space`: objects/environment/geometry selection and pagination. Omitted include retains full survey; geometric inclusion is not reachability.
+- `survey_space`: objects/environment/geometry selection and pagination. Omitted include retains full survey; geometric inclusion is not reachability. Area/zone intersections are always retained, so an unrequested `geometry` is not evidence that no zone covers the region.
 - `evaluate_activity`: move, transfer or state, actors×destinations, optional approach, destination state, environment, objects and geometry. Only requested actor facts are read. actor travels/interacts; user receives; subject supplies the transfer origin. There is no separate multi-activity batch option.
 - `inspect_actions` checks audited native player-order conditions without executing them. `inspect_threats` separates hostility, active classification and incoming attack checks.
 - `wiki` combines local definitions and version-bound implementation lookup (`source:`). Source knowledge is not current game-state evidence.

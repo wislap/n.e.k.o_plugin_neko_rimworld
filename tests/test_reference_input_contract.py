@@ -98,3 +98,17 @@ def test_identity_positions_and_trait_description_are_capability_gated():
     old = Surface(directory)
     assert s._pawn_entries(old, "identity", 0)[0]["fields"] == ["id"]
     assert "description" not in s._pawn_entries(old, "profile", 5)[-1]["fields"]
+
+
+def test_pawn_identity_carries_gender_when_the_schema_has_it():
+    # 实测：默认 identity 不带性别时，模型按名字猜代词（Lumi/Vicky 被写成“她”）。
+    directory = {
+        "roots": [{"from": "pawn", "type": "Pawn"}],
+        "field_index": {
+            "Pawn": {"id": "String", "profile": "Profile"},
+            "Profile": {"gender": "String"},
+        },
+    }
+    assert "profile.gender" in s._pawn_entries(Surface(directory), "identity", 0)[0]["fields"]
+    directory["field_index"]["Profile"] = {}
+    assert "profile.gender" not in s._pawn_entries(Surface(directory), "identity", 0)[0]["fields"]

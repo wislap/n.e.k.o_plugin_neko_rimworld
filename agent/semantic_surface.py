@@ -101,6 +101,7 @@ PAWN_IDENTITY_FIELDS = [
     "is_prisoner_of_colony",
     "is_slave_of_colony",
     "guest_status",
+    "profile.gender",
 ]
 IDENTITY_FIELDS = {
     "game": ["paused", "current_map_id"],

@@ -242,7 +242,10 @@ def rendered_authored_text(text: str,language: str) -> str:
     Original submission parts remain unchanged. Native evidence/reference text
     and embedded quoted markup are never routed through this cleanup.
     """
-    return re.sub(r'</answer>\s*<parameter\s+name=[\"\x27]language[\"\x27]>\s*'+re.escape(language)+r'\s*(?:</parameter>)?\s*$', '',text).rstrip()
+    # The language-parameter tail is optional: a bare closing tag also leaks
+    # when another parameter (e.g. detail) followed answer in the tool call.
+    tail = r'(?:<parameter\s+name=[\"\x27]language[\"\x27]>\s*'+re.escape(language)+r'\s*(?:</parameter>)?\s*)?'
+    return re.sub(r'\s*</answer>\s*'+tail+r'$', '',text).rstrip()
 
 
 def _render_answer(parts, observations, language):

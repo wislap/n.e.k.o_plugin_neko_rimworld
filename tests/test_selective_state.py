@@ -19,7 +19,8 @@ def test_survey_geometry_is_optional_but_environment_and_distance_origin_stay_ex
         'objects':[{'spatial_relation':{'geometric_distance':10.295630140987,'distance_unit':'map_cell_widths'}}]}
     saved=copy.deepcopy(raw)
     selected=survey_view(raw,{'include':['environment','objects']})
-    assert 'area_zone_intersections' not in selected['region']
+    assert selected['region']['area_zone_intersections']==raw['region']['area_zone_intersections']
+    assert 'area_zone_intersections_included' not in selected['region']
     assert selected['environment']==raw['environment']
     assert selected['objects'][0]['spatial_relation']=={'distance_to_region_center':10.295630140987,'distance_unit':'map_cell_widths'}
     assert survey_view(raw,{'include':['environment','objects','geometry']})['region']==raw['region']

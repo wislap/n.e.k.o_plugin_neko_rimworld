@@ -21,6 +21,11 @@ def test_tool_parameter_tail_is_rendered_without_mutating_original_text():
     quoted='角色名字是“</answer><parameter name="language">zh”。'
     assert rendered_authored_text(quoted,'zh')==quoted
     assert rendered_authored_text(raw,'en')==raw
+    # B19: a bare closing tag at the very end, because detail followed answer.
+    bare='让他干到自动睡即可。</answer>'
+    assert rendered_authored_text(bare,'zh')=='让他干到自动睡即可。'
+    inner='写了</answer>这个词。'
+    assert rendered_authored_text(inner,'zh')==inner
 
 
 def test_submission_preserves_both_agent_authored_texts() -> None:
