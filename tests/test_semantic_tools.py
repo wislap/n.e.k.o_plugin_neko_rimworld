@@ -1,9 +1,8 @@
 """The semantic surface is the shipped interface, and it knows when to step aside.
 
-What matters here is the wiring: which connections get the closed-enum vocabulary,
-that the Mod's directory really leaves the prompt, and that the one combination
-the adapter cannot serve keeps working. The compile and render semantics are
-covered by the surface's own tests.
+What matters here is the wiring: the published target/select tree, the Mod's
+directory staying out of the shared prompt, and capability-gated tools retaining
+their supported reads. Compile and render semantics have their own tests.
 """
 
 from __future__ import annotations
@@ -112,7 +111,7 @@ def test_semantic_surface_is_the_shipped_default():
 
 
 
-def test_the_mod_directory_leaves_the_prompt_but_the_enums_stay():
+def test_tree_guidance_replaces_aspects_and_directory_stays_out_of_prompt():
     """The reason this interface exists: the whole field catalogue stops being sent."""
     setup = setup_for()
     assert CATALOGUE_MARKER in setup.context, "the query interface needs the catalogue"
@@ -123,7 +122,9 @@ def test_the_mod_directory_leaves_the_prompt_but_the_enums_stay():
 
     assert CATALOGUE_MARKER not in prompt
     assert '"field_index"' not in prompt
-    assert "Specify the listed look.aspects" in prompt
+    assert "look uses target/select" in prompt
+    assert "recursive children" in prompt
+    assert "look.aspects" not in prompt
 
 
 def test_semantic_surface_replaces_the_query_vocabulary():

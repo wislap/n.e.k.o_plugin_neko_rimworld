@@ -35,6 +35,8 @@ class AgentRunSession:
     last_assistant_content: str = ""
     submission: SubmissionDraft = field(default_factory=SubmissionDraft)
     interaction: ExecutionSurface | None = None  # Per-run; never shared by the catalog cache.
+    situation_previous: Any = None  # Optional lazy caller-owned historical observation reader.
+    situation_views: list[dict[str, Any]] = field(default_factory=list)
     finalization_started: bool = False
     invalidated_error: str | None = None
     delivery_issue: str | None = None

@@ -1,20 +1,12 @@
-"""Production interaction that exposes look/count instead of the raw query tool.
+"""Production look/count interaction over negotiated read-only game sources.
 
-Why this exists: the Mod-owned directory the query tool needs is 48,927 characters
-of field catalogue, sent on every request so the model can write canonical field
-paths. Measured in the v1.10 study, that catalogue is 84% of the first-request
-prompt. This adapter replaces the tool vocabulary with a closed enum, so the
-catalogue is not needed at all: the same 12 pairs held quality level while using
-two thirds fewer tokens.
+Look publishes one recursive selection grammar; the connected Mod owns its
+field vocabulary and native facts. Count and activities retain their supported
+metric and role contracts. Raw query/state operations are implementation details.
 
-It is a replacement, not an extra: the model does not see `query`, and the
-directory is dropped from the prompt. A closed enum cannot express every possible
-request, so `semantic_surface_available()` is the single place that decides
-    whether the connection is supported. Unsupported connections fail before any model request.
-
-Results use request-scoped ordinary JSON with scope, coverage, unknown states
-and native semantics. Same-read identities may refer to their retained native
-ID; there is no numbered fact vocabulary. Raw evidence remains in the audit.
+Results retain ordinary JSON, source scope, coverage and unknown states. Native
+observations remain unmodified audit evidence; derived situation comparisons
+reference those originals explicitly.
 
 The contract is the one `agent.loop` already calls on `session.interaction`:
 prompt, tools, attach_result, request_messages, snapshot, aclose,
@@ -24,10 +16,13 @@ plus `finalizing` and `supports_finalization`.
 from __future__ import annotations
 
 import copy
+import sqlite3
 from typing import Any
 
+from ..workspace.situation import saved_board
 from .activity import make_activity_tool
-from .object_tools import ObjectReader, extend_look_schema, observed_id_reference, state_contract
+from .object_reading import ObjectReading
+from .object_tools import ObjectReader, observed_id_reference, state_contract
 from .query_surface import Surface, SurfaceError
 from .research_surface import ReadOnlyResearchSurface, ResearchGuidance
 from .semantic_surface import (
@@ -50,49 +45,12 @@ from .semantic_surface import (
     validate_detail,
     validate_metric,
 )
+from .situation import board_view, compare_boards
 from .tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolSpec
 from .world_order import order_world_fields
 
 # Only this explicitly approved non-observation tool survives the adapter.
 PASSTHROUGH_TOOLS = frozenset({"wiki", "inspect_actions", "inspect_threats"})
-
-SITUATION_OBJECT = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["kind"],
-    "properties": {
-        "kind": {"const": "situation"},
-        "map": {"type": "string", "default": "current"},
-    },
-    "description": (
-        "Colony situation board: clock, active conditions, hostile groups on the map and "
-        "archived letters plus threat messages of the last game day. Entries carry labels, "
-        "ticks and subject IDs only; look up subjects for their state. Dismissed letters remain."
-    ),
-}
-
-
-def extend_situation_schema(spec):
-    """Offer the situation board as one more look object, with aspects fixed to state."""
-    spec = copy.deepcopy(spec)
-    props = spec["parameters"]["properties"]
-    current = props["object"]
-    variants = current["oneOf"] if isinstance(current.get("oneOf"), list) else [current]
-    props["object"] = {"oneOf": [*variants, copy.deepcopy(SITUATION_OBJECT)]}
-    rule = {
-        "if": {
-            "properties": {"object": {"properties": {"kind": {"const": "situation"}}, "required": ["kind"]}},
-            "required": ["object"],
-        },
-        "then": {
-            "properties": {"aspects": {"items": {"enum": ["state"]}}},
-            "not": {"anyOf": [{"required": [key]} for key in props if key not in ("object", "aspects")]},
-        },
-    }
-    spec["parameters"]["allOf"] = [*spec["parameters"].get("allOf", []), rule]
-    return spec
-
-
 
 def _with_field_semantics(result):
     """Annotate observed measures in place within the projection, never raw evidence."""
@@ -178,10 +136,12 @@ class SemanticInteraction(ReadOnlyResearchSurface):
         directory = setup.directory if isinstance(getattr(setup, "directory", None), dict) else {}
         self.object_contract = state_contract(directory)
         self.object_reader = ObjectReader(self) if self.object_contract else None
+        self.object_reading = ObjectReading(self)
         self.spatial_supported = (
             directory.get("spatial_query", {}).get("version") == "spatial_query.v1" and "spatial_query" in self.original
         )
         self._def_name_resolver = None
+        self._previous_situation = None
 
     # -- runtime contract -------------------------------------------------
 
@@ -193,8 +153,14 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             and self.setup.directory.get("world_observation", {}).get("version") in WORLD_OBSERVATION_VERSIONS
         ):
             compatibility = "\nUse survey_space for a neighborhood/region, inspect_route for a path AND its environment, and inspect_state for object state/occupancy/reservations. Resolve names directly; no preliminary look is required. user is the intended user/recipient, actor performs interaction/travel. All checks are current and read-only. Distinguish target position from stopping cell, building type from settings, and existing reservations from physical occupancy. Safety conclusions require returned environmental coverage; native Danger is not comprehensive safety. Unsupported facets and hidden cells are unknown.\n"
+        if "read_situation" in self.original:
+            compatibility += (
+                "\nFor an open-ended colony assessment, consider look target.kind=situation to locate relevant matters, "
+                "then verify decision-changing subject facts. For a specific question, read its facts directly. "
+                "Absent alerts or groups do not establish absence of problems or overall safety.\n"
+            )
         return ResearchGuidance(
-            native_state=self.object_reader is not None,
+            native_state=self.object_reader is not None or self.object_reading.capability is not None,
             activity_route="inspect_route" in self.original,
             compatibility_guide=compatibility,
         )
@@ -202,12 +168,7 @@ class SemanticInteraction(ReadOnlyResearchSurface):
     def read_tools(self) -> tuple[Any, ...]:
         handlers = {"look": self.look, "count": self.count}
         specs = []
-        semantic_specs = tool_schemas(self.setup.directory)
-        if self.object_contract:
-            semantic_specs = [
-                extend_look_schema(spec, self.object_contract) if spec["name"] == "look" else spec
-                for spec in semantic_specs
-            ]
+        semantic_specs = [self.object_reading.schema(), *[spec for spec in tool_schemas(self.setup.directory) if spec["name"] != "look"]]
         if self.spatial_supported:
             semantic_specs.append(spatial_tool_schema(self.setup.directory))
             handlers["inspect_space"] = self.inspect_space
@@ -236,8 +197,6 @@ class SemanticInteraction(ReadOnlyResearchSurface):
                 from .context_tools import configure_read_spec
 
                 tool = configure_read_spec(tool)
-            if tool["name"] == "look" and "read_situation" in self.original:
-                tool = extend_situation_schema(tool)
             handler = handlers[tool["name"]]
 
             async def guarded(args, handler=handler):
@@ -265,6 +224,9 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             # had them suppressed here rather than silently ignored.
             references_suppressed=bool(getattr(self.setup, "references_supported", False)),
         )
+
+    async def aclose(self):
+        await self.object_reading.aclose()
 
     async def _world_read(self, args: dict[str, Any], operation: str) -> dict[str, Any]:
         """Read one catalog-advertised world operation for semantic and activity adapters."""
@@ -351,7 +313,7 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             load_epoch=response.get("load_epoch"),
             connection_epoch=response.get("connection_epoch"),
             status=payload["status"],
-            data=pack(payload.get("data"), payload.get("issues", [])),
+            data=(copy.deepcopy(payload.get("data")) if tool_name == "read_objects" else pack(payload.get("data"), payload.get("issues", []))),
             issues=payload.get("issues", []),
             pages=[
                 copy.deepcopy(row.get("page"))
@@ -422,6 +384,10 @@ class SemanticInteraction(ReadOnlyResearchSurface):
     # -- tools ------------------------------------------------------------
 
     async def look(self, args: dict[str, Any]) -> dict[str, Any]:
+        return await self.object_reading.read(args)
+
+    async def _read_object_compat(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Private compatibility reader for the existing activity execution plan."""
         if isinstance(args, dict) and isinstance(args.get("object"), dict) and args["object"].get("kind") == "situation":
             return await self._look_situation(args)
         if self.object_reader:
@@ -460,12 +426,7 @@ class SemanticInteraction(ReadOnlyResearchSurface):
         return await self._look_legacy(args)
 
     async def _look_situation(self, args: dict[str, Any]) -> dict[str, Any]:
-        """Read the colony situation board as one native observation.
-
-        The Mod decides granularity at the source (one condition, one hostile
-        group, one archived threat letter per entry), so nothing is capped,
-        merged or reordered here.
-        """
+        """Read once; consolidate reliable identities while retaining raw audit sources."""
         if "read_situation" not in self.original:
             raise SurfaceError("This connection does not provide the situation board")
         if set(args) - {"object", "aspects"} or args.get("aspects", ["state"]) != ["state"]:
@@ -477,10 +438,29 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             {"map": obj.get("map", "current")},
             tool_name="read_situation",
         )
+        current = saved_board(self.session.observations[-1])
+        if current is None:
+            current = copy.deepcopy(native["data"])
+            current["sample"] = {**current.get("sample", {}), "colony_id": native["colony_id"], "load_epoch": native["load_epoch"]}
+        previous, baseline_id = self._previous_situation or (None, None)
+        reader = getattr(self.session, "situation_previous", None)
+        history_unavailable = False
+        if self._previous_situation is None and reader is not None:
+            try:
+                observation = await reader(native)
+                previous = saved_board(observation)
+                baseline_id = observation.get("observation_id") if previous is not None else None
+            except (OSError, ValueError, RuntimeError, sqlite3.Error):
+                history_unavailable = True
+        comparison = compare_boards(current, previous, baseline_observation_id=baseline_id)
+        if history_unavailable:
+            comparison["reason"] = "history_unavailable"
+        self._previous_situation = (current, native["observation_id"])
         return {
             "observation_id": native["observation_id"],
             "status": native["status"],
-            "situation": native["data"],
+            "situation": board_view(current),
+            "comparison": comparison,
             "issues": native["issues"],
         }
 

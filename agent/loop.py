@@ -130,6 +130,13 @@ class AgentRuntime:
                 raise asyncio.CancelledError
             return result
         finally:
+            if session.interaction is not None:
+                try:
+                    await asyncio.wait_for(session.interaction.aclose(), timeout=3.0)
+                except (Exception, asyncio.CancelledError) as error:
+                    # Native read leases also expire independently. A cleanup
+                    # failure cannot replace a completed or cancelled result.
+                    self._logger.warning("[agent] read lease cleanup failed run_id={} error_type={}", ledger.run_id, type(error).__name__)
             self._active_tasks.pop(ledger.run_id, None)
             self._audit_registry.finish(ledger)
 
@@ -266,6 +273,8 @@ class AgentRuntime:
         reference: Mapping[str, Any] | None,
     ) -> None:
         result["provenance"] = session.submission.provenance
+        if session.situation_views:
+            result["situation_views"] = copy.deepcopy(session.situation_views)
         if session.knowledge or session.knowledge_omitted:
             result["knowledge"] = session.knowledge
             result["knowledge_omitted"] = session.knowledge_omitted
@@ -290,6 +299,7 @@ class AgentRuntime:
             "knowledge_omitted": session.knowledge_omitted,
             "reference_report_id": reference.get("report_id") if reference else None,
             "evidence_views": copy.deepcopy(session.evidence_views),
+            "situation_views": copy.deepcopy(session.situation_views),
         }
         if session.workspace_id is not None:
             record["workspace_id"] = session.workspace_id

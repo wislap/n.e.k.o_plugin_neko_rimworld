@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import sqlite3
@@ -48,6 +49,13 @@ class WorkspaceStore:
                 payload TEXT NOT NULL,
                 sha256 TEXT NOT NULL,
                 PRIMARY KEY (turn_id, observation_id)
+            );
+            CREATE TABLE IF NOT EXISTS situation_views (
+                turn_id TEXT NOT NULL REFERENCES turns(id),
+                view_index INTEGER NOT NULL,
+                payload TEXT NOT NULL,
+                sha256 TEXT NOT NULL,
+                PRIMARY KEY (turn_id, view_index)
             );
             CREATE TABLE IF NOT EXISTS active_work (
                 owner TEXT NOT NULL, colony_id TEXT NOT NULL,
@@ -220,6 +228,7 @@ class WorkspaceStore:
             raise ValueError("A terminal result is required")
         public = dict(result)
         observations = public.pop("observations", [])
+        views = public.pop("situation_views", [])
         # Serialize before beginning the transaction. No partial success record
         # is committed if any observation or result is invalid.
         result_text = encode(public)
@@ -230,8 +239,20 @@ class WorkspaceStore:
             evidence.append(
                 (turn_id, observation["observation_id"], payload, hashlib.sha256(payload.encode()).hexdigest())
             )
+        source_ids = {observation["observation_id"] for observation in observations}
+        pending_hashes = {identity: digest for _, identity, _, digest in evidence}
+        derived = []
+        for index, view in enumerate(views):
+            references = view.get("derived_from", [])
+            if not references or not set(references) <= source_ids:
+                raise ValueError("A derived situation view must reference retained original observations")
+            saved = copy.deepcopy(view)
+            saved["source_hashes"] = self._situation_source_hashes(workspace_id, turn["sequence"], saved, pending_hashes)
+            payload = encode(saved)
+            derived.append((turn_id, index, payload, hashlib.sha256(payload.encode()).hexdigest()))
         with self.db:
             self.db.executemany("INSERT INTO observations VALUES (?,?,?,?)", evidence)
+            self.db.executemany("INSERT INTO situation_views VALUES (?,?,?,?)", derived)
             changed = self.db.execute(
                 "UPDATE turns SET status=?,result=?,audit=? WHERE id=? AND status='running'",
                 (status, result_text, audit_text, turn_id),
@@ -348,6 +369,62 @@ class WorkspaceStore:
         """Public execution trace for offline evaluation, not a memory tool."""
         turn = self.turn(workspace_id, owner, turn_id)
         return json.loads(turn["audit"]) if turn["audit"] else None
+
+    def latest_situation(self, workspace_id, owner, *, before_turn):
+        """Nearest retained board; the comparison decides if its sample is valid."""
+        before = self.turn(workspace_id, owner, before_turn)["sequence"]
+        row = self.db.execute(
+            "SELECT payload,sha256 FROM ("
+            "SELECT v.payload,v.sha256,t.sequence,v.view_index AS ordinal,1 AS derived "
+            "FROM situation_views v JOIN turns t ON t.id=v.turn_id WHERE t.workspace_id=? AND t.sequence<? "
+            "UNION ALL SELECT o.payload,o.sha256,t.sequence,o.rowid AS ordinal,0 AS derived "
+            "FROM observations o JOIN turns t ON t.id=o.turn_id WHERE t.workspace_id=? AND t.sequence<? "
+            "AND (json_extract(o.payload,'$.request.operation')='read_situation' OR "
+            "(json_extract(o.payload,'$.request.operation')='read_objects' AND json_extract(o.payload,'$.request.arguments.target.kind')='situation'))) "
+            "ORDER BY sequence DESC,derived DESC,ordinal DESC LIMIT 1",
+            (workspace_id, before, workspace_id, before),
+        ).fetchone()
+        if row is None:
+            return None
+        if hashlib.sha256(row["payload"].encode()).hexdigest() != row["sha256"]:
+            raise ValueError("Stored observation failed its hash check")
+        observation = json.loads(row["payload"])
+        if observation.get("derived_from"):
+            self._situation_source_hashes(workspace_id, before, observation)
+        return observation
+
+    def _situation_source_hashes(self, workspace_id, before_sequence, view, pending=None):
+        """Validate current, baseline and known-item originals in this work."""
+        references = list(view.get("derived_from", []))
+        for baseline in view.get("comparison_baselines", {}).values():
+            references.extend(baseline.get("derived_from") or [baseline.get("observation_id")])
+        for item in view.get("known_items", []):
+            if not item.get("derived_from"):
+                raise ValueError("A known situation item has no retained original evidence")
+            references.extend(item["derived_from"])
+        hashes = {}
+        for identity in dict.fromkeys(references):
+            if not isinstance(identity, str) or not identity:
+                raise ValueError("Invalid situation original reference")
+            digests = set()
+            if identity in (pending or {}):
+                digests.add(pending[identity])
+            rows = self.db.execute(
+                "SELECT o.payload,o.sha256 FROM observations o JOIN turns t ON t.id=o.turn_id "
+                "WHERE t.workspace_id=? AND t.sequence<? AND o.observation_id=?",
+                (workspace_id, before_sequence, identity),
+            ).fetchall()
+            for row in rows:
+                digest = hashlib.sha256(row["payload"].encode()).hexdigest()
+                if digest != row["sha256"]:
+                    raise ValueError("Situation original failed its hash check")
+                digests.add(digest)
+            if len(digests) != 1:
+                raise ValueError("Situation reference has no unique retained original in this workspace")
+            hashes[identity] = next(iter(digests))
+        if "source_hashes" in view and view["source_hashes"] != hashes:
+            raise ValueError("Situation original evidence changed since the view was saved")
+        return hashes
 
     def read(self, workspace_id, owner, turn_id, *, observation_id=None, paths=None):
         turn = self.turn(workspace_id, owner, turn_id)

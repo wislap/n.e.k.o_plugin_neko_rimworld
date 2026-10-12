@@ -29,7 +29,7 @@ class NativeInteraction:
         self.route_error = None
         self.large = False
 
-    async def look(self, args):
+    async def _read_object_compat(self, args):
         return await ObjectReader(self).look(args)
 
     async def _look_legacy(self, args):

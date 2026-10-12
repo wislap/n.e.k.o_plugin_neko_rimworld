@@ -660,6 +660,16 @@ def prune(value, arguments=None, *, seen_notes=None):
     geometry = "geometry" in included
     body_parts = "body_parts" in included
     seen = set() if seen_notes is None else set(seen_notes)
+    if (
+        isinstance(value, dict)
+        and value.get("tool") == "look"
+        and ((isinstance(arguments.get("target"), dict) and isinstance(arguments.get("select"), list))
+             or isinstance(arguments.get("page"), dict) and isinstance(arguments["page"].get("cursor"), str))
+    ):
+        # Object reads have already executed the requested selection tree. The
+        # former aspect/include projector must not remove selected anatomy,
+        # identity, parent links or continuation coverage from this contract.
+        return copy.deepcopy(value), seen, []
     if isinstance(value, dict) and value.get("tool") == "inspect_threats":
         # Threat predicates, visibility, target/subject bindings and even unknown
         # extensions stay intact. Generic identity filtering is inappropriate here.

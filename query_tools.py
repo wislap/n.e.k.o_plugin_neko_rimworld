@@ -116,6 +116,27 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
         world_tools.append(
             ToolSpec("read_situation", situation.get("description", ""), copy.deepcopy(situation["parameters"]), read_situation)
         )
+    objects = catalog.get("object_read")
+    if isinstance(objects, dict) and objects.get("version") == "object_read.v1":
+        if objects.get("operation") != "read_objects" or not isinstance(objects.get("parameters"), dict):
+            raise ToolExecutionError("invalid_catalog", "Invalid object reading contract")
+        directory["object_read"] = copy.deepcopy(objects)
+
+        async def read_objects(arguments):
+            return await query({"operation": "read_objects", "arguments": copy.deepcopy(arguments)})
+
+        async def release_objects(arguments):
+            return await query({"operation": "release_object_reads", "arguments": copy.deepcopy(arguments)})
+
+        parameters = copy.deepcopy(objects["parameters"])
+        parameters.setdefault("properties", {})["lease_id"] = {"type": "string", "minLength": 1, "maxLength": 128}
+        world_tools.extend((
+            ToolSpec("read_objects", "Internal selected object reading", parameters, read_objects),
+            ToolSpec("release_object_reads", "Release this consultation's native read lease", {
+                "type": "object", "properties": {"lease_id": {"type": "string", "minLength": 1, "maxLength": 128}},
+                "required": ["lease_id"], "additionalProperties": False,
+            }, release_objects),
+        ))
     if isinstance(catalog.get("game_implementation"), dict):
         directory["game_implementation"] = copy.deepcopy(catalog["game_implementation"])
     context_blocks = (
@@ -237,5 +258,6 @@ class CatalogTools:
             raise ToolExecutionError("invalid_catalog", "Catalog must be an object.")
         if not isinstance(catalog.get("schema_id"), str) or not catalog["schema_id"].strip():
             raise ToolExecutionError("invalid_catalog", "Catalog is missing schema_id.")
-        if len(json.dumps(catalog, ensure_ascii=False)) > 256_000:
-            raise ToolExecutionError("invalid_catalog", "Catalog exceeds the schema context limit.")
+        # This connection-scoped directory is control metadata, not a model
+        # input window. Transport already bounds the authenticated frame; each
+        # supported capability validates its own shape when tools are built.

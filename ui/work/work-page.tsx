@@ -2,6 +2,7 @@ import { Alert, Button, Card, DataTable, EmptyState, Grid, InlineError, JsonView
 import type { WorkController } from "./useWorkView"
 import type { DashboardState } from "../types"
 import { shortId, text, progressText } from "../format"
+import { SituationCard } from "./situation-card"
 
 function exchangeLabel(status: string, active: boolean) {
   if (status === "ok") return "调查已完成"
@@ -29,7 +30,7 @@ export function WorkPage({ c, state, openAudit }: { c: WorkController; state: Da
           { key: "last_question", label: "最近讨论", render: row => text(row.last_question, "尚无往来", 90) },
           { key: "turn_count", label: "往来" },
         ]} />
-        <Toolbar><ToolbarGroup><Button disabled={c.workOffset === 0 || c.loading} onClick={() => c.setWorkOffset(Math.max(0, c.workOffset - 20))}>上一页工作</Button><Button disabled={c.list?.next_offset == null || c.loading} onClick={() => c.setWorkOffset(c.list!.next_offset!)}>下一页工作</Button></ToolbarGroup></Toolbar>
+        <Toolbar><ToolbarGroup><Button disabled={c.workOffset === 0 || c.loading} onClick={() => { c.setWorkOffset(Math.max(0, c.workOffset - 20)) }}>上一页工作</Button><Button disabled={c.list?.next_offset == null || c.loading} onClick={() => { c.setWorkOffset(c.list!.next_offset!) }}>下一页工作</Button></ToolbarGroup></Toolbar>
         <TextBlock text={`共 ${c.list?.total ?? 0} 个工作；历史保存在数据库中，插件重启后仍可读取。`} />
       </Stack></Card>
       <Card title="调查往来"><Stack>
@@ -41,7 +42,7 @@ export function WorkPage({ c, state, openAudit }: { c: WorkController; state: Da
             { key: "status", label: "状态", render: row => <StatusBadge tone={row.status === "ok" ? "success" : "warning"} label={<span style={{ whiteSpace: "nowrap" }}>{exchangeLabel(row.status, work.active?.turn_id === row.turn_id)}</span>} /> },
             { key: "created_at", label: "时间", render: row => text(row.created_at, "未记录") },
           ]} />
-          <Toolbar><ToolbarGroup><Button disabled={c.turnOffset === 0 || c.loading} onClick={() => c.setTurnOffset(Math.max(0, c.turnOffset - 20))}>上一页往来</Button><Button disabled={work.next_offset == null || c.loading} onClick={() => c.setTurnOffset(work.next_offset!)}>下一页往来</Button></ToolbarGroup></Toolbar>
+          <Toolbar><ToolbarGroup><Button disabled={c.turnOffset === 0 || c.loading} onClick={() => { c.setTurnOffset(Math.max(0, c.turnOffset - 20)) }}>上一页往来</Button><Button disabled={work.next_offset == null || c.loading} onClick={() => { c.setTurnOffset(work.next_offset!) }}>下一页往来</Button></ToolbarGroup></Toolbar>
         </Stack> : <EmptyState title="选择一个工作" />}
       </Stack></Card>
     </Grid>
@@ -57,6 +58,7 @@ export function WorkPage({ c, state, openAudit }: { c: WorkController; state: Da
       {exchange.report ? <TextBlock text={exchange.report.state === "complete" ? "完整报告已保存。" : "已保存草稿，不能当作正式交付。"} /> : exchange.report_unavailable ? <Alert tone="warning">独立报告暂时无法读取，工作中的原结果仍可读取。</Alert> : null}
       {body ? <Markdown source={body} /> : <EmptyState title={active ? "调查正在进行" : "没有保存的回答"} />}
       {result?.caveats?.length ? <TextBlock text={result.caveats.join("\n")} /> : null}
+      <SituationCard situation={exchange.situation} readEvidence={c.readEvidence} />
       {exchange.handoff ? <Card title="准备返回宿主的摘要"><Stack><TextBlock text={exchange.handoff.summary} /><TextBlock text="这是插件准备返回的文本，不是 N.E.K.O 已消费该结果的回执。" /></Stack></Card> : result?.agent_text ? <Card title="执行内核生成的摘要"><TextBlock text={result.agent_text} /><TextBlock text="这份历史记录未保存入口最终返回的摘要。" /></Card> : null}
       <Toolbar><ToolbarGroup>{exchange.audit_available ? <Button onClick={() => openAudit(exchange.workspace_id, exchange.turn_id)}>查看保存的执行诊断</Button> : null}{exchange.active?.run_id ? <TextBlock text="当前执行详情可在诊断页查看。" /> : null}</ToolbarGroup></Toolbar>
       <TextBlock text={`原始证据 ${exchange.evidence.length} 份；按需读取，不重新查询游戏。`} />

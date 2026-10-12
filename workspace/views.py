@@ -5,6 +5,9 @@ import json
 import sqlite3
 from contextlib import contextmanager
 
+from ..agent.situation import board_view, compare_boards
+from .situation import saved_board
+
 
 class WorkspaceViews:
     def __init__(self, path):
@@ -107,6 +110,7 @@ class WorkspaceViews:
                 "result": json.loads(turn["result"]) if turn["result"] else None,
                 "handoff": json.loads(delivery[0]) if delivery else None,
                 "audit_available": turn["audit"] is not None,
+                "situation": self._situation(db, workspace_id, turn),
                 "evidence": [
                     dict(r)
                     for r in db.execute(
@@ -116,6 +120,61 @@ class WorkspaceViews:
                 "historical": True,
                 "current_observation": False,
             }
+
+    @staticmethod
+    def _situation(db, workspace_id, turn):
+        has_views = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='situation_views'").fetchone() is not None
+        if has_views:
+            derived = db.execute("SELECT payload,sha256 FROM situation_views WHERE turn_id=? ORDER BY view_index DESC LIMIT 1", (turn["id"],)).fetchone()
+            if derived is not None:
+                if hashlib.sha256(derived["payload"].encode()).hexdigest() != derived["sha256"]:
+                    raise ValueError("Saved situation view failed its hash check")
+                current = json.loads(derived["payload"])
+                raw = saved_board(current)
+                if raw is None:
+                    return None
+                return {
+                    "observation_id": current["observation_id"],
+                    "received_at": current.get("received_at"), "historical": True,
+                    "source_observation_ids": current.get("derived_from", []),
+                    "board": board_view(raw),
+                    "comparison": raw.get("comparison") or {"available": False, "reason": "no_saved_comparison", "new_item_ids": [], "new_source_ids": []},
+                }
+        row = db.execute(
+            "SELECT rowid,payload,sha256 FROM observations WHERE turn_id=? "
+            "AND (json_extract(payload,'$.request.operation')='read_situation' OR "
+            "(json_extract(payload,'$.request.operation')='read_objects' AND json_extract(payload,'$.request.arguments.target.kind')='situation')) ORDER BY rowid DESC LIMIT 1",
+            (turn["id"],),
+        ).fetchone()
+        if row is None:
+            return None
+
+        def checked(source):
+            if hashlib.sha256(source["payload"].encode()).hexdigest() != source["sha256"]:
+                raise ValueError("Original evidence is unavailable or failed its hash check")
+            return json.loads(source["payload"])
+
+        current = checked(row)
+        raw = saved_board(current)
+        if raw is None:
+            return None
+        previous = db.execute(
+            "SELECT o.payload,o.sha256 FROM observations o JOIN turns t ON t.id=o.turn_id "
+            "WHERE t.workspace_id=? AND (t.sequence<? OR (t.sequence=? AND o.rowid<?)) "
+            "AND json_extract(o.payload,'$.request.operation')='read_situation' "
+            "ORDER BY t.sequence DESC,o.rowid DESC LIMIT 1",
+            (workspace_id, turn["sequence"], turn["sequence"], row["rowid"]),
+        ).fetchone()
+        baseline = checked(previous) if previous is not None else None
+        return {
+            "observation_id": current["observation_id"],
+            "received_at": current.get("received_at"),
+            "historical": True,
+            "board": board_view(raw),
+            "comparison": compare_boards(
+                raw, saved_board(baseline), baseline_observation_id=baseline["observation_id"] if baseline else None,
+            ),
+        }
 
     def _list(self, db, offset, limit):
         rows = db.execute(
