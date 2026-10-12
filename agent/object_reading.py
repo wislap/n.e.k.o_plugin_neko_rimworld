@@ -13,7 +13,7 @@ import json
 import sqlite3
 import uuid
 
-from .object_read_contract import VERSION, canonical, signature, tool_schema, validate_request
+from .object_read_contract import OPERATORS, VERSION, canonical, signature, tool_schema, validate_request
 from .object_read_delivery import ObjectReadDelivery
 from .object_read_results import ObjectReadResultAssembly
 from .query_surface import SurfaceError
@@ -90,8 +90,11 @@ class ObjectReading:
             return request, resolutions
         request = copy.deepcopy(request)
         where = request["target"].get("where", {})
-        for column in ("definition", "definition.def_name", "def_name"):
-            condition = where.get(column, {})
+        nested = where.get("definition")
+        located = [(column, where.get(column, {})) for column in ("definition", "definition.def_name", "def_name")]
+        if isinstance(nested, dict) and isinstance(nested.get("def_name"), dict):
+            located.append(("definition.def_name", nested["def_name"]))
+        for column, condition in located:
             for op in ("eq", "in"):
                 if op not in condition:
                     continue
@@ -399,6 +402,17 @@ def _scalar_equal(left, right):
     return (numeric or type(left) is type(right)) and left == right
 
 
+def _dotted(where, prefix=""):
+    """The older query source names related fields by dotted path."""
+    flat = {}
+    for column, condition in where.items():
+        if condition and not set(condition) & set(OPERATORS):
+            flat.update(_dotted(condition, prefix + column + "."))
+        else:
+            flat[prefix + column] = condition
+    return flat
+
+
 def _intersect_condition(where, column, op, value):
     condition = where.setdefault(column, {})
     if op not in condition:
@@ -624,7 +638,7 @@ class QueryProjection:
             args["include_fogged"] = scope.get("map_visibility", "all") == "all"
         if "visible_only" in available:
             args["visible_only"] = scope.get("map_visibility", "all") == "visible"
-        where = copy.deepcopy(target.get("where", {}))
+        where = _dotted(copy.deepcopy(target.get("where", {})))
         if source == "things" and "category" in where:
             for op, value in where.pop("category").items():
                 _intersect_condition(where, "definition.category", op, value)
@@ -695,6 +709,14 @@ class QueryProjection:
                 unknown = True
                 continue
             actual = value[column]
+            if conditions and not set(conditions) & set(OPERATORS):
+                # Relationship column: its child-field predicates apply to the related record.
+                nested = QueryProjection._predicate(actual, conditions, primitive_membership=primitive_membership) \
+                    if isinstance(actual, dict) else None
+                if nested is False:
+                    return False
+                unknown = unknown or nested is None
+                continue
             for op, wanted in conditions.items():
                 if op == "in":
                     match = any(_scalar_equal(actual, item) for item in wanted)

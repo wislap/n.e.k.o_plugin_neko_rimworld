@@ -24,8 +24,8 @@ def parameters():
         "properties": {op: ({"type": "array", "items": scalar} if op == "in" else scalar)
                        for op in OPERATORS}, "minProperties": 1,
     }
-    where = {"type": "object", "additionalProperties": condition,
-             "description": "Registered scalar/index columns only; clauses AND. has uses a declared membership index. Unknown values never match false/null."}
+    where = {"type": "object", "additionalProperties": {"anyOf": [condition, {"$ref": "#/$defs/where"}]},
+             "description": "Registered scalar/index columns only; a relationship column takes its child fields, e.g. definition:{def_name:{eq:...}}. Clauses AND. has uses a declared membership index. Unknown values never match false/null."}
     page = {"type": "object", "additionalProperties": False, "properties": {
         "size": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
         "cursor": {"type": "string", "minLength": 1},
@@ -86,6 +86,11 @@ def validate_where(value, path):
         raise SurfaceError(f"{path} must be a column predicate object")
     for column, conditions in value.items():
         _name(column, path)
+        if isinstance(conditions, dict) and conditions and not set(conditions) & set(OPERATORS):
+            # A relationship column holds its child fields' predicates; the
+            # connected source decides whether those names exist.
+            validate_where(conditions, f"{path}.{column}")
+            continue
         _object(conditions, OPERATORS, f"{path}.{column}")
         if not conditions:
             raise SurfaceError(f"{path}.{column} requires an operator")

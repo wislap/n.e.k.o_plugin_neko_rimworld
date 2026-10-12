@@ -58,6 +58,34 @@ def test_invalid_shapes_do_not_reach_transport(read):
         validate_request({"target": {"kind": "pawns"}, "select": [read]})
 
 
+def test_relationship_where_takes_child_field_predicates():
+    request = {"target": {"kind": "things", "where": {"definition": {"def_name": {"eq": "MedicineIndustrial"}}}}, "select": []}
+    assert validate_request(request)["target"]["where"] == {"definition": {"def_name": {"eq": "MedicineIndustrial"}}}
+    sent = json.dumps(parameters())
+    assert "definition:{def_name:{eq:...}}" in sent
+
+
+@pytest.mark.parametrize("where", [{"definition": {}}, {"definition": {"def_name": {}}},
+                                   {"definition": {"def_name": {"like": "Med"}}},
+                                   {"definition": {"def_name": "MedicineIndustrial"}}])
+def test_relationship_where_still_requires_operator_leaves(where):
+    with pytest.raises(SurfaceError):
+        validate_request({"target": {"kind": "things", "where": where}, "select": []})
+
+
+async def test_native_relationship_where_reaches_mod_unchanged():
+    calls = []
+
+    async def handler(arguments, *, tool_name):
+        calls.append(arguments)
+        return {"data": {"rows": []}, "observation_id": "o", "status": "ok", "issues": []}
+
+    interaction, _ = native_interaction(handler)
+    where = {"definition": {"def_name": {"eq": "MedicineIndustrial"}}}
+    await ObjectReading(interaction).read({"target": {"kind": "pawns", "where": where}, "select": []})
+    assert calls[0]["target"]["where"] == where
+
+
 async def test_native_request_injects_private_lease_and_retains_every_fact():
     calls = []
     data = {"scope": {"map": "Map1"}, "rows": [{"anchor": {"id": "Pawn_A"}, "readings": [
