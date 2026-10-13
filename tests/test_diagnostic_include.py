@@ -10,7 +10,6 @@ import pytest
 from plugin.plugins.neko_rimworld.agent.context_tools import configure_read_spec, model_tools
 from plugin.plugins.neko_rimworld.agent.context_pruning import ContextPruner
 from plugin.plugins.neko_rimworld.agent.object_tools import ObjectReader
-from plugin.plugins.neko_rimworld.agent.object_read_contract import tool_schema
 from plugin.plugins.neko_rimworld.agent.semantic_surface import SurfaceError
 from plugin.plugins.neko_rimworld.agent.semantic_tools import SemanticInteraction
 from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
@@ -24,20 +23,14 @@ from plugin.plugins.neko_rimworld.tests.test_context_pruning import route
     ('survey_space', ['environment', 'objects', 'geometry']),
 ])
 def test_published_include_rejects_diagnostics_and_preserves_real_selection(name, allowed):
-    spec = configure_read_spec(tool_schema({}) if name == 'look' else
-                               {'name': name, 'description': 'Read', 'parameters': {'type': 'object', 'properties': {}}})
+    spec = configure_read_spec({'name': name, 'description': 'Read',
+                               'parameters': {'type': 'object', 'properties': {}}})
     published = model_tools([{'type': 'function', 'function': spec}])[0]['function']
     validator = jsonschema.Draft202012Validator(published['parameters'])
-    base = {'target': {'kind': 'pawns'}, 'select': [{'field': 'health', 'children': [
-        {'field': 'body_parts', 'columns': ['index', 'health', 'max_health']}]}]} if name == 'look' else {}
+    base = {'aspects': ['health']} if name == 'look' else {}
     assert not validator.is_valid({**base, 'include': ['diagnostics']})
-    if name == 'look':
-        assert validator.is_valid(base), 'body-part facts remain explicitly selectable through children'
-        assert not validator.is_valid({**base, 'include': allowed})
-        assert not validator.is_valid({'object': {'kind': 'pawn'}, 'aspects': ['health']})
-    else:
-        for option in allowed:
-            assert validator.is_valid({**base, 'include': [option]})
+    for option in allowed:
+        assert validator.is_valid({**base, 'include': [option]})
     assert 'diagnostics' not in json.dumps(published)
 
 
@@ -61,8 +54,7 @@ async def test_legacy_look_rejects_dump_before_any_read():
 
     legacy = SimpleNamespace(object_reader=None, _look_legacy=read)
     with pytest.raises(SurfaceError, match='include accepts body_parts'):
-        # The existing activity/old-connection adapter remains private; no public old syntax is restored.
-        await SemanticInteraction._read_object_compat(legacy, {'object': {'kind': 'pawn', 'id': 'a'},
+        await SemanticInteraction.look(legacy, {'object': {'kind': 'pawn', 'id': 'a'},
                                               'aspects': ['health'], 'include': ['diagnostics']})
     assert calls == []
 

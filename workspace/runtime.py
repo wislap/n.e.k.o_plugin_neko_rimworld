@@ -73,11 +73,6 @@ class WorkspaceAgent:
             colony_id=colony_id,
         )
         session.capabilities = capabilities
-
-        async def previous_situation(_current):
-            return await self.storage.call("latest_situation", workspace_id, owner, before_turn=turn_id)
-
-        session.situation_previous = previous_situation
         runtime = self.runtime
         try:
             await self.storage.call("start", workspace_id, owner, turn_id)

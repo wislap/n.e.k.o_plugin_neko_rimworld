@@ -341,7 +341,7 @@ class SemanticActivityDataSource:
         if "candidates" in destination:
             refs = [await self._resolve(ref, f"destinations[{i}]") for i, ref in enumerate(destination["candidates"])]
         else:
-            value = await self.interaction._read_object_compat(dict(object=destination["selector"], aspects=["identity"], detail=0))
+            value = await self.interaction.look(dict(object=destination["selector"], aspects=["identity"], detail=0))
             if value.get("status") != "ok" or value.get("coverage", {}).get("listing") != "complete":
                 raise ToolExecutionError(
                     "activity_destination_partial", "Narrow the selector or choose explicit destinations."
@@ -357,9 +357,7 @@ class SemanticActivityDataSource:
 
     async def request(self, operation, arguments):
         if operation == "look":
-            # Activities retain their explicit native role/stage contract. The
-            # model-facing look syntax is a separate selection contract.
-            return await self.interaction._read_object_compat(arguments)
+            return await self.interaction.look(arguments)
         return await self.interaction._world_read(arguments, operation)
 
 

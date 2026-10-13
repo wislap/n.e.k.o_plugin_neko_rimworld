@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import copy
 
+from .object_tools import PHYSICAL, STATE_FACETS
 from .prompt import finalization_sections, system_sections
 from .schema_compaction import compact_tools, remove_redundant_constraints, schema_contract
-from .semantic_surface import POPULATIONS
+from .semantic_surface import KINDS, POPULATIONS, supported_aspects
 
 QUERY_GUIDE = (
-    "Read only facts needed for this question. look uses target/select; choose direct columns and recursive children. "
-    "field selects a relationship; columns select its direct values; self reads root values. "
-    "where filters records; omitted or empty columns read anchors only. Continue by copying resume or look {page:{cursor}}. "
-    "Use registered identity/name predicates directly. Context actor acts; recipient receives, with no inferred roles. "
+    "Read only facts needed for this question. Specify look.aspects. state means physical/device state; "
+    "Pawn health, skills, work, gear, mood and profile require their own aspects in the same call. "
+    "focus selects named skills/work/capacities in that call. "
+    "Resolve names directly; put IDs in id/ids. actor performs interaction/travel; user is the recipient. "
     "count records counts objects; units sums stack counts. Containment does not establish ownership or usability. "
     "evaluate_activity resolves actor/subject names and destination selectors in that same call; "
     "do not look up IDs, count destinations or survey the region first merely to prepare a path request. "
-    "Use evaluate_activity(kind=state) for contextual object predicates/occupancy/reservations without paths. "
+    "Use kind=state for contextual object predicates/occupancy/reservations without paths. "
     "Use it for all requested actors/destinations together; request additional approach, "
     "actor facts and destination state there only when relevant. Request environment in the original path call "
     "when hazards or safety affect the question; omitted environment means uninspected in the model view. survey_space reads regions. "
@@ -29,18 +30,18 @@ def query_guide(*, native_state, activity):
     if native_state and activity:
         return QUERY_GUIDE
     text = (
-        "Read only facts needed for this question. look uses target/select with direct columns and recursive children. "
-        "field selects relationships; self reads root columns. where selects records; omitted/empty columns read anchors only. "
-        "Continue with look {page:{cursor}}. Use registered identity/name predicates directly. "
-        "count records counts objects; units sums stack counts. "
+        "Read only facts needed for this question. Specify the listed look.aspects. "
+        "focus requests named skills/work/capacities and their aspects in that same call. "
+        "Use names directly; stable IDs go in id/ids. count records counts objects; units sums stack counts. "
         "Containment does not establish ownership or usability. Preserve scope, unknowns and each requested comparison. "
     )
     if native_state:
         text += (
-            "Choose the relevant native state relationship in select; contextual predicates require the explicit actor/recipient. Use only spatial tools actually listed."
+            "state means physical/device state, excluding Pawn health/skills/work/gear. Request those aspects explicitly. "
+            "actor performs interaction/travel; user is the recipient. Use only spatial tools actually listed."
         )
     else:
-        text += "This connection uses a coarse query projection; its coverage and source bounds remain explicit. Do not request unlisted fields."
+        text += "This connection has legacy object aspects, not native state/stats or activity queries. Do not request unlisted options."
     return text
 
 
@@ -80,17 +81,40 @@ def task_prompt(preferred_cycles, *, finalizing=False, references_supported=Fals
 def configure_read_spec(tool):
     tool = copy.deepcopy(tool)
     name = tool["name"]
-    if name not in ("inspect_route", "survey_space"):
+    if name not in ("look", "inspect_route", "survey_space"):
         return tool
     props = tool["parameters"]["properties"]
-    options = ["environment", "objects", "geometry"]
+    options = ["body_parts"] if name == "look" else ["environment", "objects", "geometry"]
     props["include"] = {
         "type": "array",
         "uniqueItems": True,
         "items": {"enum": options},
-        "description": "Optional content in this same call. Routes: request environment for hazards/safety, objects for inventories, geometry for full segments. Path metrics and doors remain; unrequested environment is not evidence of safety.",
+        "description": "Optional content in this same call. look: full body_parts. Routes: request environment for hazards/safety, objects for inventories, geometry for full segments. Path metrics and doors remain; unrequested environment is not evidence of safety.",
     }
-    if name == "inspect_route":
+    if name == "look":
+        if "state" in props.get("aspects", {}).get("items", {}).get("enum", []):
+            tool["description"] = (
+                "Read selected object facts in one call. state returns physical/device facets (condition, beds, reservations, doors, production); "
+                "it does not include Pawn health/skills/work/gear. Request those aspects explicitly when needed. "
+                "actor performs interaction; user is the recipient. stats requests exact game StatDefs. "
+                "Use names directly or stable IDs in id/ids. Scope and unavailable fields are explicit."
+            )
+            props["aspects"]["description"] = (
+                "Select relevant aspects. state is physical/device state, excluding Pawn health/skills/work/gear. These require their own aspects in the same call."
+            )
+        tool["parameters"]["required"] = list(dict.fromkeys([*tool["parameters"].get("required", []), "aspects"]))
+        props["focus"] = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                key: {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "string"}}
+                for key in ("skills", "work", "capacities")
+            },
+            "description": "Select exact skills/work/capacities or physical state facets. Their aspects are included in this call; omitted keys keep full lists. Unmatched/unsupported is not zero. focus.state=[bed,reservations] avoids unrelated state.",
+        }
+        if "state" in props.get("aspects", {}).get("items", {}).get("enum", []):
+            props["focus"]["properties"]["state"] = {"type": "array", "minItems": 1, "maxItems": len(STATE_FACETS), "uniqueItems": True, "items": {"enum": list(STATE_FACETS)}}
+    elif name == "inspect_route":
         props["include_objects"] = {
             "type": "boolean",
             "default": False,
@@ -120,7 +144,30 @@ def model_tools(tools):
                 props["detail"]["description"] = (
                     "Remaining explicitly requested findings/tables only. Full answer+detail <=12000 characters. Omitted retains saved detail; null clears it."
                 )
-        if name == "count" and "metric" in props:
+        if name == "look" and "aspects" in props:
+            # The old public allOf repeats the entire discriminator path for
+            # every kind, then repeats this same rule in descriptions. Publish
+            # the applicability once; ObjectReader/Surface still reject invalid
+            # combinations before issuing a native query.
+            groups = {}
+            native_state = "state" in props["aspects"].get("items", {}).get("enum", [])
+            for kind in KINDS:
+                aspects = tuple(supported_aspects(kind)) + (("state",) if native_state and kind in PHYSICAL else ())
+                groups.setdefault(aspects, []).append(kind)
+            rules = "; ".join("/".join(kinds) + ": " + ",".join(aspects) for aspects, kinds in groups.items())
+            schema.pop("allOf", None)
+            props["aspects"]["description"] = (
+                "Allowed by kind: "
+                + rules
+                + (
+                    "; cell: identity,state. Omitted: state for physical objects/cells, identity otherwise. "
+                    "state is physical/device state, excluding Pawn health/skills/gear/work. Request those aspects explicitly. Do not combine state aspects with distribution. "
+                    "actor/user requires a state aspect. stats/context require physical objects; cells accept no stats."
+                    if native_state
+                    else ""
+                )
+            )
+        elif name == "count" and "metric" in props:
             schema.pop("allOf", None)
             props["metric"]["description"] = (
                 "records counts objects; units sums stack_count and is valid only for things. Population kinds: "
@@ -131,6 +178,7 @@ def model_tools(tools):
             if "kind" in obj.get("properties", {}):
                 obj["properties"]["kind"]["enum"] = list(POPULATIONS)
     descriptions = {
+        "look": 'Read selected object facts, e.g. object={"kind":"pawn","id":"Thing_Human1"},aspects=["identity","gear"],detail=10. aspects/focus/detail are top-level, not inside object. Use only aspects allowed for this kind. actor acts; user receives.',
         "count": 'Count a selection, e.g. object={"kind":"colonists"},metric="records". units sums stack counts for things; by groups totals, detail returns examples. Scope/completeness govern claims.',
         "evaluate_activity": "Compare actors×destinations. move is actor/start→destination; transfer is subject→destination with optional approach; state checks predicates only. Names/selectors resolve here; reads share. Default paths only. No action, ETA or success prediction.",
         "survey_space": "Survey a region. Omitted include keeps the full survey; explicit include selects environment/objects, geometry adds intersecting areas/zones. objects overrides object selection; cursor keeps pages. select filters objects, not hazards. Distances are to the region center, not a route's closest point. Footprint/coverage remain.",
@@ -148,7 +196,7 @@ def model_tools(tools):
             function["parameters"] = schema_contract(original)
             # These are operational semantics absent from validation after the
             # existing surface normalization. Removing them caused real retries.
-            essential = {"evaluate_activity": ("kind", "include", "focus", "actor_aspects", "actor_focus")}
+            essential = {"look": ("aspects", "focus"), "evaluate_activity": ("kind", "include", "focus", "actor_aspects", "actor_focus")}
             original_activity = original.get("$defs", {}).get("activity", original)
             target_activity = function["parameters"].get("$defs", {}).get("activity", function["parameters"])
             for key in essential.get(function["name"], ()):

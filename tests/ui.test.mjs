@@ -348,32 +348,3 @@ test("work refresh failure preserves the selected historical answer and save unc
   assert.ok(h.calls.every(c=>c.id==="workspace_view"))
  }finally{await h.close()}
 })
-
-test("saved situation card shows scoped changes without querying game or model",async()=>{
- const h=setup();try{
-  const a=workFixture("situation-work","小天","局势调查")
-  a.exchange.situation={observation_id:"board-original",received_at:"2026-10-10T01:00:00Z",historical:true,
-   board:{map:{id:"Map_0"},sample:{game_tick:300,load_epoch:"load"},clock:{hour:7},status:"partial",scope:{events:"最近一天"},
-    items:[{id:"conditions/GameCondition_1",kind:"condition",label:"毒尘正在生效",sources:[{section:"conditions",id:"GameCondition_1",data:{since_tick:100,ticks_left:500,scope:"map"}}]},
-     {id:"quest/Quest_1",kind:"quest",label:"进行中的任务",sources:[{section:"events",id:"events/Letter_2",data:{quest:{state:"Ongoing"}}}]}]},
-   comparison:{available:true,baseline_observation_id:"board-before",new_item_ids:["conditions/GameCondition_1"],new_source_ids:["events/Letter_2"]}}
-  h.setInvoke(async(id,args)=>{
-   assert.equal(id,"workspace_view")
-   if(args.action==="list")return {result:{workspaces:[a.workspace],total:1,next_offset:null}}
-   if(args.action==="work")return {result:a.history}
-   if(args.action==="turn")return {result:a.exchange}
-   if(args.action==="observation")return {result:{workspace_id:a.workspace.workspace_id,turn_id:a.exchange.turn_id,observation_id:args.observation_id,sha256:"saved-hash",observation:{original:true}}}
-  })
-  await h.click("刷新工作");await flush()
-  assert.match(h.root.textContent,/毒尘正在生效/)
-  assert.match(h.root.textContent,/新增 · 地图状况/)
-  assert.match(h.root.textContent,/开始 tick：100/)
-  assert.match(h.root.textContent,/本项新增了来源记录/)
-  assert.match(h.root.textContent,/任务状态：Ongoing/)
-  assert.match(h.root.textContent,/本次看板读取不完整/)
-  assert.match(h.root.textContent,/上次读取中未出现，不表示刚刚发生/)
-  await h.click("读取看板原始证据 board-original")
-  assert.equal(h.calls.at(-1).args.observation_id,"board-original")
-  assert.ok(h.calls.every(c=>c.id==="workspace_view"))
- }finally{await h.close()}
-})

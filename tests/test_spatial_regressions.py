@@ -214,7 +214,7 @@ def test_route_adapter_displays_along_path_length_without_mutating_observation()
     assert data == saved
 
 
-def test_map_alias_through_private_compatibility_reader():
+def test_map_alias_through_real_look_handler():
     import asyncio
 
     from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
@@ -260,8 +260,7 @@ def test_map_alias_through_private_compatibility_reader():
         return Observation.from_response(request["operation"], request["arguments"], env)
 
     adapter = semantic_interaction_factory(make_game_tools(source, backend), Session(), _update)
-    # Native map aliases remain usable by the private compatibility backend, not public look syntax.
-    result = asyncio.run(adapter._read_object_compat({"object": {"kind": "map", "map": "Map_0"}, "aspects": ["identity"]}))
+    result = asyncio.run(adapter.look({"object": {"kind": "map", "map": "Map_0"}, "aspects": ["identity"]}))
     assert len(calls) == 1 and calls[0]["arguments"]["from"] == "map"
     assert calls[0]["arguments"]["args"] == {"id": "Map_0"}
     assert result["facts"][0]["object"]["id"] == "Map_0"

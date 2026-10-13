@@ -24,15 +24,5 @@ export type ExchangeDetails = {
   evidence: Array<{ observation_id: string; sha256: string }>
   handoff?: { summary: string; prepared_at: string; history_saved: boolean; report?: { saved?: boolean; export?: { status?: string } } } | null
   report?: { report_id: string; full_text: string; state: string }; report_unavailable?: boolean
-  situation?: SavedSituation | null
-}
-export type SavedSituation = {
-  observation_id: string; received_at?: string; historical: true
-  board: {
-    map: { id?: string }; clock?: Record<string, unknown>; sample?: { game_tick?: number; load_epoch?: string }
-    status?: string; scope?: Record<string, unknown>; issues?: unknown[]
-    items: Array<{ id: string | null; kind: string; label?: string; sources: Array<{ section: string; id?: string | null; data: Record<string, unknown> }> }>
-  }
-  comparison: { available: boolean; reason?: string; baseline_observation_id?: string | null; new_item_ids?: string[]; new_source_ids?: string[]; compared_sections?: string[]; excluded_sections?: string[] }
 }
 export type EvidenceView = { workspace_id: string; turn_id: string; observation_id: string; sha256: string; observation: unknown }

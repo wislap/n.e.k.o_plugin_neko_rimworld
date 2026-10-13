@@ -154,34 +154,6 @@ async def test_catalog_failure_does_not_publish_stale_descriptions():
     assert not setup.tools and "No game loaded" in setup.context
 
 
-@pytest.mark.asyncio
-async def test_large_valid_directory_loads_without_publishing_legacy_schema_text():
-    class Bridge:
-        connection_key = "1" * 32
-
-    bridge = Bridge()
-    source = _public_source()
-    source["schema"] = "Native DLC type metadata. " * 16000
-    assert len(json.dumps(source, ensure_ascii=False)) > 256000
-    requests = []
-
-    async def query(arguments):
-        requests.append(arguments)
-        raw = response().to_dict()
-        raw["connection_epoch"] = bridge.connection_key
-        raw["payload"] = {"status": "ok", "issues": [], "data": source}
-        return Observation({"response": raw})
-
-    provider = CatalogTools(lambda: bridge, query)
-    first, cached = await asyncio.gather(provider.load(), provider.load())
-    assert {tool.name for tool in first.tools} == {"query", "describe_query"}
-    assert len(requests) == 1 and first.context == cached.context
-    assert source["schema"] not in first.context
-    bridge.connection_key = "8" * 32
-    with pytest.raises(ToolExecutionError, match="connection changed"):
-        await first.tools[0].handler({"requests": []})
-
-
 
 
 @pytest.mark.asyncio
