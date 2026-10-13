@@ -8,7 +8,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from .agent.tools import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolHandler, ToolSetup, ToolSpec
+from ..agent.runtime.tools import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolHandler, ToolSetup, ToolSpec
 from .bridge import BridgeServer
 from .observation import Observation
 

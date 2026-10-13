@@ -8,9 +8,9 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from ..state import redact_text
-from .audit import AgentRunState
-from .contracts import AssistantTurn
+from ...game.state import redact_text
+from ..runtime.audit import AgentRunState
+from ..runtime.contracts import AssistantTurn
 from .model_client import ModelClientError
 
 MAX_MODEL_ATTEMPTS = 3

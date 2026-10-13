@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import threading
 
-from plugin.plugins.neko_rimworld.state import (
+from plugin.plugins.neko_rimworld.game.state import (
     BridgeStateStore,
     BridgeStatus,
     DiagnosticRing,

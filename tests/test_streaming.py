@@ -7,12 +7,12 @@ from dataclasses import replace
 import httpx
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.model_client import (
+from plugin.plugins.neko_rimworld.agent.model.model_client import (
     AgentModelSettings,
     ModelClientError,
     OpenAICompatibleModelClient,
 )
-from plugin.plugins.neko_rimworld.agent.streaming import SSEDecoder, StreamAssembler
+from plugin.plugins.neko_rimworld.agent.model.streaming import SSEDecoder, StreamAssembler
 
 
 def event(delta=None, finish=None, usage=None):

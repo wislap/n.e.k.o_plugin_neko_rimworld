@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld import NekoRimworldPlugin
-from plugin.plugins.neko_rimworld import protocol as wire
+from plugin.plugins.neko_rimworld.game import protocol as wire
 from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.audit import MAX_AUDIT_DEPTH, audit_safe
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError, ToolSpec
-from plugin.plugins.neko_rimworld.observation import Observation
+from plugin.plugins.neko_rimworld.agent.runtime.audit import MAX_AUDIT_DEPTH, audit_safe
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSpec
+from plugin.plugins.neko_rimworld.game.observation import Observation
 
 from .test_agent import FakeLogger, settings
 
@@ -150,7 +150,7 @@ async def test_plugin_tool_passes_operation_and_response_without_projection():
 
 @pytest.mark.asyncio
 async def test_failed_query_retains_session_and_error_as_observation():
-    from plugin.plugins.neko_rimworld.agent.tools import ToolRegistry
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 
     response = fixture_response()
     raw = response.to_dict()

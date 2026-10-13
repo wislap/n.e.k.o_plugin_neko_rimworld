@@ -4,10 +4,10 @@ import asyncio
 import re
 import sqlite3
 
-from ..agent.audit import AgentAuditLedger
-from ..agent.audit import private_protocol_redacted as public_protocol
-from ..agent.prompt import build_system_prompt
-from ..agent.session import AgentRunSession
+from ..agent.runtime.audit import AgentAuditLedger
+from ..agent.runtime.audit import private_protocol_redacted as public_protocol
+from ..agent.runtime.prompt import build_system_prompt
+from ..agent.runtime.session import AgentRunSession
 from ..reports import plain
 from .history_tools import make_history_tool
 from .context import history_message

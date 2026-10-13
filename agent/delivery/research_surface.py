@@ -26,7 +26,7 @@ class ReadOnlyResearchSurface:
 
     def prompt(self, preferred_cycles):
         guidance = self.guidance
-        from .context_tools import query_guide, task_prompt
+        from ..context.context_tools import query_guide, task_prompt
 
         prompt = task_prompt(
             preferred_cycles, finalizing=self.finalizing, references_supported=self.references_supported

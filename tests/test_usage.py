@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from plugin.plugins.neko_rimworld.agent.audit import AgentAuditLedger, AgentAuditRegistry, AgentRunState
-from plugin.plugins.neko_rimworld.agent.model_client import OpenAICompatibleModelClient, build_agent_model_settings
-from plugin.plugins.neko_rimworld.agent.usage import summarize_usage
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry, AgentRunState
+from plugin.plugins.neko_rimworld.agent.model.model_client import OpenAICompatibleModelClient, build_agent_model_settings
+from plugin.plugins.neko_rimworld.agent.model.usage import summarize_usage
 
 
 def test_missing_usage_is_unknown_not_zero_and_partial_counts_are_subtotals():
@@ -80,7 +80,7 @@ def test_retained_history_totals_do_not_double_count_or_claim_lifetime_usage():
 
 
 def test_completed_duration_does_not_grow_while_panel_is_open(monkeypatch):
-    from plugin.plugins.neko_rimworld.agent import audit
+    from plugin.plugins.neko_rimworld.agent.runtime import audit
 
     now = [100.0]
     from types import SimpleNamespace

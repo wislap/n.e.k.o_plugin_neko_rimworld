@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
-from plugin.plugins.neko_rimworld.observation import Observation
-from plugin.plugins.neko_rimworld.protocol import decode_envelope
-from plugin.plugins.neko_rimworld.query_tools import CatalogTools, make_game_tools
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.game.observation import Observation
+from plugin.plugins.neko_rimworld.game.protocol import decode_envelope
+from plugin.plugins.neko_rimworld.game.query_tools import CatalogTools, make_game_tools
 
 from .test_agent import FakeLogger, settings, submission_call
 
@@ -19,7 +19,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_nonreference_prompt_separates_short_conclusion_from_complete_facts():
-    from plugin.plugins.neko_rimworld.agent.prompt import build_system_prompt
+    from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 
     prompt = build_system_prompt(4, references_supported=False)
     assert "Observation reference parts are unavailable" in prompt

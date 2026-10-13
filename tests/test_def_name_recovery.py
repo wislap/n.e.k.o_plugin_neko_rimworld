@@ -11,11 +11,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.def_names import (
+from plugin.plugins.neko_rimworld.agent.world.def_names import (
     DefNameResolver,
     tokens,
 )
-from plugin.plugins.neko_rimworld.agent.semantic_tools import SemanticInteraction
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 
 
 class RecordingSurface:

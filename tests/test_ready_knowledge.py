@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.wiki_tools import WikiStore
+from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore
 from plugin.plugins.neko_rimworld.knowledge import KnowledgeLibrary
 
 from .test_wiki_tools import entry, write_snapshot

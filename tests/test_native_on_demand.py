@@ -11,9 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.object_tools import state_contract
-from plugin.plugins.neko_rimworld.agent.semantic_tools import SemanticInteraction
-from plugin.plugins.neko_rimworld.agent.tools import WORLD_OBSERVATION_VERSIONS
+from plugin.plugins.neko_rimworld.agent.world.object_tools import state_contract
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
+from plugin.plugins.neko_rimworld.agent.runtime.tools import WORLD_OBSERVATION_VERSIONS
 
 
 def route_recorder(version):
@@ -155,7 +155,7 @@ def test_unknown_contract_versions_are_refused():
 
 @pytest.mark.asyncio
 async def test_activity_objects_selection_reaches_the_route_request(monkeypatch):
-    from plugin.plugins.neko_rimworld.agent.activity import SemanticActivityDataSource, evaluate_activity
+    from plugin.plugins.neko_rimworld.agent.world.activity import SemanticActivityDataSource, evaluate_activity
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
     monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")

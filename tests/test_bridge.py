@@ -7,11 +7,11 @@ from typing import Any
 
 import pytest
 
-from plugin.plugins.neko_rimworld.bridge import (
+from plugin.plugins.neko_rimworld.game.bridge import (
     BridgeQueryTimeout,
     BridgeServer,
 )
-from plugin.plugins.neko_rimworld.protocol import (
+from plugin.plugins.neko_rimworld.game.protocol import (
     AUTHENTICATE,
     CHALLENGE,
     HEARTBEAT,
@@ -31,7 +31,7 @@ from plugin.plugins.neko_rimworld.protocol import (
     verify_proof,
     write_frame,
 )
-from plugin.plugins.neko_rimworld.state import BridgeStateStore, DiagnosticRing
+from plugin.plugins.neko_rimworld.game.state import BridgeStateStore, DiagnosticRing
 
 TOKEN = "0123456789abcdef0123456789abcdef"
 
@@ -268,7 +268,7 @@ def test_late_timed_out_result_does_not_disconnect_or_complete_next_query() -> N
 
 @pytest.mark.parametrize("mismatch", ["unknown", "session", "waterline"])
 def test_expired_query_exception_does_not_accept_unrelated_results(mismatch) -> None:
-    from plugin.plugins.neko_rimworld.bridge import BridgeProtocolError
+    from plugin.plugins.neko_rimworld.game.bridge import BridgeProtocolError
     server = BridgeServer(TOKEN, port=0)
     session = SessionDescriptor("5" * 32, "6" * 32, 3, 2)
     request_id = "9" * 32
@@ -287,7 +287,7 @@ def test_expired_query_exception_does_not_accept_unrelated_results(mismatch) -> 
 
 
 def test_session_stale_cancellation_retains_late_response_identity():
-    from plugin.plugins.neko_rimworld.bridge import BridgeNotConnected,_PendingQuery
+    from plugin.plugins.neko_rimworld.game.bridge import BridgeNotConnected,_PendingQuery
     server=BridgeServer(TOKEN,port=0)
     session=SessionDescriptor("5"*32,"6"*32,3,2)
     request_id="9"*32
@@ -300,7 +300,7 @@ def test_session_stale_cancellation_retains_late_response_identity():
 
 
 def test_digest_capability_is_required_before_enqueue() -> None:
-    from plugin.plugins.neko_rimworld.bridge import BridgeUnsupportedError
+    from plugin.plugins.neko_rimworld.game.bridge import BridgeUnsupportedError
 
     store = BridgeStateStore(DiagnosticRing(max_events=50))
     server = BridgeServer(TOKEN, store, port=0)

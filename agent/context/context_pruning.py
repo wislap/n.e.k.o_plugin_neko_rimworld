@@ -290,7 +290,7 @@ def _duplicate_work_summary(data):
         sample = data.get("sample", {})
         if summary["sample"] != {"load_epoch": sample.get("load_epoch"), "game_tick": sample.get("game_tick"), "atomic": False}:
             return False
-    from .object_tools import summarize_work_assignments
+    from ..world.object_tools import summarize_work_assignments
 
     expected = summarize_work_assignments(facts, data.get("coverage", {}))
     if summary.get("meaning", expected["meaning"]) != expected["meaning"]:

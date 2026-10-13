@@ -3,9 +3,9 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.semantic_tools import _with_field_semantics, semantic_interaction_factory
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
-from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import _with_field_semantics, semantic_interaction_factory
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
 from .test_semantic_tools import Session, _update, public_source
 
@@ -38,8 +38,8 @@ def test_measure_units_and_trait_codes_stay_with_values_without_mutating_evidenc
 
 
 def test_pawn_target_alias_preserves_target_position_and_touch_endpoint():
-    from plugin.plugins.neko_rimworld.observation import Observation
-    from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+    from plugin.plugins.neko_rimworld.game.observation import Observation
+    from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 
     source = public_source(spatial=True)
     cap = source["spatial_query"]

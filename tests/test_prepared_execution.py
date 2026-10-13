@@ -7,13 +7,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.audit import AgentAuditLedger, AgentAuditRegistry
-from plugin.plugins.neko_rimworld.agent.contracts import AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.handoff import SubmissionPatchError
-from plugin.plugins.neko_rimworld.agent.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.agent.model_client import build_agent_model_settings
-from plugin.plugins.neko_rimworld.agent.prompt import build_system_prompt
-from plugin.plugins.neko_rimworld.agent.session import AgentRunSession
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.agent.model.model_client import build_agent_model_settings
+from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 LOG = SimpleNamespace(info=lambda *a: None, warning=lambda *a: None, error=lambda *a: None)
 
@@ -140,7 +140,7 @@ async def test_preparing_execution_has_one_owner_before_first_model_request():
     release = asyncio.Event()
 
     async def setup():
-        from plugin.plugins.neko_rimworld.agent.tools import ToolSetup
+        from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolSetup
 
         preparing.set()
         await release.wait()

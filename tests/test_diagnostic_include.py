@@ -7,11 +7,11 @@ from types import SimpleNamespace
 import jsonschema
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.context_tools import configure_read_spec, model_tools
-from plugin.plugins.neko_rimworld.agent.context_pruning import ContextPruner
-from plugin.plugins.neko_rimworld.agent.object_tools import ObjectReader
-from plugin.plugins.neko_rimworld.agent.semantic_surface import SurfaceError
-from plugin.plugins.neko_rimworld.agent.semantic_tools import SemanticInteraction
+from plugin.plugins.neko_rimworld.agent.context.context_tools import configure_read_spec, model_tools
+from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner
+from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
+from plugin.plugins.neko_rimworld.agent.world.semantic_surface import SurfaceError
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 from plugin.plugins.neko_rimworld.tests.test_native_on_demand import route_recorder
 from plugin.plugins.neko_rimworld.tests.test_context_pruning import route

@@ -264,7 +264,7 @@ execution only receives completed model turns. The finalization reserve is
 prompt guidance, never a claim of evidence sufficiency. Model failures and
 cancellations retain phase diagnostics and any provider usage already received.
 No hidden reasoning content is persisted or surfaced. Defaults/limits are in
-agent/model_client.py; the entry has cleanup headroom above the internal run.
+agent/model/model_client.py; the entry has cleanup headroom above the internal run.
 
 ## Hosted navigation and data loading
 

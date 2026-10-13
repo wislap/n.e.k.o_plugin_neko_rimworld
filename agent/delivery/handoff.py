@@ -8,9 +8,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
-from ..state import redact_text
-from .prompt import PLAIN_ANSWER_GUIDANCE, PLAIN_DETAIL_GUIDANCE, PLAIN_SUBMISSION_GUIDANCE
-from .tokenization import tokenizer as _tokenizer
+from ...game.state import redact_text
+from ..runtime.prompt import PLAIN_ANSWER_GUIDANCE, PLAIN_DETAIL_GUIDANCE, PLAIN_SUBMISSION_GUIDANCE
+from ..model.tokenization import tokenizer as _tokenizer
 
 # The 180-token budget bounds the *model-authored* conclusion. Program-rendered
 # fact references travel in the same handoff but are not the model's wording, so
@@ -511,7 +511,7 @@ def make_submission_tool(
     draft: SubmissionDraft, observations, on_update=None, *, references_supported=True, claims_supported=True
 ):
     """One production terminal implementation for the runtime and fixed-observation studies."""
-    from .tool_contracts import ToolExecutionError, ToolSpec
+    from ..runtime.tool_contracts import ToolExecutionError, ToolSpec
 
     async def submit(arguments):
         arguments = dict(arguments)

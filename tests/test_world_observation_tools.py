@@ -3,11 +3,11 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
-from plugin.plugins.neko_rimworld.observation import Observation
-from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
-from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.game.observation import Observation
+from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
 from .test_semantic_tools import Session, _update, public_source
 

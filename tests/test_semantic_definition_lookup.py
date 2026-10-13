@@ -2,7 +2,7 @@
 
 import copy
 
-from plugin.plugins.neko_rimworld.agent.semantic_surface import apply_lookup, lookup_spec
+from plugin.plugins.neko_rimworld.agent.world.semantic_surface import apply_lookup, lookup_spec
 
 
 class RecordingSurface:
@@ -36,7 +36,7 @@ def test_exact_definition_lookup_uses_negotiated_index_and_retains_label_union()
 
 
 def test_capability_selection_schema_includes_native_meanings():
-    from plugin.plugins.neko_rimworld.agent.semantic_surface import _object_schema
+    from plugin.plugins.neko_rimworld.agent.world.semantic_surface import _object_schema
 
     directory = {
         "roots": [{"from": "things", "type": "Thing", "args": [{"name": "capabilities"}]}],

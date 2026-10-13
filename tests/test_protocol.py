@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from plugin.plugins.neko_rimworld import protocol as wire
+from plugin.plugins.neko_rimworld.game import protocol as wire
 
 TOKEN = "0123456789abcdef0123456789abcdef"
 EPOCH = "1" * 32

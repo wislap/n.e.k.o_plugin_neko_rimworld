@@ -1,15 +1,15 @@
 import copy
 import json
 
-from plugin.plugins.neko_rimworld.agent.audit import AgentAuditLedger
-from plugin.plugins.neko_rimworld.agent.contracts import AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.evidence_view import deduplicate_program_result, review_evidence
-from plugin.plugins.neko_rimworld.agent.session import AgentRunSession
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
+from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.agent.context.evidence_view import deduplicate_program_result, review_evidence
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 
 def test_named_schema_definitions_are_factored_without_changing_valid_calls():
     import jsonschema
-    from plugin.plugins.neko_rimworld.agent.schema_compaction import compact_schema, canonical
+    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import compact_schema, canonical
     ref = {'type':'object','additionalProperties':False,'required':['id'],
            'properties':{'id':{'type':'string','minLength':1,'maxLength':256},'map':{'type':'string','minLength':1,'maxLength':256}}}
     activity = {'type':'object','required':['actor','target'],'additionalProperties':False,
@@ -31,7 +31,7 @@ def test_named_schema_definitions_are_factored_without_changing_valid_calls():
 
 
 def test_unrequested_anatomy_filter_also_handles_named_capacity_views():
-    from plugin.plugins.neko_rimworld.agent.context_pruning import prune
+    from plugin.plugins.neko_rimworld.agent.context.context_pruning import prune
     parts=[{'index':0,'health':34,'max_health':40}, {'index':1,'health':25,'max_health':25}]
     raw={'tool':'look','data':{'facts':[{'object':{'id':'p'},'facts':{'health':{
         'conditions':[{'definition':'Cut','part':0}], 'damaged_present_parts':[parts[0]],
@@ -46,7 +46,7 @@ def test_unrequested_anatomy_filter_also_handles_named_capacity_views():
 
 
 def test_grouped_null_states_retain_reasons_roles_unknowns_and_zero():
-    from plugin.plugins.neko_rimworld.agent.context_pruning import _record_view
+    from plugin.plugins.neko_rimworld.agent.context.context_pruning import _record_view
     raw={'context':{'actor_id':'Near','user_id':'Patient'},'status':'partial',
          'sample':{'load_epoch':'world','game_tick':8},'hit_points':None,'max_hit_points':None,
          'field_states':{'hit_points':{'status':'not_applicable','reason':'no_hp'},
@@ -62,7 +62,7 @@ def test_grouped_null_states_retain_reasons_roles_unknowns_and_zero():
 
 
 def test_body_keys_reconstruct_from_native_owner_without_dropping_anatomy():
-    from plugin.plugins.neko_rimworld.agent.context_pruning import _record_view
+    from plugin.plugins.neko_rimworld.agent.context.context_pruning import _record_view
     parts=[{'key':'Thing_P/body:Human/part:0','index':0,'health':34,'max_health':40},
            {'key':'Thing_P/body:Human/part:1','index':1,'health':None,'max_health':25}]
     raw={'body_parts':parts,'body_parts_complete':False};saved=copy.deepcopy(raw)
@@ -73,7 +73,7 @@ def test_body_keys_reconstruct_from_native_owner_without_dropping_anatomy():
 
 
 def test_minimal_schema_prose_keeps_all_contracts_and_literal_property_names():
-    from plugin.plugins.neko_rimworld.agent.schema_compaction import schema_contract
+    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import schema_contract
 
     schema = {"type": "object", "description": "Long annotation", "title": "Title", "examples": [{}],
               "properties": {"description": {"type": "string", "description": "A real argument"},
@@ -91,7 +91,7 @@ def test_minimal_schema_prose_keeps_all_contracts_and_literal_property_names():
 
 
 def test_aggressive_record_view_keeps_risk_values_unknowns_roles_and_extensions():
-    from plugin.plugins.neko_rimworld.agent.context_pruning import prune
+    from plugin.plugins.neko_rimworld.agent.context.context_pruning import prune
 
     position = {"map": "Map_0", "x": 135, "z": 133}
     raw = {"tool": "inspect_route", "data": {"map": "Map_0", "sample": {"load_epoch": "load", "game_tick": 8},
@@ -120,7 +120,7 @@ def test_aggressive_record_view_keeps_risk_values_unknowns_roles_and_extensions(
 
 
 def test_named_values_preserve_nulls_duplicate_definitions_and_coordinates():
-    from plugin.plugins.neko_rimworld.agent.context_pruning import prune
+    from plugin.plugins.neko_rimworld.agent.context.context_pruning import prune
 
     raw = {"tool": "look", "data": {"facts": [{"object": {"id": "P", "map": "A", "position": {"x": 2, "z": 3, "map": "B"}},
         "facts": {"skills": {"skills": [{"definition": "Medicine", "level": 0, "passion": None}], "skills_complete": False},
@@ -134,7 +134,7 @@ def test_named_values_preserve_nulls_duplicate_definitions_and_coordinates():
 
 
 def test_description_dedup_preserves_parameters_and_distinct_roles_reference_scopes():
-    from plugin.plugins.neko_rimworld.agent.schema_compaction import deduplicate_descriptions
+    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import deduplicate_descriptions
 
     selector = {"type": "integer", "minimum": 1, "description": "Choose the requested limit."}
     tools = [{"function": {"name": name, "description": "Tool purpose stays local", "parameters": {

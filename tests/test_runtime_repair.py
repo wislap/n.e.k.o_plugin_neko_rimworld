@@ -6,12 +6,12 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.audit import AgentAuditRegistry, audit_safe, private_protocol_redacted
-from plugin.plugins.neko_rimworld.agent.contracts import AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, SubmissionPatchError
-from plugin.plugins.neko_rimworld.agent.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.agent.model_client import OpenAICompatibleModelClient, build_agent_model_settings
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError, ToolSpec
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry, audit_safe, private_protocol_redacted
+from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.agent.model.model_client import OpenAICompatibleModelClient, build_agent_model_settings
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSpec
 
 LOG = SimpleNamespace(info=lambda *a: None, warning=lambda *a: None, error=lambda *a: None)
 

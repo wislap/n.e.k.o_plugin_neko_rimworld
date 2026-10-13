@@ -13,7 +13,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from .contracts import AssistantTurn, ToolCall
+from ..runtime.contracts import AssistantTurn, ToolCall
 from .streaming import SSEDecoder, StreamAssembler, StreamProtocolError
 
 DEFAULT_MODEL_TIMEOUT_SECONDS = 60.0

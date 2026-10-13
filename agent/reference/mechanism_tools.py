@@ -8,8 +8,8 @@ import re
 from dataclasses import replace
 from pathlib import Path
 
-from ..mechanisms.store import MechanismStore
-from .tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
+from ...mechanisms.store import MechanismStore
+from ..runtime.tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
 from .wiki_tools import knowledge_directory, WIKI_GUIDANCE
 
 GUIDANCE = (

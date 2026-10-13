@@ -23,9 +23,9 @@ from plugin.plugins.neko_rimworld.agent import (
     AgentRuntime,
     build_agent_model_settings,
 )
-from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
-from plugin.plugins.neko_rimworld.query_tools import CatalogTools
-from plugin.plugins.neko_rimworld.state import BridgeStateStore, DiagnosticRing
+from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+from plugin.plugins.neko_rimworld.game.query_tools import CatalogTools
+from plugin.plugins.neko_rimworld.game.state import BridgeStateStore, DiagnosticRing
 
 TOKEN = "0123456789abcdef0123456789abcdef"
 
@@ -304,7 +304,7 @@ async def test_hosted_probe_uses_colony_object_overview_section() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("operation", ["inspect_state", "inspect_route", "survey_space", "inspect_actions", "inspect_threats", "query_catalog"])
 async def test_agent_transport_allows_native_cooperative_read_lifetime(operation) -> None:
-    from plugin.plugins.neko_rimworld.bridge import BridgeQueryTimeout
+    from plugin.plugins.neko_rimworld.game.bridge import BridgeQueryTimeout
     observed = query_response(data={"status": "partial", "read_ms": 8000})
 
     class Bridge:

@@ -16,8 +16,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from ..knowledge import KnowledgeLibrary, KnowledgeView
-from .tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
+from ...knowledge import KnowledgeLibrary, KnowledgeView
+from ..runtime.tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
 from .wiki_records import byte_size, paths, render_entry
 
 MAX_RESULT_BYTES = 8 * 1024

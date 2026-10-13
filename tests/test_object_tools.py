@@ -2,11 +2,11 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.object_tools import ObjectReader
-from plugin.plugins.neko_rimworld.agent.object_tools import summarize_work_assignments
-from plugin.plugins.neko_rimworld.agent.object_tools import WorkReadings
-from plugin.plugins.neko_rimworld.agent.query_surface import SurfaceError
-from plugin.plugins.neko_rimworld.agent.semantic_surface import route_object
+from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
+from plugin.plugins.neko_rimworld.agent.world.object_tools import summarize_work_assignments
+from plugin.plugins.neko_rimworld.agent.world.object_tools import WorkReadings
+from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
+from plugin.plugins.neko_rimworld.agent.world.semantic_surface import route_object
 
 
 def test_assignment_counts_keep_both_cooks_and_do_not_change_native_tables():

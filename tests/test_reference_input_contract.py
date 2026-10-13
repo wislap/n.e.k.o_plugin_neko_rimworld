@@ -5,8 +5,8 @@ import copy
 import pytest
 from jsonschema import ValidationError, validate
 
-from plugin.plugins.neko_rimworld.agent import semantic_surface as s
-from plugin.plugins.neko_rimworld.agent.query_surface import Surface
+from plugin.plugins.neko_rimworld.agent.world import semantic_surface as s
+from plugin.plugins.neko_rimworld.agent.world.query_surface import Surface
 
 
 def test_exact_thing_set_preserves_scope_and_does_not_change_single_thing():

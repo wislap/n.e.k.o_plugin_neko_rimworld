@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.claims import check_claims
+from plugin.plugins.neko_rimworld.agent.delivery.claims import check_claims
 
 from .test_claim_refresh import TEXT, capacities, receipts, result
 
@@ -82,7 +82,7 @@ def test_bounded_native_capacity_rows_do_not_license_full_comparison():
     pawn["capacities_total"] = len(pawn["capacities"])
     pawn["capacities"] = pawn["capacities"][:1]
     pawn["capacities_complete"] = False
-    index = __import__("plugin.plugins.neko_rimworld.agent.claims", fromlist=["build_read_index"]).build_read_index(
+    index = __import__("plugin.plugins.neko_rimworld.agent.delivery.claims", fromlist=["build_read_index"]).build_read_index(
         [reading]
     )
     native_collections = [row for row in index["collections"] if row.get("native_state_complete")]

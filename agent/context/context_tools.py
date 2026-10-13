@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import copy
 
-from .object_tools import PHYSICAL, STATE_FACETS
-from .prompt import finalization_sections, system_sections
+from ..world.object_tools import PHYSICAL, STATE_FACETS
+from ..runtime.prompt import finalization_sections, system_sections
 from .schema_compaction import compact_tools, remove_redundant_constraints, schema_contract
-from .semantic_surface import KINDS, POPULATIONS, supported_aspects
+from ..world.semantic_surface import KINDS, POPULATIONS, supported_aspects
 
 QUERY_GUIDE = (
     "Read only facts needed for this question. Specify look.aspects. state means physical/device state; "

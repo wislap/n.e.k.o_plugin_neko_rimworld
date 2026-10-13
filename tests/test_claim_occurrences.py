@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.claims import check_claims, describe
+from plugin.plugins.neko_rimworld.agent.delivery.claims import check_claims, describe
 
 
 def mixed():

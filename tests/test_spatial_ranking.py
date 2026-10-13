@@ -3,9 +3,9 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
-from plugin.plugins.neko_rimworld.agent.spatial_ranking import rank_paths
-from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.agent.world.spatial_ranking import rank_paths
+from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
 from .test_semantic_tools import Session, _update, public_source
 
@@ -41,9 +41,9 @@ def test_ranking_does_not_mix_units():
 
 
 def test_multi_target_handler_validates_first_and_returns_program_ranks():
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
-    from plugin.plugins.neko_rimworld.observation import Observation
-    from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.game.observation import Observation
+    from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 
     source = public_source(spatial=True)
     source["spatial_query"]["route_summary"] = "native_path_summary.v1"
@@ -88,9 +88,9 @@ def test_multi_target_handler_validates_first_and_returns_program_ranks():
 
 
 def test_world_change_aborts_batch_before_third_read_or_ranking():
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
-    from plugin.plugins.neko_rimworld.observation import Observation
-    from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.game.observation import Observation
+    from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 
     source = public_source(spatial=True)
     cap = source["spatial_query"]

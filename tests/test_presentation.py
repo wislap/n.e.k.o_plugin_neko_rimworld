@@ -2,8 +2,8 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, SubmissionPatchError, count_handoff_tokens
-from plugin.plugins.neko_rimworld.agent.presentation import EvidenceError, render_evidence
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError, count_handoff_tokens
+from plugin.plugins.neko_rimworld.agent.delivery.presentation import EvidenceError, render_evidence
 from plugin.plugins.neko_rimworld.reports import ReportError, ReportStore
 
 
@@ -174,7 +174,7 @@ def test_reference_path_count_is_bounded_in_the_models_own_unit():
     试点实测：模型真实引用渲染出 643/915/1213/2800/3500 token，而模型数不了 token，
     所以 token 形状的拒绝它无法据此修正。路径数是它自己选的，可以数。
     """
-    from plugin.plugins.neko_rimworld.agent.handoff import (
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
         MAX_PATHS_PER_REFERENCE,
         MAX_TOTAL_REFERENCE_PATHS,
     )
@@ -270,7 +270,7 @@ def test_empty_collections_keep_distinct_context_and_paging():
 
 
 def test_labels_are_literal_markdown_data():
-    from plugin.plugins.neko_rimworld.agent.presentation import _text
+    from plugin.plugins.neko_rimworld.agent.delivery.presentation import _text
 
     escaped = _text("![image](https://example.invalid/x) **claim** <script>")
     assert "![image]" not in escaped and "**claim**" not in escaped and "<script>" not in escaped
@@ -324,7 +324,7 @@ def test_equivalent_parent_value_and_separated_reference_parts_are_one_fact():
 
 
 def test_compact_observation_ids_preserve_full_envelope_identity():
-    from plugin.plugins.neko_rimworld.observation import Observation
+    from plugin.plugins.neko_rimworld.game.observation import Observation
 
     from .test_catalog_tools import response
 

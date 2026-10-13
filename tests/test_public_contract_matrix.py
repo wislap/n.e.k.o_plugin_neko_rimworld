@@ -6,9 +6,9 @@ import itertools
 import jsonschema
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.object_tools import ObjectReader, extend_look_schema
-from plugin.plugins.neko_rimworld.agent.query_surface import SurfaceError
-from plugin.plugins.neko_rimworld.agent.semantic_surface import (
+from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, extend_look_schema
+from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
+from plugin.plugins.neko_rimworld.agent.world.semantic_surface import (
     ASPECTS,
     KINDS,
     tool_schemas,
@@ -53,7 +53,7 @@ async def test_explicit_state_and_legacy_aspects_agree_with_reader():
             runtime_ok = False
         # Nonphysical legacy adapter validates aspects in production, not in this fake.
         if kind not in ("pawn", "pawns", "colonists", "thing", "things"):
-            from plugin.plugins.neko_rimworld.agent.semantic_surface import validate_aspects
+            from plugin.plugins.neko_rimworld.agent.world.semantic_surface import validate_aspects
 
             try:
                 validate_aspects(kind, [aspect])

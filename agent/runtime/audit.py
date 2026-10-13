@@ -13,8 +13,8 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any
 
-from ..state import redact_text, utc_now
-from .usage import combine_run_summaries, summarize_usage
+from ...game.state import redact_text, utc_now
+from ..model.usage import combine_run_summaries, summarize_usage
 
 _REQUEST_OUTCOMES = frozenset(
     {

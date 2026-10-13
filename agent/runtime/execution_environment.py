@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from .handoff import make_submission_tool
+from ..delivery.handoff import make_submission_tool
 from .prompt import build_system_prompt
 from .tool_contracts import ToolSetup, ToolSpec
 from .tools import ToolRegistry

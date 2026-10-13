@@ -6,11 +6,11 @@ import json
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.mechanism_tools import compose_implementation_knowledge
-from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.agent.reference.mechanism_tools import compose_implementation_knowledge
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.mechanisms.index import build_index
 from plugin.plugins.neko_rimworld.mechanisms.store import MechanismStore
-from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
 from .test_agent import FakeLogger, settings, submission_call, turn
 from .test_capability_composition import Script, native_observation
@@ -125,7 +125,7 @@ async def test_missing_index_does_not_disable_current_tools(tmp_path):
 
 @pytest.mark.asyncio
 async def test_wiki_preserves_definitions_and_exact_source_windows(tmp_path):
-    from plugin.plugins.neko_rimworld.agent.tool_contracts import ToolSetup, ToolSpec, ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.runtime.tool_contracts import ToolSetup, ToolSpec, ToolExecutionError
 
     target, metadata, implementation = library(tmp_path)
     definition_queries = []
@@ -159,7 +159,7 @@ async def test_wiki_preserves_definitions_and_exact_source_windows(tmp_path):
 
 @pytest.mark.asyncio
 async def test_missing_source_index_preserves_the_definition_tool(tmp_path):
-    from plugin.plugins.neko_rimworld.agent.tool_contracts import ToolSetup, ToolSpec
+    from plugin.plugins.neko_rimworld.agent.runtime.tool_contracts import ToolSetup, ToolSpec
 
     async def definition(args):
         return {"knowledge_kind": "definition", "query": args["query"]}

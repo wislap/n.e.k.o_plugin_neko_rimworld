@@ -4,8 +4,8 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent import semantic_surface as surface
-from plugin.plugins.neko_rimworld.agent.semantic_tools import SemanticInteraction
+from plugin.plugins.neko_rimworld.agent.world import semantic_surface as surface
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 
 
 def test_blocked_definition_lookup_never_certifies_instance_count():
@@ -116,10 +116,10 @@ def test_native_pack_preserves_actual_lookup_root_and_scope():
 def test_route_is_one_dispatch_and_partial_keeps_reachability():
     import asyncio
 
-    from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
-    from plugin.plugins.neko_rimworld.observation import Observation
-    from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
-    from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+    from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+    from plugin.plugins.neko_rimworld.game.observation import Observation
+    from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+    from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
     from .test_semantic_tools import Session, _update, public_source
 
@@ -164,14 +164,14 @@ def test_route_is_one_dispatch_and_partial_keeps_reachability():
 def test_old_spatial_mod_does_not_advertise_or_dispatch_route():
     import asyncio
 
-    from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
+    from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 
     from .test_semantic_tools import Session, _update, setup_for
 
     adapter = semantic_interaction_factory(setup_for(spatial=True), Session(), _update)
     spec = next(t for t in adapter.tools() if t.name == "inspect_space")
     assert "detail" not in spec.parameters["properties"]
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
 
     with pytest.raises(ToolExecutionError):
         asyncio.run(
@@ -190,7 +190,7 @@ def test_map_alias_routes_to_map_identity_without_scope_conflict():
 def test_route_adapter_displays_along_path_length_without_mutating_observation():
     import asyncio
 
-    from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
+    from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 
     from .test_semantic_tools import Session, _update, setup_for
 
@@ -217,10 +217,10 @@ def test_route_adapter_displays_along_path_length_without_mutating_observation()
 def test_map_alias_through_real_look_handler():
     import asyncio
 
-    from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
-    from plugin.plugins.neko_rimworld.observation import Observation
-    from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
-    from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+    from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+    from plugin.plugins.neko_rimworld.game.observation import Observation
+    from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+    from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
     from .test_semantic_tools import Session, _update, public_source
 

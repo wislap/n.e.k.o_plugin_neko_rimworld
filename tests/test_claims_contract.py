@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.claims import check_claims
-from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.delivery.claims import check_claims
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError
 
 AGGREGATE_TEXT = "总量来自对全部20个匹配实例的完整聚合，明细只展示1条，不影响总量。"
 

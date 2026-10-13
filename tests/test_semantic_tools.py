@@ -14,14 +14,14 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
-from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft
-from plugin.plugins.neko_rimworld.agent.semantic_tools import (
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import (
     SemanticInteraction,
     semantic_interaction_factory,
     semantic_surface_available,
 )
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError, ToolSetup
-from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSetup
+from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
 from .test_agent import FakeLogger, settings, turn
 
@@ -80,7 +80,7 @@ def public_source(*, directory=True, spatial=False):
             "version": "spatial_query.v1",
             "operation": "spatial_query",
             "parameters": __import__(
-                "plugin.plugins.neko_rimworld.agent.semantic_surface", fromlist=["spatial_tool_schema"]
+                "plugin.plugins.neko_rimworld.agent.world.semantic_surface", fromlist=["spatial_tool_schema"]
             ).spatial_tool_schema()["parameters"],
         }
     return source
@@ -344,8 +344,8 @@ class _Model:
 async def test_wiki_is_the_only_extra_passthrough_and_never_an_observation(tmp_path):
     from dataclasses import replace
 
-    from plugin.plugins.neko_rimworld.agent.tools import ToolRegistry, ToolSpec
-    from plugin.plugins.neko_rimworld.agent.wiki_tools import WikiStore, make_wiki_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSpec
+    from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore, make_wiki_tool
 
     from .test_wiki_tools import write_snapshot
 
@@ -387,8 +387,8 @@ def report():
 def test_spatial_catalog_to_real_handler_dispatch_and_observation_retention():
     import asyncio
 
-    from plugin.plugins.neko_rimworld.observation import Observation
-    from plugin.plugins.neko_rimworld.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
+    from plugin.plugins.neko_rimworld.game.observation import Observation
+    from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 
     calls = []
 

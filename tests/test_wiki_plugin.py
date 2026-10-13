@@ -11,9 +11,9 @@ from types import SimpleNamespace
 import pytest
 
 from plugin.plugins.neko_rimworld import NekoRimworldPlugin
-from plugin.plugins.neko_rimworld.agent.tools import ToolSetup
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolSetup
 from plugin.plugins.neko_rimworld.knowledge import KnowledgeLibrary
-from plugin.plugins.neko_rimworld.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 from plugin.plugins.neko_rimworld.reports import ReportStore
 
 from .test_semantic_tools import _noop_query, public_source, setup_for

@@ -9,7 +9,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from ..state import redact_text
+from ...game.state import redact_text
 
 
 class StreamProtocolError(ValueError):

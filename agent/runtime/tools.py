@@ -6,9 +6,9 @@ import json
 import time
 from typing import Any
 
-from ..observation import Observation
+from ...game.observation import Observation
 from .contracts import PreparedToolCall, ToolCall, ToolResult
-from .model_context import CONTEXT_TOOLS, MAX_SOURCE_CHARS, model_size
+from ..context.model_context import CONTEXT_TOOLS, MAX_SOURCE_CHARS, model_size
 from .tool_contracts import (
     MAX_TOOL_RESULT_CHARS as MAX_TOOL_RESULT_CHARS,
 )
@@ -53,7 +53,7 @@ class ToolRegistry:
     def schemas(self) -> list[dict[str, Any]]:
         schemas = [self._tools[name].schema() for name in sorted(self._tools)]
         if self._context_enabled:
-            from .context_tools import model_tools
+            from ..context.context_tools import model_tools
 
             return model_tools(schemas)
         return schemas

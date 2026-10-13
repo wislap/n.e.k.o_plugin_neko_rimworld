@@ -6,9 +6,10 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld import knowledge as knowledge_module
-from plugin.plugins.neko_rimworld.agent import ToolCall, wiki_tools
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError, ToolRegistry
-from plugin.plugins.neko_rimworld.agent.wiki_tools import WikiStore, knowledge_directory, make_wiki_tool
+from plugin.plugins.neko_rimworld.agent import ToolCall
+from plugin.plugins.neko_rimworld.agent.reference import wiki_tools
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolRegistry
+from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore, knowledge_directory, make_wiki_tool
 
 
 def entry(name="Steel", label="steel", **changes):

@@ -9,11 +9,11 @@ from dataclasses import replace
 import pytest
 
 from plugin.plugins.neko_rimworld.agent import AgentAuditLedger, AgentAuditRegistry, AgentRuntime, ToolCall
-from plugin.plugins.neko_rimworld.agent.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 
-from plugin.plugins.neko_rimworld.agent.session import AgentRunSession
-from plugin.plugins.neko_rimworld.agent.tools import ToolRegistry, ToolSetup, ToolSpec
-from plugin.plugins.neko_rimworld.agent.wiki_tools import WIKI_GUIDANCE
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSetup, ToolSpec
+from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WIKI_GUIDANCE
 from plugin.plugins.neko_rimworld.reports import ReportStore
 
 from .test_agent import FakeLogger, settings, submission_call, turn
@@ -228,7 +228,7 @@ async def test_session_retains_first_sixteen_knowledge_results_and_counts_omissi
 
 @pytest.mark.asyncio
 async def test_audit_capacity_on_wiki_completion_keeps_knowledge(monkeypatch):
-    from plugin.plugins.neko_rimworld.agent import audit
+    from plugin.plugins.neko_rimworld.agent.runtime import audit
 
     monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 8)
     model = ScriptedModel([turn("", ToolCall("wiki-1", "wiki", '{"query":"Steel"}'))])

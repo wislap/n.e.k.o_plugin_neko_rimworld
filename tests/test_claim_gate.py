@@ -14,12 +14,12 @@ from __future__ import annotations
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.handoff import (
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     SubmissionDraft,
     SubmissionPatchError,
     make_submission_tool,
 )
-from plugin.plugins.neko_rimworld.agent.session import AgentRunSession
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 
 def observation_without_identity():
@@ -102,7 +102,7 @@ def test_claims_can_be_switched_off_for_a_control_arm():
 
 @pytest.mark.asyncio
 async def test_submission_tool_surfaces_the_rejection_to_the_model():
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
 
     draft = SubmissionDraft()
     tool = make_submission_tool(draft, [observation_without_identity()])
@@ -120,6 +120,6 @@ def test_a_clean_text_submission_still_goes_through_unchanged():
 
 
 def _ledger():
-    from plugin.plugins.neko_rimworld.agent.audit import AgentAuditLedger
+    from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
 
     return AgentAuditLedger("test question")

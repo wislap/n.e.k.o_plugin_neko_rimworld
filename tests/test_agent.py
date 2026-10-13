@@ -19,13 +19,13 @@ from plugin.plugins.neko_rimworld.agent import (
     OpenAICompatibleModelClient,
     ToolCall,
     build_agent_model_settings,
-    model_requests,
     parse_agent_model_settings,
 )
-from plugin.plugins.neko_rimworld.agent.audit import MAX_EVENTS_PER_RUN
-from plugin.plugins.neko_rimworld.agent.tools import ToolSpec
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
-from plugin.plugins.neko_rimworld.observation import Observation
+from plugin.plugins.neko_rimworld.agent.model import model_requests
+from plugin.plugins.neko_rimworld.agent.runtime.audit import MAX_EVENTS_PER_RUN
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolSpec
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.game.observation import Observation
 
 
 def query_tool(handler):
@@ -729,7 +729,7 @@ def test_audit_capacity_records_its_terminal_reason() -> None:
 @pytest.mark.parametrize("ending", ["empty", "provider_failure", "success"])
 @pytest.mark.parametrize("capacity", [22, 23, 24, 25])
 async def test_runtime_audit_capacity_retains_observations_draft_and_result(monkeypatch, ending, capacity):
-    from plugin.plugins.neko_rimworld.agent import audit
+    from plugin.plugins.neko_rimworld.agent.runtime import audit
     from plugin.plugins.neko_rimworld.reports import ReportStore
 
     monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", capacity)
@@ -941,7 +941,7 @@ async def test_http_model_tool_loop_end_to_end() -> None:
 
 @pytest.mark.asyncio
 async def test_audit_limit_on_tool_completion_keeps_just_read_observation(monkeypatch):
-    from plugin.plugins.neko_rimworld.agent import audit
+    from plugin.plugins.neko_rimworld.agent.runtime import audit
 
     monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 8)
     registry = AgentAuditRegistry()
@@ -962,7 +962,7 @@ async def test_audit_limit_on_tool_completion_keeps_just_read_observation(monkey
 
 @pytest.mark.asyncio
 async def test_cancellation_at_audit_limit_still_propagates(monkeypatch):
-    from plugin.plugins.neko_rimworld.agent import audit
+    from plugin.plugins.neko_rimworld.agent.runtime import audit
 
     monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 3)
     started = asyncio.Event()
@@ -991,7 +991,7 @@ async def test_cancellation_at_audit_limit_still_propagates(monkeypatch):
 
 def submitted_turn(text: str) -> AssistantTurn:
     """Script an explicit submission; oversized text saves detail for repair."""
-    from plugin.plugins.neko_rimworld.agent.handoff import count_handoff_tokens
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import count_handoff_tokens
     if not text:
         return turn()
     field = "detail" if count_handoff_tokens(text)[0] > 180 else "answer"

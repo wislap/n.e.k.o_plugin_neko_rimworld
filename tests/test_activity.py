@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.activity import make_activity_tool
-from plugin.plugins.neko_rimworld.agent.contracts import ToolCall
-from plugin.plugins.neko_rimworld.agent.object_tools import ObjectReader
-from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError, ToolRegistry
+from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
+from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
+from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolRegistry
 
 
 class NativeInteraction:

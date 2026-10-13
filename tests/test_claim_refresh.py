@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.claims import build_read_index, check_claims
-from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.delivery.claims import build_read_index, check_claims
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError
 
 TEXT = "Rescue_Patient 的全部11项能力均已读取。"
 

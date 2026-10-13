@@ -4,15 +4,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.activity import make_activity_tool
-from plugin.plugins.neko_rimworld.agent.context_pruning import ContextPruner
-from plugin.plugins.neko_rimworld.agent.object_tools import ObjectReader, STATE_FACETS
+from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
+from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner
+from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, STATE_FACETS
 from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 from plugin.plugins.neko_rimworld.tests.test_native_on_demand import state_directory
 
 
 def test_survey_geometry_is_optional_but_environment_and_distance_origin_stay_explicit():
-    from plugin.plugins.neko_rimworld.agent.context_pruning import survey_view
+    from plugin.plugins.neko_rimworld.agent.context.context_pruning import survey_view
     raw={'region':{'geometry':{'resolved_center':{'kind':'cell','map':'Map_0','x':140,'z':124}},
         'area_zone_intersections':[{'id':'roof-designation','intersecting_cells':52}]},
         'environment':{'roof_cells':{'RoofConstructed':143},'gases':[{'type':'ToxGas','cells':2}]},
@@ -94,7 +94,7 @@ async def test_matrix_preserves_full_three_by_three_capacity(monkeypatch):
 
 def test_model_schema_preserves_matrix_and_rejects_withdrawn_batch(monkeypatch):
     import jsonschema
-    from plugin.plugins.neko_rimworld.agent.context_tools import model_tools
+    from plugin.plugins.neko_rimworld.agent.context.context_tools import model_tools
     monkeypatch.setenv('NEKO_CONTEXT_PRUNING','1')
     tool=make_activity_tool(NativeInteraction())
     schema=model_tools([tool.schema()])[0]['function']['parameters']

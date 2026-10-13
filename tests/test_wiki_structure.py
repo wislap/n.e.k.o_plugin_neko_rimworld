@@ -2,7 +2,7 @@
 
 import json
 
-from plugin.plugins.neko_rimworld.agent.wiki_tools import WikiStore
+from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore
 
 from .test_wiki_tools import entry, write_snapshot
 

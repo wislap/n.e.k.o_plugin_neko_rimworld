@@ -16,7 +16,7 @@ Results use request-scoped ordinary JSON with scope, coverage, unknown states
 and native semantics. Same-read identities may refer to their retained native
 ID; there is no numbered fact vocabulary. Raw evidence remains in the audit.
 
-The contract is the one `agent.loop` already calls on `session.interaction`:
+The contract is the one `agent.runtime.loop` already calls on `session.interaction`:
 prompt, tools, attach_result, request_messages, snapshot, aclose,
 plus `finalizing` and `supports_finalization`.
 """
@@ -29,7 +29,7 @@ from typing import Any
 from .activity import make_activity_tool
 from .object_tools import ObjectReader, extend_look_schema, observed_id_reference, state_contract
 from .query_surface import Surface, SurfaceError
-from .research_surface import ReadOnlyResearchSurface, ResearchGuidance
+from ..delivery.research_surface import ReadOnlyResearchSurface, ResearchGuidance
 from .semantic_surface import (
     DEF_KINDS,
     THING_KINDS,
@@ -50,7 +50,7 @@ from .semantic_surface import (
     validate_detail,
     validate_metric,
 )
-from .tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolSpec
+from ..runtime.tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolSpec
 from .world_order import order_world_fields
 
 # Only this explicitly approved non-observation tool survives the adapter.
@@ -197,7 +197,7 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             semantic_specs = [s for s in semantic_specs if s["name"] not in ("inspect_space", "inspect_route")]
         for tool in semantic_specs:
             if tool["name"] in ("look", "inspect_route", "survey_space"):
-                from .context_tools import configure_read_spec
+                from ..context.context_tools import configure_read_spec
 
                 tool = configure_read_spec(tool)
             handler = handlers[tool["name"]]

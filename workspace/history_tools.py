@@ -4,7 +4,7 @@ import asyncio
 import copy
 import re
 
-from ..agent.tool_contracts import ToolExecutionError, ToolSpec
+from ..agent.runtime.tool_contracts import ToolExecutionError, ToolSpec
 from ..reports import MAX_REPORT_BYTES, ReportError
 
 

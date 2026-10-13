@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.handoff import (
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     HANDOFF_FACTS_TOKEN_BUDGET,
     HANDOFF_TOKEN_BUDGET,
     HandoffValidationError,
@@ -131,8 +131,8 @@ def test_counter_reports_a_safe_budget_metric() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("references_supported", [False, True])
 async def test_text_length_repair_preserves_report_without_retransmission(references_supported):
-    from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, make_submission_tool
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, make_submission_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
 
     draft = SubmissionDraft()
     tool = make_submission_tool(draft, [], references_supported=references_supported)
@@ -157,8 +157,8 @@ async def test_text_length_repair_preserves_report_without_retransmission(refere
 async def test_text_tool_declares_only_text_parts_and_rejects_references():
     import json
 
-    from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, make_submission_tool
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, make_submission_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
 
     tool = make_submission_tool(SubmissionDraft(), [], references_supported=False)
     schema = tool.schema()
@@ -179,9 +179,9 @@ async def test_text_tool_declares_only_text_parts_and_rejects_references():
 async def test_text_mode_bad_parts_use_current_contract_in_real_registry(extra):
     import json
 
-    from plugin.plugins.neko_rimworld.agent.contracts import ToolCall
-    from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, make_submission_tool
-    from plugin.plugins.neko_rimworld.agent.tools import ToolRegistry
+    from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, make_submission_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 
     registry = ToolRegistry()
     registry.register(make_submission_tool(SubmissionDraft(), [], references_supported=False))
@@ -204,7 +204,7 @@ async def test_text_mode_bad_parts_use_current_contract_in_real_registry(extra):
 
 
 def test_text_fallback_applies_same_capability_and_token_feedback():
-    from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, SubmissionPatchError
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError
 
     draft = SubmissionDraft()
     with pytest.raises(SubmissionPatchError) as rejected:
@@ -220,8 +220,8 @@ def test_text_fallback_applies_same_capability_and_token_feedback():
 
 @pytest.mark.asyncio
 async def test_text_submission_string_and_legacy_shapes_share_validation():
-    from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, make_submission_tool
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, make_submission_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
 
     conclusion = "可达，150步；终点是可触及位置，并非站入目标格。"
     outputs = []
@@ -241,7 +241,7 @@ async def test_text_submission_string_and_legacy_shapes_share_validation():
 
 
 def test_handoff_guidance_separates_main_conclusion_and_complete_report():
-    from plugin.plugins.neko_rimworld.agent.prompt import build_finalization_prompt, build_system_prompt
+    from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_finalization_prompt, build_system_prompt
 
     for prompt in (
         build_system_prompt(4, references_supported=False),
@@ -254,8 +254,8 @@ def test_handoff_guidance_separates_main_conclusion_and_complete_report():
 
 @pytest.mark.asyncio
 async def test_invalid_text_submission_feedback_matches_public_string_schema():
-    from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, make_submission_tool
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, make_submission_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
 
     tool = make_submission_tool(SubmissionDraft(), [], references_supported=False)
     with pytest.raises(ToolExecutionError) as error:
@@ -266,8 +266,8 @@ async def test_invalid_text_submission_feedback_matches_public_string_schema():
 
 @pytest.mark.asyncio
 async def test_legacy_single_object_does_not_drop_extra_fields():
-    from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft, make_submission_tool
-    from plugin.plugins.neko_rimworld.agent.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, make_submission_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
 
     with pytest.raises(ToolExecutionError):
         await make_submission_tool(SubmissionDraft(), [], references_supported=False).handler(

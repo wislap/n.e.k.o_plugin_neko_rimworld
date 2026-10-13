@@ -1,7 +1,7 @@
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.claims import check_claims
-from plugin.plugins.neko_rimworld.agent.handoff import SubmissionDraft
+from plugin.plugins.neko_rimworld.agent.delivery.claims import check_claims
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
 
 
 def readings():

@@ -17,7 +17,7 @@ import pytest
 from utils.result_parser import parse_plugin_result
 
 from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
-from plugin.plugins.neko_rimworld.agent.handoff import (
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     HandoffValidationError,
     SubmissionDraft,
     SubmissionPatchError,
@@ -26,8 +26,8 @@ from plugin.plugins.neko_rimworld.agent.handoff import (
     make_submission_tool,
     validate_submission,
 )
-from plugin.plugins.neko_rimworld.agent.tools import ToolSetup
-from plugin.plugins.neko_rimworld.observation import Observation
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolSetup
+from plugin.plugins.neko_rimworld.game.observation import Observation
 
 from .test_agent import submitted_turn, FakeLogger, ScriptedModel, query_tool, settings, turn
 from .test_presentation import observed, part
@@ -324,7 +324,7 @@ def test_reference_part_rejects_paths_outside_its_public_schema(paths):
 
 
 def test_reference_prompt_and_tool_describe_actual_budget_layers():
-    from plugin.plugins.neko_rimworld.agent.prompt import build_finalization_prompt, build_system_prompt
+    from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_finalization_prompt, build_system_prompt
 
     tool = make_submission_tool(SubmissionDraft(), [], references_supported=True)
     for text in [tool.description, build_system_prompt(4), build_finalization_prompt(4)]:
@@ -337,7 +337,7 @@ def test_reference_prompt_and_tool_describe_actual_budget_layers():
 def test_host_transport_limit_matches_real_parser_without_weakening_text_budget():
     from config import TASK_DETAIL_MAX_TOKENS
 
-    from plugin.plugins.neko_rimworld.agent.handoff import HANDOFF_TRANSPORT_TOKEN_BUDGET
+    from plugin.plugins.neko_rimworld.agent.delivery.handoff import HANDOFF_TRANSPORT_TOKEN_BUDGET
 
     assert HANDOFF_TRANSPORT_TOKEN_BUDGET <= TASK_DETAIL_MAX_TOKENS
     exact = " x" * 200

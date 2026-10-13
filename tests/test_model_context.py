@@ -1,8 +1,8 @@
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.audit import AgentAuditLedger
-from plugin.plugins.neko_rimworld.agent.model_context import RETIRED_DEFAULTS, validate_deployment
-from plugin.plugins.neko_rimworld.agent.session import AgentRunSession
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
+from plugin.plugins.neko_rimworld.agent.context.model_context import RETIRED_DEFAULTS, validate_deployment
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 
 def test_default_session_has_json_projection_without_environment(monkeypatch):

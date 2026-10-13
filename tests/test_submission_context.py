@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.audit import AgentAuditLedger
-from plugin.plugins.neko_rimworld.agent.session import AgentRunSession
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 
 def failed(identifier, patch):
