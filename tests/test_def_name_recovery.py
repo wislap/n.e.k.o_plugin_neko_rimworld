@@ -167,8 +167,7 @@ RESOLVED_ROW = {"def_name": "ComponentIndustrial", "label": "零部件"}
 
 
 @pytest.mark.asyncio
-async def test_unique_recovery_rewrites_once_and_discloses(monkeypatch):
-    monkeypatch.setenv("NEKO_DEF_NAME_RECOVERY", "1")
+async def test_unique_recovery_rewrites_once_and_discloses():
     stub, calls = interaction(FakeView(CATALOG), [native_payload([RESOLVED_ROW], ["ComponentIndustrial"])])
     obj, resolution, _ = await SemanticInteraction._resolve(
         stub, {"kind": "things", "definition": "IndustrialComponent"}
@@ -185,8 +184,7 @@ async def test_unique_recovery_rewrites_once_and_discloses(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_stale_index_degrades_to_honest_missing_with_candidates(monkeypatch):
-    monkeypatch.setenv("NEKO_DEF_NAME_RECOVERY", "1")
+async def test_stale_index_degrades_to_honest_missing_with_candidates():
     # Native is the arbiter: the rewritten canonical name may itself be missing.
     stub, calls = interaction(FakeView(CATALOG), [native_payload([], ["ComponentIndustrial"])])
     obj, resolution, _ = await SemanticInteraction._resolve(
@@ -198,8 +196,7 @@ async def test_stale_index_degrades_to_honest_missing_with_candidates(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_localized_missing_gets_discovery_without_auto_selection(monkeypatch):
-    monkeypatch.setenv("NEKO_DEF_NAME_RECOVERY", "1")
+async def test_localized_missing_gets_discovery_without_auto_selection():
     stub, calls = interaction(FakeView(CATALOG), [native_payload([], ["工业零部件"])])
     obj, resolution, _ = await SemanticInteraction._resolve(stub, {"kind": "things", "definition": "工业零部件"})
     assert obj is None and resolution["status"] == "missing_in_scope"
@@ -209,8 +206,7 @@ async def test_localized_missing_gets_discovery_without_auto_selection(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_broken_view_degrades_to_unchanged_lookups(monkeypatch):
-    monkeypatch.setenv("NEKO_DEF_NAME_RECOVERY", "1")
+async def test_broken_view_degrades_to_unchanged_lookups():
 
     class Broken:
         metadata = {"complete": True, "issues": []}
@@ -228,8 +224,7 @@ async def test_broken_view_degrades_to_unchanged_lookups(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_identity_name_lookups_are_out_of_scope(monkeypatch):
-    monkeypatch.setenv("NEKO_DEF_NAME_RECOVERY", "1")
+async def test_identity_name_lookups_are_out_of_scope():
     stub, calls = interaction(
         FakeView(CATALOG),
         [

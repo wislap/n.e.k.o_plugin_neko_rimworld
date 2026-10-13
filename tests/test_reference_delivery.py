@@ -29,7 +29,7 @@ from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolSetup
 from plugin.plugins.neko_rimworld.game.observation import Observation
 
-from .test_agent import submitted_turn, FakeLogger, ScriptedModel, query_tool, settings, turn
+from .test_agent import FakeLogger, ScriptedModel, query_tool, settings, submitted_turn, turn
 from .test_presentation import observed, part
 
 

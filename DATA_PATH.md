@@ -46,7 +46,7 @@ Append-only observations and audit remain the authoritative record.
 
 # Shared v1.4 query data path
 
-The current Mod advertises `public_query.v2` (the initial v1.4 revision used v1). The plugin exposes `query` and `describe_query`; it does not simultaneously advertise legacy templates, GraphQL or the separate resource tool. Older connected Mods retain their existing adapter. Legacy transports below are retained for compatibility/development, not a second recommended Agent workflow.
+The current Mod advertises `public_query.v2` (the initial v1.4 revision used v1). The plugin calls `query` and `describe_query` internally; the model sees only the semantic tools (`look`, `count` and the catalog-dependent `inspect_*`, `survey_space` and `evaluate_activity` tools), never legacy templates, GraphQL or the separate resource tool. Older connected Mods retain their existing adapter. Legacy transports below are retained for compatibility/development, not a second recommended Agent workflow.
 
 When advertised by the connected Mod, `spatial_query.v1` is exposed by the
 semantic plugin as `inspect_space(from,to)`. This is a single current-tick,
@@ -113,6 +113,10 @@ Complete raw observations and execution requests remain in audit storage. The mo
 The existing paired version runner seals each plugin and query DLL separately. `bench.py experiment queries` checks fixed queries against native-graph reference values; `experiment versions --plan` runs the actual Agent. Owner-dependent native projections (body parts, capacities, backstories, computed stats) are captured separately for each pawn. Limited numeric evidence adapters validate matching scopes; complex/open answers remain explicit review cases. Delivery and software tests are not semantic quality scores.
 
 ## Legacy implementation reference (v1.3 and earlier)
+
+Sections below that name `get_game_info`, `query_game` or
+`describe_game_schema` describe former tools. The plugin no longer registers them; they are kept
+as history of the Mod contract.
 
 # Object sections and native Thing data path (Mod 0.6.0 / plugin 0.8.0)
 
@@ -233,7 +237,7 @@ without recursively expanding an unbounded graph.
 The exported SDL and section descriptions define exact field names, units,
 nullability and default windows. The plugin caches the SDL, but injects only a
 type/root directory plus common section schemas. describe_game_schema(types,
-include_templates?) retrieves precise supported members as metadata on demand.
+include_templates?) retrieved precise supported members as metadata on demand.
 
 ## Mod-owned discovery and compilation
 
@@ -376,17 +380,18 @@ combination is useful. New collections declare bounded windows, coverage and
 cost. The catalog and schema_id update from the same definitions. Python bridge,
 business DTOs, agent loop and handoff need no domain branches.
 
-BridgeSmoke uses the production schema/compiler with an IGameData fixture. It
-checks section union, template/exact equivalence, selected getter counts, nested
-limits/partials, invalid-batch zero reads, combined cost, stable root pagination,
-stale cursors and calling-thread identity. Export actual C# fixtures using:
+The Mod's BridgeSmoke tests use the production schema/compiler with an IGameData
+fixture. They check section union, template/exact equivalence, selected getter
+counts, nested limits/partials, invalid-batch zero reads, combined cost, stable
+root pagination, stale cursors and calling-thread identity. The Mod tests (not
+plugin Python) read these variables to export C# fixtures:
 
 ```powershell
 $env:NEKO_QUERY_CATALOG = '<absolute path>/tests/fixtures/query_catalog.json'
 $env:NEKO_TEMPLATE_RESULT = '<absolute path>/tests/fixtures/template_result.json'
 ```
 
-Python tests consume these results to verify catalog tools, intact nested data,
+The plugin's Python tests read the checked-in tests/fixtures copies to verify catalog tools, intact nested data,
 one batch/observation, original requests, cache/reconnect, Hosted probe shape and
 submission isolation. Deploy the complete Assemblies directory including GraphQL
 and transitive DLLs. .NET tests do not replace RimWorld/Mono and live-game checks.
@@ -394,7 +399,7 @@ and transitive DLLs. .NET tests do not replace RimWorld/Mono and live-game check
 
 ## Native objects (Mod 0.6.0 / plugin 0.8.0)
 
-Additional targets in get_game_info (all descriptions and selections are Mod-owned):
+Additional targets in the former get_game_info (all descriptions and selections are Mod-owned):
 
 | target | selector | sections |
 | --- | --- | --- |

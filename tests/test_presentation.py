@@ -2,7 +2,11 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError, count_handoff_tokens
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
+    SubmissionDraft,
+    SubmissionPatchError,
+    count_handoff_tokens,
+)
 from plugin.plugins.neko_rimworld.agent.delivery.presentation import EvidenceError, render_evidence
 from plugin.plugins.neko_rimworld.reports import ReportError, ReportStore
 

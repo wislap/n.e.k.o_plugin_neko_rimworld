@@ -30,10 +30,9 @@ from .agent import (
     semantic_interaction_factory,
 )
 from .agent.delivery.handoff import count_handoff_tokens
-from .workspace.history_tools import make_history_tool
-from .agent.runtime.tools import ToolSetup
-from .agent.reference.wiki_tools import compose_wiki_tools, knowledge_directory
 from .agent.reference.mechanism_tools import compose_implementation_knowledge
+from .agent.reference.wiki_tools import compose_wiki_tools, knowledge_directory
+from .agent.runtime.tools import ToolSetup
 from .game.bridge import (
     BridgeBusyError,
     BridgeError,
@@ -44,12 +43,13 @@ from .game.bridge import (
     BridgeStartError,
     BridgeUnsupportedError,
 )
-from .knowledge import KnowledgeLibrary
 from .game.observation import Observation
 from .game.protocol import Envelope
 from .game.query_tools import CatalogTools
-from .reports import ReportError, ReportStore
 from .game.state import BridgeStateStore, BridgeStatus, DiagnosticRing, json_safe_copy, utc_now
+from .knowledge import KnowledgeLibrary
+from .reports import ReportError, ReportStore
+from .workspace.history_tools import make_history_tool
 from .workspace.service import NoCurrentWork, WorkspaceService
 from .workspace.views import WorkspaceViews
 

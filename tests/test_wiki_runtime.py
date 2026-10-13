@@ -9,11 +9,10 @@ from dataclasses import replace
 import pytest
 
 from plugin.plugins.neko_rimworld.agent import AgentAuditLedger, AgentAuditRegistry, AgentRuntime, ToolCall
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
-
+from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WIKI_GUIDANCE
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSetup, ToolSpec
-from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WIKI_GUIDANCE
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.reports import ReportStore
 
 from .test_agent import FakeLogger, settings, submission_call, turn

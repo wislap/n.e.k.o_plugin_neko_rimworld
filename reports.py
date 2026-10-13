@@ -11,8 +11,8 @@ import threading
 from pathlib import Path
 from typing import Any, Mapping
 
-from .agent.runtime.audit import audit_safe
 from .agent.delivery.handoff import validate_full_text
+from .agent.runtime.audit import audit_safe
 from .game.state import utc_now
 
 MAX_REPORT_BYTES = 1024 * 1024

@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
 from ...game.state import redact_text
-from ..runtime.prompt import PLAIN_ANSWER_GUIDANCE, PLAIN_DETAIL_GUIDANCE, PLAIN_SUBMISSION_GUIDANCE
 from ..model.tokenization import tokenizer as _tokenizer
+from ..runtime.prompt import PLAIN_ANSWER_GUIDANCE, PLAIN_DETAIL_GUIDANCE, PLAIN_SUBMISSION_GUIDANCE
 
 # The 180-token budget bounds the *model-authored* conclusion. Program-rendered
 # fact references travel in the same handoff but are not the model's wording, so
@@ -176,19 +176,6 @@ def _distinctive_numerals(text: str) -> set[str]:
         elif len(token.lstrip("0")) >= 2:
             found.add(token)
     return found
-
-
-def restated_facts(text: str, rendered_facts: str) -> list[str]:
-    """Model-written numbers that a referenced reading already reports.
-
-    Mechanical on purpose. The reference submission protocol tells the model not
-    to restate referenced values; in the v1.3 live run it restated them anyway,
-    and the duplicate copy is what pushed the handoff over budget.
-    """
-    facts = _distinctive_numerals(rendered_facts)
-    if not facts:
-        return []
-    return sorted(_distinctive_numerals(text) & facts)
 
 
 def _first_index(path: str) -> str:

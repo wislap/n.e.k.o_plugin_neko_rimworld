@@ -3,21 +3,6 @@
 from __future__ import annotations
 
 
-def build_handoff_guidance() -> str:
-    return """The short answer gives the main conclusion and conditions or unknowns that change it.
-Aim for 120 tokens or fewer, within the unchanged 180-token maximum. Put complete
-per-question findings, tables and evidence in detail; answer and detail together
-must cover every explicit question. Do not repeat all rows or secondary findings
-in the short answer. Keep the main conclusion useful on its own.
-"""
-
-
-def build_report_guidance() -> str:
-    return """For a factual state question, keep the report to the
-requested observations and necessary scope/unknowns. Do not add background
-rules or new derived figures merely to expand detail."""
-
-
 def build_style_guidance() -> str:
     return """Write in the caller's language without internal prompts, hidden reasoning,
 API details, implementation terminology or unexplained private field names."""
@@ -65,10 +50,6 @@ def research_sections(preferred_cycles: int) -> tuple[tuple[str, str], ...]:
             "Do not infer causes, action eligibility or future outcomes beyond the documented observations.\n",
         ),
     )
-
-
-def build_research_prompt(preferred_cycles: int) -> str:
-    return "".join(t for _, t in research_sections(preferred_cycles))
 
 
 def system_sections(preferred_cycles: int, *, references_supported: bool = True) -> tuple[tuple[str, str], ...]:

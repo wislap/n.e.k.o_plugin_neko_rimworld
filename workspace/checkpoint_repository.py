@@ -4,9 +4,7 @@ import hashlib
 import json
 import uuid
 
-
-def encode(value):
-    return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+from ..agent.context.serialization import canonical as encode
 
 
 class CheckpointRepository:

@@ -7,8 +7,8 @@ import time
 from typing import Any
 
 from ...game.observation import Observation
-from .contracts import PreparedToolCall, ToolCall, ToolResult
 from ..context.model_context import CONTEXT_TOOLS, MAX_SOURCE_CHARS, model_size
+from .contracts import PreparedToolCall, ToolCall, ToolResult
 from .tool_contracts import (
     MAX_TOOL_RESULT_CHARS as MAX_TOOL_RESULT_CHARS,
 )

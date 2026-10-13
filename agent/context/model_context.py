@@ -19,8 +19,6 @@ CONTEXT_TOOLS = frozenset(
         "inspect_state",
         "inspect_threats",
         "evaluate_activity",
-        "execute_python",
-        "read_result",
     }
 )
 RETIRED_DEFAULTS = {

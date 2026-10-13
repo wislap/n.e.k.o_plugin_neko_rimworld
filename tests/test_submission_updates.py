@@ -1,6 +1,10 @@
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import HANDOFF_TOKEN_BUDGET, SubmissionDraft, SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
+    HANDOFF_TOKEN_BUDGET,
+    SubmissionDraft,
+    SubmissionPatchError,
+)
 
 from .test_presentation import observed
 

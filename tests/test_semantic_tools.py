@@ -15,12 +15,12 @@ import pytest
 
 from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSetup
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import (
     SemanticInteraction,
     semantic_interaction_factory,
     semantic_surface_available,
 )
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSetup
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
 from .test_agent import FakeLogger, settings, turn
@@ -134,8 +134,7 @@ def test_semantic_surface_replaces_the_query_vocabulary():
     assert [tool.name for tool in adapter.tools()] == ["submit_response"]
 
 
-def test_native_activity_is_default_and_replaces_overlapping_path_tools(monkeypatch):
-    monkeypatch.setenv("NEKO_ACTIVITY", "1")
+def test_native_activity_is_default_and_replaces_overlapping_path_tools():
     source = public_source(spatial=True)
     sections = ["identity", "health", "skills", "gear", "work", "state"]
     ref = {
@@ -344,8 +343,8 @@ class _Model:
 async def test_wiki_is_the_only_extra_passthrough_and_never_an_observation(tmp_path):
     from dataclasses import replace
 
-    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSpec
     from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore, make_wiki_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSpec
 
     from .test_wiki_tools import write_snapshot
 

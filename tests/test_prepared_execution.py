@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.model.model_client import build_agent_model_settings
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionPatchError
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.agent.model.model_client import build_agent_model_settings
 from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
@@ -98,8 +98,7 @@ async def test_completed_execution_cannot_be_replayed_as_new_work():
     assert len(model.requests) == 1
 
 
-def test_length_edit_uses_current_question_with_historical_user_messages(monkeypatch):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+def test_length_edit_uses_current_question_with_historical_user_messages():
     session = prepare(
         "Compare the transfer stage.", ({"role": "user", "content": "Earlier discussion of the approach stage."},)
     )

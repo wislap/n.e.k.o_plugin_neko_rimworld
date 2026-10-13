@@ -10,7 +10,7 @@ from pathlib import Path
 
 from ...mechanisms.store import MechanismStore
 from ..runtime.tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
-from .wiki_tools import knowledge_directory, WIKI_GUIDANCE
+from .wiki_tools import WIKI_GUIDANCE, knowledge_directory
 
 GUIDANCE = (
     "wiki also reads version-bound implementation knowledge: query 'source:keywords' to find source, "

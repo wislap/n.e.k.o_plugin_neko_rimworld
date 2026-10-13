@@ -1406,25 +1406,6 @@ def _field_note(surface, root, at, name):
     return note
 
 
-def unread_fields(surface, root, covered):
-    """机械推导：本次没有读到的根字段（对被部分覆盖的字段展开一层）。"""
-    kind = surface.path_type(root, "")
-    index = surface.index.get(kind, {})
-    out = []
-    for name in index:
-        children = {p.split(".", 1)[1] for p in covered if p.startswith(name + ".") and "." in p}
-        if name in covered and not children:
-            continue
-        if not children:
-            out.append(name)
-            continue
-        child_kind = surface.child_type(kind, name)
-        for child in surface.index.get(child_kind) or {}:
-            if child not in children:
-                out.append(name + "." + child)
-    return out
-
-
 def _not_read(plan, surface, result, issues=()):
     """只列高信号缺口，不枚举整个原生字段空间。
 

@@ -12,13 +12,8 @@ inverse reader used for historical replay is also not here.
 """
 
 import copy
-import json
 
 OPTIONS = {"args", "where", "select", "aggregate", "group_by", "order_by", "limit", "offset", "on"}
-
-
-def compact(v):
-    return json.dumps(v, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
 class SurfaceError(ValueError):

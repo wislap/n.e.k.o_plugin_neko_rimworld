@@ -287,7 +287,7 @@ def test_expired_query_exception_does_not_accept_unrelated_results(mismatch) -> 
 
 
 def test_session_stale_cancellation_retains_late_response_identity():
-    from plugin.plugins.neko_rimworld.game.bridge import BridgeNotConnected,_PendingQuery
+    from plugin.plugins.neko_rimworld.game.bridge import BridgeNotConnected, _PendingQuery
     server=BridgeServer(TOKEN,port=0)
     session=SessionDescriptor("5"*32,"6"*32,3,2)
     request_id="9"*32

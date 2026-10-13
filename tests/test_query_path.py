@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld import NekoRimworldPlugin
-from plugin.plugins.neko_rimworld.game import protocol as wire
 from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.audit import MAX_AUDIT_DEPTH, audit_safe
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSpec
+from plugin.plugins.neko_rimworld.game import protocol as wire
 from plugin.plugins.neko_rimworld.game.observation import Observation
 
 from .test_agent import FakeLogger, settings

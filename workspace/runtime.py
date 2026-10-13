@@ -9,8 +9,8 @@ from ..agent.runtime.audit import private_protocol_redacted as public_protocol
 from ..agent.runtime.prompt import build_system_prompt
 from ..agent.runtime.session import AgentRunSession
 from ..reports import plain
-from .history_tools import make_history_tool
 from .context import history_message
+from .history_tools import make_history_tool
 
 
 class WorkspaceAgent:

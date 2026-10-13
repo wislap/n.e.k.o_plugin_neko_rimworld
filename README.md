@@ -70,9 +70,11 @@ rimworld_consult(question)
 ```
 
 Each call creates a new run with a new message list. The model may answer
-directly, select an object and information sections through `get_game_info`,
-request precise fields through `query_game`, or finish a detailed response through the
-private `submit_response` tool. The prompt recommends a small number of cycles
+directly, read the game through the semantic tools (`look`, `count`, and, when the
+Mod catalog offers them, `inspect_space`, `survey_space`, `inspect_route`,
+`inspect_state`, `inspect_actions`, `inspect_threats`, `evaluate_activity`), look
+up definitions through `wiki`, or finish a detailed response through the private
+`submit_response` tool. The prompt recommends a small number of cycles
 but the runtime does not impose a hard step count. Tool and submission errors
 are returned to the model so it can recover and continue.
 

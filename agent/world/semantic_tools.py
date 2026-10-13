@@ -26,10 +26,11 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+from ..delivery.research_surface import ReadOnlyResearchSurface, ResearchGuidance
+from ..runtime.tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolSpec
 from .activity import make_activity_tool
 from .object_tools import ObjectReader, extend_look_schema, observed_id_reference, state_contract
 from .query_surface import Surface, SurfaceError
-from ..delivery.research_surface import ReadOnlyResearchSurface, ResearchGuidance
 from .semantic_surface import (
     DEF_KINDS,
     THING_KINDS,
@@ -50,7 +51,6 @@ from .semantic_surface import (
     validate_detail,
     validate_metric,
 )
-from ..runtime.tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolSpec
 from .world_order import order_world_fields
 
 # Only this explicitly approved non-observation tool survives the adapter.

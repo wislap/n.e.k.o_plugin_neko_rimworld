@@ -1,8 +1,26 @@
-> **v1.4 development:** The current unified query implementation and its scope/limits are documented in [DATA_PATH.md](DATA_PATH.md). Legacy v1.3 sections below describe compatibility/history. Evaluation results are tracked separately; no release or quality improvement is implied by this source checkout.
+> **Plugin 1.0.0 (source checkout).** The current tool surface and code layout are summarised below; the Mod query contract is in [DATA_PATH.md](DATA_PATH.md). Later sections are historical design notes and name tools that are no longer advertised. Evaluation results are tracked separately; no release or quality improvement is implied by this source checkout.
 
 # N.E.K.O RimWorld Design Brief
 
-## Current development architecture: v1.3
+## Current tool surface and layout
+
+The model reads the game only through the semantic tools: `look` and `count`
+always, plus `inspect_space`, `survey_space`, `inspect_route`, `inspect_state`,
+`inspect_actions`, `inspect_threats` and `evaluate_activity` when the connected
+Mod catalog advertises the matching contracts. `wiki` is added when a local
+knowledge view is ready. `submit_response` (text answer plus optional detail)
+finishes the run; `workspace_history` and `read_report_evidence` appear only for
+saved work or an attached report. The Mod operations `query`, `describe_query`
+and `spatial_query` are internal backends and are not offered to the model.
+
+Code layout: `agent/runtime` (loop, session, tool registry, prompts, audit),
+`agent/model` (OpenAI-compatible transport), `agent/context` (request-scoped
+JSON pruning and tool schemas), `agent/world` (game-read tools),
+`agent/delivery` (submission and handoff), `agent/reference` (wiki and
+mechanism lookup), `game/` (bridge and wire protocol), `workspace/` (saved
+work), `ui/` (Hosted TSX panel).
+
+## Historical architecture: v1.3
 
 This development revision supersedes the v1.0 purpose presets and the older
 requirement that the Agent author two independent final texts. It is not a
@@ -29,7 +47,7 @@ Changing answer requires reconfirming dependent detail. Invalid dependencies
 remain in draft inputs but cannot enter fallback output. Exact identity-based
 reference normalization is formatting, never cross-source arithmetic.
 
-The current candidate has read_resources, get_game_info(requests), query_game,
+The v1.3 candidate had read_resources, get_game_info(requests), query_game,
 describe_game_schema and submit_response. Only one resource entry is exposed
 per connected catalog. A three/four-read-tool ablation decides whether the
 separate name earns its interface cost; no permanent dual route is intended.
@@ -53,7 +71,7 @@ game control or an unbounded general simulation engine.
 
 `get_game_info` has two mutually exclusive modes: `resources` for the Mod-owned
 resource report, and the existing `requests` templates for precise object work.
-`query_game` and `describe_game_schema` remain available. There are still three
+`query_game` and `describe_game_schema` remained available. There were three
 game tools, plus terminal `submit_response`; no additional Agent or service.
 
 The shared `ResourceReports` module owns selector validation, deadline/scan
@@ -224,7 +242,8 @@ operational audit state, not agent memory.
 ## Data path boundaries
 
 The Mod owns one executable field schema, object selectors, section selections
-and argument limits. It exports the schemas used by get_game_info and query_game.
+and argument limits. It exported the schemas used by the former get_game_info and
+query_game tools.
 Each template request contains a target and sections. Section fields for a target
 merge into one selection tree, including that object's identity; repeated targets
 share one output root and bindings retain each originating request. Template
@@ -268,10 +287,11 @@ agent/model/model_client.py; the entry has cleanup headroom above the internal r
 
 ## Hosted navigation and data loading
 
-0.6.1 retains one surface/context and separates four pages under ui/pages/.
-ui/controller.ts owns ephemeral form drafts and operation state; components do
-not own in-flight entry calls. Lightweight dashboard summaries feed Home and the
-run list. Session details are fetched by immutable run ID, with paged audit events
+The panel keeps one surface/context with three pages: ui/work/, ui/diagnostics/
+and ui/settings/. Each page's hook (useWorkView, useDiagnostics, useSettings)
+owns its ephemeral form drafts and operation state; components do not own
+in-flight entry calls. The lightweight dashboard context is the panel
+state shared by all pages, including the run list. Session details are fetched by immutable run ID, with paged audit events
 and stale-response guards. UI detail actions remain agent_auto=false and are
 mirrored in manifest entries. No platform navigation or model tools changed.
 
@@ -300,9 +320,9 @@ separate. Pawn equipment now references the shared Thing projection and active
 hauling is distinct from inventory. Query-only DTOs wrap references and bounded
 collections; unsupported components are metadata, never inferred values.
 
-get_game_info and query_game still forward intact to one executable schema.
-describe_game_schema uses the Mod's static describe_schema operation, caches
-schema-id checked results per setup, and returns metadata without polluting game
+get_game_info and query_game then forwarded intact to one executable schema.
+describe_game_schema used the Mod's static describe_schema operation, cached
+schema-id checked results per setup, and returned metadata without polluting game
 evidence. Startup injects a type/root directory instead of the full SDL. Existing
 report delivery and outer-agent entries are unchanged. See DATA_PATH.md for the
 breaking member names, exact targets, component fragments and scope limitations.

@@ -10,10 +10,10 @@ from types import SimpleNamespace
 import pytest
 
 from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime
-from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import count_handoff_tokens
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.tool_contracts import ToolSetup, ToolSpec
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.game.bridge import BridgeServer
 from plugin.plugins.neko_rimworld.game.protocol import SessionDescriptor
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools

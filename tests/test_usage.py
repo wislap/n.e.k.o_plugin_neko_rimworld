@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry, AgentRunState
-from plugin.plugins.neko_rimworld.agent.model.model_client import OpenAICompatibleModelClient, build_agent_model_settings
+from plugin.plugins.neko_rimworld.agent.model.model_client import (
+    OpenAICompatibleModelClient,
+    build_agent_model_settings,
+)
 from plugin.plugins.neko_rimworld.agent.model.usage import summarize_usage
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry, AgentRunState
 
 
 def test_missing_usage_is_unknown_not_zero_and_partial_counts_are_subtotals():

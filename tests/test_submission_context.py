@@ -15,8 +15,7 @@ def failed(identifier, patch):
     ]
 
 
-def test_only_current_superseded_drafts_are_removed_and_saved_detail_survives(monkeypatch):
-    monkeypatch.setenv('NEKO_CONTEXT_PRUNING','1')
+def test_only_current_superseded_drafts_are_removed_and_saved_detail_survives():
     old = failed('historical', {'answer':'Historical proposal.'})
     session = AgentRunSession.create(ledger=AgentAuditLedger('q'),system_prompt='policy',question='q',context_messages=tuple(old))
     source = {'role':'tool','tool_call_id':'observation','content':'Original evidence with load epoch and actors.'}
@@ -36,11 +35,10 @@ def test_only_current_superseded_drafts_are_removed_and_saved_detail_survives(mo
 
 
 @pytest.mark.asyncio
-async def test_runtime_repair_uses_same_calls_and_keeps_saved_report(monkeypatch):
+async def test_runtime_repair_uses_same_calls_and_keeps_saved_report():
     from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
     from plugin.plugins.neko_rimworld.tests.test_agent import FakeLogger, settings, turn
 
-    monkeypatch.setenv('NEKO_CONTEXT_PRUNING','1')
     detail='本次未取得派系字段，保留未知。'
     class Model:
         calls=0

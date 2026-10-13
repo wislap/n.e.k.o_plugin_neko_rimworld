@@ -101,7 +101,6 @@ async def test_live_reference_mode_remains_disabled_even_when_advertised(monkeyp
     assert make_game_tools(advertised, _noop_query).references_supported is False
     # 旧 Mod 没声明能力时，即使显式选择也不能发明引用。
     assert make_game_tools(_public_source(), _noop_query).references_supported is False
-    monkeypatch.setenv("NEKO_PUBLIC_REFERENCES", "0")
     assert make_game_tools(advertised, _noop_query).references_supported is False
 
 

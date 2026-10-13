@@ -7,15 +7,13 @@ import json
 from collections import Counter
 from functools import lru_cache
 
+from .serialization import canonical
+
 MAPS = frozenset({"properties", "patternProperties", "dependentSchemas", "$defs", "definitions"})
 ARRAYS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
 SINGLES = frozenset(
     {"items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties"}
 )
-
-
-def canonical(value):
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
 def children(schema):
@@ -171,46 +169,6 @@ def compact_tools(tools):
         function = tool.get("function", {})
         if isinstance(function.get("parameters"), dict):
             function["parameters"] = compact_schema(function["parameters"])
-    return result
-
-
-def deduplicate_descriptions(tools):
-    """Publish identical parameter explanations once; never alter validation."""
-    seen = set()
-
-    def walk(node, property_name=None, bindings=""):
-        if isinstance(node, list):
-            return [walk(value, property_name, bindings) for value in node]
-        if not isinstance(node, dict):
-            return node
-        result = copy.deepcopy(node)
-        description = node.get("description")
-        if property_name is not None and isinstance(description, str):
-            # Distinct actor/user fields cannot authorize each other's prose.
-            # The full schema node must also match: equal words with different
-            # types, enums, defaults, constraints or nested properties stay local.
-            encoded = canonical(node)
-            key = (property_name, encoded, bindings if '"$ref"' in encoded else "")
-            if key in seen:
-                result.pop("description", None)
-            else:
-                seen.add(key)
-        for field, value in node.items():
-            if field in MAPS and isinstance(value, dict):
-                result[field] = {k: walk(v, k if field == "properties" else property_name, bindings) for k, v in value.items()}
-            elif field in ARRAYS and isinstance(value, list):
-                result[field] = [walk(v, property_name, bindings) for v in value]
-            elif field in SINGLES:
-                result[field] = walk(value, property_name, bindings)
-        return result
-
-    result = copy.deepcopy(tools)
-    for tool in result:
-        function = tool.get("function", {})
-        if isinstance(function.get("parameters"), dict):
-            parameters = function["parameters"]
-            bindings = canonical({k: parameters[k] for k in ("$defs", "definitions", "$id") if k in parameters})
-            function["parameters"] = walk(parameters, bindings=bindings)
     return result
 
 

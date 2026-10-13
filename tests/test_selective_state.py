@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner
-from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, STATE_FACETS
+from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
+from plugin.plugins.neko_rimworld.agent.world.object_tools import STATE_FACETS, ObjectReader
 from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 from plugin.plugins.neko_rimworld.tests.test_native_on_demand import state_directory
 
@@ -50,8 +50,7 @@ def test_environment_retains_gas_positions_without_full_geometry_and_never_promo
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('native_selection', [True, False])
-async def test_selected_state_forwards_only_negotiated_facets_without_extra_read(monkeypatch, native_selection):
-    monkeypatch.setenv('NEKO_CONTEXT_PRUNING', '1')
+async def test_selected_state_forwards_only_negotiated_facets_without_extra_read(native_selection):
     native = NativeInteraction()
     directory = state_directory('world_observation.v2.3')
     if native_selection:
@@ -78,8 +77,7 @@ async def test_selected_state_forwards_only_negotiated_facets_without_extra_read
 
 
 @pytest.mark.asyncio
-async def test_matrix_preserves_full_three_by_three_capacity(monkeypatch):
-    monkeypatch.setenv('NEKO_CONTEXT_PRUNING','1')
+async def test_matrix_preserves_full_three_by_three_capacity():
     native = NativeInteraction()
     actors = [{'kind':'pawn','id':x,'map':'Map_0'} for x in ['a','b','c']]
     patient = {'kind':'pawn','id':'patient','map':'Map_0'}
@@ -92,10 +90,10 @@ async def test_matrix_preserves_full_three_by_three_capacity(monkeypatch):
     assert sum(row['kind']=='destination_state' for row in result['observations'])==9
 
 
-def test_model_schema_preserves_matrix_and_rejects_withdrawn_batch(monkeypatch):
+def test_model_schema_preserves_matrix_and_rejects_withdrawn_batch():
     import jsonschema
+
     from plugin.plugins.neko_rimworld.agent.context.context_tools import model_tools
-    monkeypatch.setenv('NEKO_CONTEXT_PRUNING','1')
     tool=make_activity_tool(NativeInteraction())
     schema=model_tools([tool.schema()])[0]['function']['parameters']
     assert schema['type']=='object'  # Provider function arguments require an object root.

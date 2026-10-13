@@ -6,6 +6,7 @@ import copy
 import re
 
 from ..context.model_context import MAX_SOURCE_CHARS, canonical, model_size
+from ..runtime.tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSIONS
 from .query_surface import SurfaceError
 from .semantic_surface import (
     ASPECTS,
@@ -17,7 +18,6 @@ from .semantic_surface import (
     validate_aspects,
     validate_detail,
 )
-from ..runtime.tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSIONS
 from .world_order import order_world_fields
 
 PHYSICAL = (*PAWN_KINDS, *THING_KINDS)

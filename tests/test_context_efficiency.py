@@ -1,15 +1,14 @@
 import copy
-import json
 
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
 from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.context.evidence_view import deduplicate_program_result, review_evidence
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 
 def test_named_schema_definitions_are_factored_without_changing_valid_calls():
     import jsonschema
-    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import compact_schema, canonical
+
+    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import canonical, compact_schema
     ref = {'type':'object','additionalProperties':False,'required':['id'],
            'properties':{'id':{'type':'string','minLength':1,'maxLength':256},'map':{'type':'string','minLength':1,'maxLength':256}}}
     activity = {'type':'object','required':['actor','target'],'additionalProperties':False,
@@ -133,38 +132,6 @@ def test_named_values_preserve_nulls_duplicate_definitions_and_coordinates():
     assert row["facts"]["health"]["capacities"] == raw["data"]["facts"][0]["facts"]["health"]["capacities"]
 
 
-def test_description_dedup_preserves_parameters_and_distinct_roles_reference_scopes():
-    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import deduplicate_descriptions
-
-    selector = {"type": "integer", "minimum": 1, "description": "Choose the requested limit."}
-    tools = [{"function": {"name": name, "description": "Tool purpose stays local", "parameters": {
-        "type": "object", "properties": {
-            "limit": copy.deepcopy(selector),
-            "actor": {"type": "string", "description": "The bound person."},
-            "user": {"type": "string", "description": "The bound person."},
-            "ref": {"$ref": "#/$defs/selector", "description": "Bound selector."},
-        }, "$defs": {"selector": {"type": kind}}, "required": ["limit"], "additionalProperties": False,
-    }}} for name, kind in (("first", "string"), ("second", "integer"))]
-    saved = copy.deepcopy(tools)
-    out = deduplicate_descriptions(tools)
-    assert tools == saved
-    first, second = [tool["function"]["parameters"]["properties"] for tool in out]
-    assert first["limit"]["description"] == selector["description"] and "description" not in second["limit"]
-    assert first["actor"]["description"] == first["user"]["description"] == "The bound person."
-    assert "description" not in second["actor"] and "description" not in second["user"]
-    assert first["ref"]["description"] == second["ref"]["description"] == "Bound selector."
-
-    def validation(value):
-        if isinstance(value, list):
-            return [validation(item) for item in value]
-        if isinstance(value, dict):
-            return {k: validation(v) for k, v in value.items() if k != "description"}
-        return value
-
-    assert validation(out) == validation(saved)
-    assert all(tool["function"]["description"] == "Tool purpose stays local" for tool in out)
-
-
 def test_advisory_does_not_invalidate_existing_conversation_prefix():
     session = AgentRunSession.create(ledger=AgentAuditLedger("q"), system_prompt="stable policy", question="q")
     session.append_assistant(
@@ -179,60 +146,3 @@ def test_advisory_does_not_invalidate_existing_conversation_prefix():
     assert first[:-1] == second[:-1] == saved
     assert first[-1] == {"role": "system", "content": "cycle=1"}
     assert session.messages == saved
-
-
-def test_dedup_keeps_source_scope_and_derived_labels_without_mutation():
-    value = {"ok": True, "data": {"n": 0, "scope": "partial", "sample": 4}}
-    original = {
-        "full_results": [{"index": 0, "value": value}],
-        "derived_output": [{"chosen": value, "computed": 5}],
-        "printed": "unaltered",
-    }
-    saved = copy.deepcopy(original)
-    reduced = deduplicate_program_result(original)
-    assert reduced["derived_output"] == [{"chosen": {"same_as_full_result_index": 0}, "computed": 5}]
-    assert reduced["full_results"] == original["full_results"]
-    assert original == saved
-    assert deduplicate_program_result({"derived_output": [value]}) == {"derived_output": [value]}
-
-
-def test_review_gets_visible_failures_and_derivations_not_private_reasoning():
-    messages = [
-        {
-            "role": "assistant",
-            "reasoning_content": "PRIVATE",
-            "tool_calls": [
-                {"id": "r", "function": {"name": "look", "arguments": "{}"}},
-                {"id": "s", "function": {"name": "submit_response", "arguments": "{}"}},
-            ],
-        },
-        {"role": "tool", "tool_call_id": "r", "content": '{"ok":false,"error":{"code":"unavailable"}}'},
-        {"role": "tool", "tool_call_id": "s", "content": '{"full_text":"not evidence"}'},
-    ]
-    view = review_evidence(messages)
-    assert len(view) == 1 and view[0]["result"]["ok"] is False
-    assert "PRIVATE" not in json.dumps(view)
-
-
-def test_review_recovered_record_retains_original_route_binding():
-    value = {"ok": True, "data": {"route": {"cost": 7}}}
-    args = {"actor": {"name": "A"}, "start": {"name": "B"}, "to": {"name": "C"}}
-    messages = []
-    for i, data in enumerate(
-        [
-            {"reads": [{"index": 0, "tool": "inspect_route", "arguments": args}], "full_results": []},
-            {"reads": [], "full_results": [{"index": 0, "value": value}], "execution_error": None},
-        ]
-    ):
-        messages += [
-            {
-                "role": "assistant",
-                "tool_calls": [{"id": str(i), "function": {"name": "execute_python", "arguments": "{}"}}],
-            },
-            {"role": "tool", "tool_call_id": str(i), "content": json.dumps({"data": data})},
-        ]
-    result = review_evidence(messages)
-    restored = next(r for r in result if "native_result_index" in r)
-    assert restored["call"] == {"name": "inspect_route", "arguments": args}
-    assert restored["result"] == value
-    assert result[-1]["result"]["data"]["execution_error"] is None

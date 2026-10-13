@@ -4,8 +4,8 @@ import json
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner, prune
-from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.context.model_context import make_pruner
+from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSpec
 
 
@@ -63,10 +63,9 @@ def test_work_summary_with_independent_information_stays_visible(change):
 
 
 @pytest.mark.asyncio
-async def test_threat_projection_keeps_payload_scope_and_audit_without_extra_reads(monkeypatch):
+async def test_threat_projection_keeps_payload_scope_and_audit_without_extra_reads():
     from plugin.plugins.neko_rimworld.game.observation import Observation
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     raw = {"observation_id": "threat-read", "received_at": "2026-10-05T00:00:00Z",
            "request": {"operation": "inspect_threats", "arguments": {"subjects": [{"id": "Doctor"}]}},
            "response": {"v": 2, "type": "query_result", "request_id": "wire-only", "seq": 1,
@@ -94,7 +93,6 @@ async def test_threat_projection_keeps_payload_scope_and_audit_without_extra_rea
     assert visible["sample"] == {k: raw["response"][k] for k in (
         "colony_id", "load_epoch", "connection_epoch", "game_tick", "snapshot_sequence")}
     assert "response" not in visible and "request_id" not in visible
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "0")
     registry = ToolRegistry()
     registry.register(ToolSpec("inspect_threats", "Threat facts", {}, read))
     unchanged = await registry.execute(registry.prepare(ToolCall("two", "inspect_threats", "{}")))
@@ -248,12 +246,11 @@ def test_sample_aliases_and_known_format_prose_only_are_removed():
     assert prune(raw)[0]["data"]["consistency"] == raw["data"]["consistency"]
 
 
-def test_pruned_work_input_retains_zero_priority_rule_in_its_model_policy(monkeypatch):
+def test_pruned_work_input_retains_zero_priority_rule_in_its_model_policy():
     from plugin.plugins.neko_rimworld.agent.context.context_tools import task_prompt
     from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
     from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     session = AgentRunSession.create(ledger=AgentAuditLedger("q"),
         system_prompt=task_prompt(4, references_supported=False), question="Compare Doctor work priorities.")
     value = work_reading()
@@ -359,8 +356,7 @@ def test_failed_activity_result_remains_an_error_without_cycles():
 
 
 @pytest.mark.asyncio
-async def test_actual_registry_passes_inclusion_arguments_and_keeps_raw_result(monkeypatch):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+async def test_actual_registry_passes_inclusion_arguments_and_keeps_raw_result():
     registry = ToolRegistry(context_pruner=make_pruner())
 
     async def read(args):
@@ -375,11 +371,10 @@ async def test_actual_registry_passes_inclusion_arguments_and_keeps_raw_result(m
 
 
 @pytest.mark.asyncio
-async def test_activity_default_reads_only_requested_paths_and_optional_reads_stay_one_call(monkeypatch):
+async def test_activity_default_reads_only_requested_paths_and_optional_reads_stay_one_call():
     from plugin.plugins.neko_rimworld.agent.world.activity import SemanticActivityDataSource, evaluate_activity
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     arguments = {
         "kind": "transfer",
         "actors": [{"kind": "pawn", "id": x, "map": "Map_0"} for x in ("a", "b", "c")],
@@ -413,8 +408,7 @@ async def test_activity_default_reads_only_requested_paths_and_optional_reads_st
 
 
 
-def test_selector_nesting_repair_preserves_explicit_values_and_rejects_conflicts(monkeypatch):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+def test_selector_nesting_repair_preserves_explicit_values_and_rejects_conflicts():
     registry = ToolRegistry()
     registry.register(
         ToolSpec("count", "count", {"properties": {"object": {}, "metric": {}}, "additionalProperties": False}, None)
@@ -438,11 +432,10 @@ def test_script_outputs_are_not_reinterpreted_as_native_metadata():
 
 
 @pytest.mark.asyncio
-async def test_state_no_longer_smuggles_all_pawn_facts_and_selected_health_still_arrives(monkeypatch):
+async def test_state_no_longer_smuggles_all_pawn_facts_and_selected_health_still_arrives():
     from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     native = NativeInteraction()
     result = await ObjectReader(native).look({"object": {"kind": "pawn", "id": "a"}, "aspects": ["state", "health"]})
     facts = result["facts"][0]["facts"]
@@ -452,12 +445,10 @@ async def test_state_no_longer_smuggles_all_pawn_facts_and_selected_health_still
     assert len(native.calls) == 1
 
 
-@pytest.mark.parametrize("pruning", ["1"])
-def test_length_only_repair_does_not_replay_world_or_detail_and_never_hides_claim_errors(monkeypatch, pruning):
+def test_length_only_repair_does_not_replay_world_or_detail_and_never_hides_claim_errors():
     from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
     from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", pruning)
     session = AgentRunSession.create(ledger=AgentAuditLedger("question"), system_prompt="policy", question="question")
     session.messages.append({"role": "tool", "content": "LARGE WORLD DATA"})
     session.submission.answer = [{"text": "A conditional answer; B remains unknown."}]
@@ -473,12 +464,10 @@ def test_length_only_repair_does_not_replay_world_or_detail_and_never_hides_clai
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("pruning", ["1"])
-async def test_runtime_length_repair_uses_one_small_request_and_preserves_full_report(monkeypatch, pruning):
+async def test_runtime_length_repair_uses_one_small_request_and_preserves_full_report():
     from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime
     from plugin.plugins.neko_rimworld.tests.test_agent import FakeLogger, settings, turn
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", pruning)
     full = "SAVED DETAIL " * 400
     long_answer = "This is a conditional conclusion with uncertainty. " * 40
 
@@ -510,11 +499,10 @@ async def test_runtime_length_repair_uses_one_small_request_and_preserves_full_r
 
 
 @pytest.mark.asyncio
-async def test_redundant_move_leg_and_explicit_recipient_do_not_need_repair_calls(monkeypatch):
+async def test_redundant_move_leg_and_explicit_recipient_do_not_need_repair_calls():
     from plugin.plugins.neko_rimworld.agent.world.activity import SemanticActivityDataSource, evaluate_activity
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     native = NativeInteraction()
     result = await evaluate_activity(
         {
@@ -533,11 +521,10 @@ async def test_redundant_move_leg_and_explicit_recipient_do_not_need_repair_call
 
 
 @pytest.mark.asyncio
-async def test_contextual_state_matrix_does_not_read_unrequested_paths_or_actor_profiles(monkeypatch):
+async def test_contextual_state_matrix_does_not_read_unrequested_paths_or_actor_profiles():
     from plugin.plugins.neko_rimworld.agent.world.activity import SemanticActivityDataSource, evaluate_activity
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     native = NativeInteraction()
     result = await evaluate_activity(
         {
@@ -564,11 +551,10 @@ def test_legacy_contract_does_not_advertise_unavailable_native_state_or_activity
 
 
 @pytest.mark.asyncio
-async def test_named_focus_includes_its_aspect_in_the_same_native_read(monkeypatch):
+async def test_named_focus_includes_its_aspect_in_the_same_native_read():
     from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     native = NativeInteraction()
     result = await ObjectReader(native).look(
         {"object": {"kind": "pawn", "id": "a"}, "aspects": ["health"], "focus": {"skills": ["Medicine"]}}

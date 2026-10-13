@@ -8,9 +8,9 @@ from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     HandoffValidationError,
     attach_agent_handoff,
     count_handoff_tokens,
+    rendered_authored_text,
     validate_agent_text,
     validate_submission,
-    rendered_authored_text,
 )
 
 
@@ -179,8 +179,8 @@ async def test_text_tool_declares_only_text_parts_and_rejects_references():
 async def test_text_mode_bad_parts_use_current_contract_in_real_registry(extra):
     import json
 
-    from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
     from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, make_submission_tool
+    from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
     from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 
     registry = ToolRegistry()

@@ -23,8 +23,7 @@ from plugin.plugins.neko_rimworld.agent import (
 )
 from plugin.plugins.neko_rimworld.agent.model import model_requests
 from plugin.plugins.neko_rimworld.agent.runtime.audit import MAX_EVENTS_PER_RUN
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolSpec
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSpec
 from plugin.plugins.neko_rimworld.game.observation import Observation
 
 

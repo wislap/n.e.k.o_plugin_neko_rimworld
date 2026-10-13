@@ -7,14 +7,14 @@ from types import SimpleNamespace
 import jsonschema
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.context.context_tools import configure_read_spec, model_tools
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner
+from plugin.plugins.neko_rimworld.agent.context.context_tools import configure_read_spec, model_tools
 from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import SurfaceError
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
-from plugin.plugins.neko_rimworld.tests.test_native_on_demand import route_recorder
 from plugin.plugins.neko_rimworld.tests.test_context_pruning import route
+from plugin.plugins.neko_rimworld.tests.test_native_on_demand import route_recorder
 
 
 @pytest.mark.parametrize('name,allowed', [
@@ -35,8 +35,7 @@ def test_published_include_rejects_diagnostics_and_preserves_real_selection(name
 
 
 @pytest.mark.asyncio
-async def test_native_look_rejects_dump_before_any_read(monkeypatch):
-    monkeypatch.setenv('NEKO_CONTEXT_PRUNING', '1')
+async def test_native_look_rejects_dump_before_any_read():
     native = NativeInteraction()
     with pytest.raises(SurfaceError, match='include accepts body_parts'):
         await ObjectReader(native).look({'object': {'kind': 'pawn', 'id': 'a'},
@@ -62,8 +61,7 @@ async def test_legacy_look_rejects_dump_before_any_read():
 @pytest.mark.asyncio
 @pytest.mark.parametrize('operation', ['inspect_route', 'survey_space'])
 @pytest.mark.parametrize('version', ['world_observation.v2.2', 'world_observation.v2.3'])
-async def test_spatial_dump_rejected_before_supported_native_dispatch(monkeypatch, operation, version):
-    monkeypatch.setenv('NEKO_CONTEXT_PRUNING', '1')
+async def test_spatial_dump_rejected_before_supported_native_dispatch(operation, version):
     native, calls = route_recorder(version)
     with pytest.raises(SurfaceError, match='spatial include accepts'):
         await SemanticInteraction._world_read(native, {'include': ['diagnostics']}, operation)

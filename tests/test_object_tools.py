@@ -2,9 +2,7 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
-from plugin.plugins.neko_rimworld.agent.world.object_tools import summarize_work_assignments
-from plugin.plugins.neko_rimworld.agent.world.object_tools import WorkReadings
+from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, WorkReadings, summarize_work_assignments
 from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import route_object
 

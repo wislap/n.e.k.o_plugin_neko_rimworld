@@ -11,9 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from plugin.plugins.neko_rimworld.agent.runtime.tools import WORLD_OBSERVATION_VERSIONS
 from plugin.plugins.neko_rimworld.agent.world.object_tools import state_contract
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
-from plugin.plugins.neko_rimworld.agent.runtime.tools import WORLD_OBSERVATION_VERSIONS
 
 
 def route_recorder(version):
@@ -41,8 +41,7 @@ ROUTE = {"actor": {"kind": "pawn", "id": "Pawn_1"}, "to": {"kind": "thing", "id"
 
 
 @pytest.mark.asyncio
-async def test_v23_route_without_include_requests_no_native_objects(monkeypatch):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+async def test_v23_route_without_include_requests_no_native_objects():
     stub, calls = route_recorder("world_observation.v2.3")
     await SemanticInteraction._world_read(stub, {**ROUTE, "include": ["environment"]}, "inspect_route")
     tool_name, args = calls[0]
@@ -61,16 +60,14 @@ async def test_v23_route_without_include_requests_no_native_objects(monkeypatch)
         {"cursor": "page:2"},
     ],
 )
-async def test_v23_route_keeps_native_objects_when_the_view_keeps_them(monkeypatch, requested):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+async def test_v23_route_keeps_native_objects_when_the_view_keeps_them(requested):
     stub, calls = route_recorder("world_observation.v2.3")
     await SemanticInteraction._world_read(stub, {**ROUTE, **requested}, "inspect_route")
     assert calls[0][1]["objects"] is True
 
 
 @pytest.mark.asyncio
-async def test_v23_survey_explicit_environment_selection_avoids_incidental_objects(monkeypatch):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+async def test_v23_survey_explicit_environment_selection_avoids_incidental_objects():
     stub, calls = route_recorder("world_observation.v2.3")
     await SemanticInteraction._world_read(
         stub, {"region": {"map": "current"}, "include": ["environment"]}, "survey_space"
@@ -80,8 +77,7 @@ async def test_v23_survey_explicit_environment_selection_avoids_incidental_objec
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("version", ["world_observation.v2.2", "world_observation.v2.3"])
-async def test_survey_default_and_older_dispatch_remain_compatible(monkeypatch, version):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+async def test_survey_default_and_older_dispatch_remain_compatible(version):
     stub, calls = route_recorder(version)
     await SemanticInteraction._world_read(stub, {"region": {"map": "current"}}, "survey_space")
     assert calls[0][1] == {"region": {"map": "current"}}
@@ -92,16 +88,14 @@ async def test_survey_default_and_older_dispatch_remain_compatible(monkeypatch, 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("extra", [{"objects": True}, {"include": ["objects"]}, {"cursor": "next-page"}])
-async def test_survey_object_opt_in_and_paging_remain_available(monkeypatch, extra):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+async def test_survey_object_opt_in_and_paging_remain_available(extra):
     stub, calls = route_recorder("world_observation.v2.3")
     await SemanticInteraction._world_read(stub, {"region": {"map": "current"}, "include": ["environment"], **extra}, "survey_space")
     assert calls[0][1]["objects"] is True
 
 
 @pytest.mark.asyncio
-async def test_v22_dispatch_control_stays_identical_with_objects_on_and_off(monkeypatch):
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
+async def test_v22_dispatch_control_stays_identical_with_objects_on_and_off():
     stub, calls = route_recorder("world_observation.v2.2")
     for objects in (False, True):
         await SemanticInteraction._world_read(
@@ -154,11 +148,10 @@ def test_unknown_contract_versions_are_refused():
 
 
 @pytest.mark.asyncio
-async def test_activity_objects_selection_reaches_the_route_request(monkeypatch):
+async def test_activity_objects_selection_reaches_the_route_request():
     from plugin.plugins.neko_rimworld.agent.world.activity import SemanticActivityDataSource, evaluate_activity
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
-    monkeypatch.setenv("NEKO_CONTEXT_PRUNING", "1")
     arguments = {
         "kind": "transfer",
         "actors": [{"kind": "pawn", "id": "a", "map": "Map_0"}],
