@@ -7,7 +7,7 @@ import re
 
 from ..context.model_context import MAX_SOURCE_CHARS, model_size
 from ...serialization import canonical
-from ...tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSIONS
+from ...tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSION
 from .query_surface import SurfaceError
 from .semantic_surface import (
     ASPECTS,
@@ -190,25 +190,28 @@ def _belongs(key, fields):
 
 
 def state_contract(directory):
-    world = directory.get("world_observation", {})
-    if world.get("version") not in WORLD_OBSERVATION_VERSIONS:
+    if not isinstance(directory, dict):
         return None
-    for tool in world.get("tools", []):
-        if tool.get("name") == "inspect_state":
-            properties = tool.get("parameters", {}).get("properties", {})
-            required = {
-                "targets",
-                "stats",
-                "actor",
-                "user",
-                "sections",
-                "include_fogged",
-                "detail_limit",
-                "exact_lookup",
-            }
-            sections = properties.get("sections", {}).get("items", {}).get("enum", [])
-            if required <= properties.keys() and {"identity", *STATE_ASPECTS} <= set(sections):
-                return tool
+    world = directory.get("world_observation")
+    if not isinstance(world, dict) or world.get("version") != WORLD_OBSERVATION_VERSION:
+        return None
+    tools = world.get("tools")
+    if not isinstance(tools, list):
+        return None
+    required = {"targets", "stats", "actor", "user", "sections", "include_fogged", "detail_limit", "exact_lookup"}
+    for tool in tools:
+        if not isinstance(tool, dict) or tool.get("name") != "inspect_state" or tool.get("operation") != "inspect_state":
+            continue
+        parameters = tool.get("parameters")
+        if not isinstance(parameters, dict) or parameters.get("type") != "object":
+            continue
+        properties = parameters.get("properties")
+        if not isinstance(properties, dict) or not required <= properties.keys() or any(not isinstance(properties[key], dict) for key in required):
+            continue
+        section_spec = properties["sections"].get("items")
+        sections = section_spec.get("enum") if isinstance(section_spec, dict) else None
+        if isinstance(sections, list) and all(isinstance(section, str) for section in sections) and {"identity", *STATE_ASPECTS} <= set(sections):
+            return tool
     return None
 
 

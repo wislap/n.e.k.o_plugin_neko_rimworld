@@ -588,16 +588,20 @@ async def test_transient_retries_are_bounded_and_usage_is_accumulated(monkeypatc
 
 @pytest.mark.asyncio
 async def test_wall_time_fuse_returns_collected_evidence_instead_of_a_hard_failure() -> None:
+    observed=asyncio.Event()
+
     class SlowToolModel:
         calls = 0
 
         async def complete(self, messages, tools, *, timeout: float) -> AssistantTurn:
             self.calls += 1
             if self.calls > 1:
-                await asyncio.sleep(0.2)
+                assert observed.is_set(), "Deadline must fire after the first evidence read"
+                await asyncio.Event().wait()
             return turn("", ToolCall("call-slow", "query_game", "{}"))
 
     async def digest(_args: dict[str, Any]) -> dict[str, Any]:
+        observed.set()
         return digest_view()
 
     runtime = AgentRuntime(
@@ -609,13 +613,15 @@ async def test_wall_time_fuse_returns_collected_evidence_instead_of_a_hard_failu
     tiny_budget = AgentModelSettings(
         base_url="http://127.0.0.1:11434/v1",
         model="test-model",
-        request_timeout_seconds=1,
-        run_budget_seconds=0.05,
+        request_timeout_seconds=5,
+        run_budget_seconds=2,
     )
 
     result = await runtime.run("Inspect the colony.", tiny_budget)
 
     assert result["status"] == "degraded"
+    assert observed.is_set() and result["audit"]["model_calls"] >= 2
+    assert result["audit"]["error_code"] == "agent_run_budget"
     assert result["answer"] == "The internal RimWorld agent could not complete a normal answer."
     assert result["observations"][0]["response"]["snapshot_sequence"] == 1
     assert result["audit"]["error_code"] == "agent_run_budget"

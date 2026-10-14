@@ -64,10 +64,10 @@ def test_parenthetical_identity_keeps_its_subject_across_annotation_comma():
     assert check_claims("Alice（ID PawnA，备注），Bob是殖民者。", observations=mixed())
 
 
-def test_completed_old_state_reply_can_attest_its_executed_fog_parameter():
+def test_scope_less_state_reply_never_attests_request_fog_parameter():
     reading = completed_state()
     original = copy.deepcopy(reading)
-    assert check_claims("本次炉灶查询包含迷雾。", observations=[reading]) == []
+    assert any(item["code"] == "fog_inclusive_claim" for item in check_claims("本次炉灶查询包含迷雾。", observations=[reading]))
     assert reading == original
 
 

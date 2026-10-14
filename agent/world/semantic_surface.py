@@ -449,62 +449,6 @@ def tool_schemas(directory=None):
     return specs
 
 
-def spatial_tool_schema(directory=None):
-    capability = directory.get("spatial_query") if isinstance(directory, dict) else None
-    parameters = copy.deepcopy(capability.get("parameters")) if isinstance(capability, dict) else None
-    if not isinstance(parameters, dict):
-        parameters = {
-            "type": "object",
-            "properties": {
-                "from": _space_ref_schema(("pawn",)),
-                "to": _space_ref_schema(("thing", "pawn", "cell")),
-            },
-            "required": ["from", "to"],
-            "additionalProperties": False,
-        }
-    # Pawn targets use the same native Thing lookup; expose the natural alias
-    # in the model schema without modifying the Mod-owned wire contract.
-    target = parameters.get("properties", {}).get("to", {})
-    target_kinds = target.get("properties", {}).get("kind", {}).get("enum")
-    if isinstance(target_kinds, list) and "thing" in target_kinds and "pawn" not in target_kinds:
-        target_kinds.append("pawn")
-    for form in target.get("oneOf", []):
-        kind_schema = form.get("properties", {}).get("kind", {})
-        if kind_schema.get("const") == "thing":
-            kind_schema.pop("const")
-            kind_schema["enum"] = ["thing", "pawn"]
-    route_supported = isinstance(capability, dict) and capability.get("route_summary") == "native_path_summary.v1"
-    description = (
-        "Check reachability from the specified Pawn current position to a Thing or cell. "
-        "Use names or IDs directly; do not call look first just to resolve them. "
-        "Ambiguous names return candidates. No work eligibility, reservation, "
-        "blocking-cause diagnosis or future-action guarantee. "
-    )
-    world_tools = (directory or {}).get("world_observation", {}).get("tools", [])
-    if any(t.get("name") == "inspect_route" for t in world_tools):
-        description += "For a different origin or subsequent journey leg use inspect_route(actor=traveller, start=origin, to=destination); from here cannot override origin. "
-    if route_supported:
-        target = parameters["properties"]["to"]
-        parameters["properties"]["to"] = {
-            "oneOf": [target, {"type": "array", "items": copy.deepcopy(target), "minItems": 1, "maxItems": 8}],
-            "description": "One target, or up to eight targets for the same actor. Use a list for comparisons.",
-        }
-        parameters["properties"]["order_by"] = {
-            "type": "string",
-            "enum": ["path_length", "steps", "native_cost"],
-            "description": "For a target list, request routes and program-sort ascending by this metric. Equal values share rank. Unknown routes remain unranked. Do not manually reorder the returned ranks.",
-        }
-        description += "For comparisons use a target list with order_by; the program calculates ranks and ties. "
-        description += (
-            'Use detail="route" to also get a native path summary in this call; '
-            "do not call reachability first. Default summary computes no path. "
-            "Steps, length summed along the returned path and native weighted cost are different; "
-            "none is ETA, and the returned path is not guaranteed shortest."
-        )
-    else:
-        description += "This connection provides reachability only; no route or distance tool is available."
-    return dict(name="inspect_space", description=description, parameters=parameters)
-
 
 # --- 校验 ---------------------------------------------------------------------
 

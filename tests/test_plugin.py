@@ -280,7 +280,7 @@ async def test_probe_without_listener_returns_typed_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_hosted_probe_uses_colony_object_overview_section() -> None:
+async def test_hosted_probe_batches_current_public_game_and_map_facts() -> None:
     calls = []
     observed = query_response(data={"o0": {"game": {"paused": True}, "maps": []}})
 
@@ -293,7 +293,10 @@ async def test_hosted_probe_uses_colony_object_overview_section() -> None:
     plugin._bridge = Bridge()
     result = await plugin.probe_game_overview()
 
-    assert calls == [("template_query", {"requests": [{"target": {"type": "colony"}, "sections": ["overview"]}]}, 2.5)]
+    assert calls == [("query", {"requests": [
+        {"from": "game", "select": ["paused", "current_map_id"]},
+        {"from": "maps", "select": ["id", "name", "is_current", "is_player_home", "colonist_count", "has_visible_threat"]},
+    ]}, 2.5)]
     assert result.value["response"] == observed.to_dict()
     assert result.value["status"] == "ok"
 

@@ -16,13 +16,6 @@ NAMES = ("survey_space", "inspect_route", "inspect_state")
 
 def catalog():
     source = public_source()
-    source["world_observation"] = {
-        "version": "world_observation.v2.2",
-        "tools": [
-            {"name": name, "operation": name, "description": "Read current state", "parameters": {"type": "object", "properties": {}}}
-            for name in NAMES
-        ],
-    }
     return source
 
 
@@ -68,9 +61,10 @@ def test_capability_registration_dispatch_and_raw_evidence():
     session = Session()
     adapter = semantic_interaction_factory(make_game_tools(source, backend), session, _update)
     specs = {t.name: t for t in adapter.tools()}
-    assert set(NAMES) <= set(specs)
+    assert {"survey_space", "evaluate_activity"} <= set(specs)
+    assert not {"inspect_state", "inspect_route"} & set(specs)
     for name in NAMES:
-        result = asyncio.run(specs[name].handler({"targets": [{"id": "x"}], **({"include": ["environment", "objects", "geometry"]} if name != "inspect_state" else {})}))
+        result = asyncio.run(adapter._world_read({"targets": [{"id": "x"}], **({"include": ["environment", "objects", "geometry"]} if name != "inspect_state" else {})}, name))
         assert result["coverage"]["complete"] is False
         facets = result["objects"][0]["facets"]
         assert list(facets)[:2] == ["pawn", "stats"]
@@ -80,7 +74,7 @@ def test_capability_registration_dispatch_and_raw_evidence():
         assert len(raw["pawn"]["conditions"]) == 1
     assert [r["operation"] for r in requests] == list(NAMES)
     assert len(session.observations) == 3 and source == before
-    assert "inspect_route" in adapter.prompt(4)
+    assert "evaluate_activity" in adapter.prompt(4)
     adapter.finalizing = True
     assert [t.name for t in adapter.tools()] == ["submit_response"]
 

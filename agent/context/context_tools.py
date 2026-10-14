@@ -26,23 +26,8 @@ QUERY_GUIDE = (
 )
 
 
-def query_guide(*, native_state, activity):
-    if native_state and activity:
-        return QUERY_GUIDE
-    text = (
-        "Read only facts needed for this question. Specify the listed look.aspects. "
-        "focus requests named skills/work/capacities and their aspects in that same call. "
-        "Use names directly; stable IDs go in id/ids. count records counts objects; units sums stack counts. "
-        "Containment does not establish ownership or usability. Preserve scope, unknowns and each requested comparison. "
-    )
-    if native_state:
-        text += (
-            "state means physical/device state, excluding Pawn health/skills/work/gear. Request those aspects explicitly. "
-            "actor performs interaction/travel; user is the recipient. Use only spatial tools actually listed."
-        )
-    else:
-        text += "This connection has legacy object aspects, not native state/stats or activity queries. Do not request unlisted options."
-    return text
+def query_guide():
+    return QUERY_GUIDE
 
 
 def task_prompt(preferred_cycles, *, finalizing=False):
@@ -91,16 +76,15 @@ def configure_read_spec(tool):
         "description": "Optional content in this same call. look: full body_parts. Routes: request environment for hazards/safety, objects for inventories, geometry for full segments. Path metrics and doors remain; unrequested environment is not evidence of safety.",
     }
     if name == "look":
-        if "state" in props.get("aspects", {}).get("items", {}).get("enum", []):
-            tool["description"] = (
-                "Read selected object facts in one call. state returns physical/device facets (condition, beds, reservations, doors, production); "
-                "it does not include Pawn health/skills/work/gear. Request those aspects explicitly when needed. "
-                "actor performs interaction; user is the recipient. stats requests exact game StatDefs. "
-                "Use names directly or stable IDs in id/ids. Scope and unavailable fields are explicit."
-            )
-            props["aspects"]["description"] = (
-                "Select relevant aspects. state is physical/device state, excluding Pawn health/skills/work/gear. These require their own aspects in the same call."
-            )
+        tool["description"] = (
+            "Read selected object facts in one call. state returns physical/device facets (condition, beds, reservations, doors, production); "
+            "it does not include Pawn health/skills/work/gear. Request those aspects explicitly when needed. "
+            "actor performs interaction; user is the recipient. stats requests exact game StatDefs. "
+            "Use names directly or stable IDs in id/ids. Scope and unavailable fields are explicit."
+        )
+        props["aspects"]["description"] = (
+            "Select relevant aspects. state is physical/device state, excluding Pawn health/skills/work/gear. These require their own aspects in the same call."
+        )
         tool["parameters"]["required"] = list(dict.fromkeys([*tool["parameters"].get("required", []), "aspects"]))
         props["focus"] = {
             "type": "object",
@@ -111,8 +95,7 @@ def configure_read_spec(tool):
             },
             "description": "Select exact skills/work/capacities or physical state facets. Their aspects are included in this call; omitted keys keep full lists. Unmatched/unsupported is not zero. focus.state=[bed,reservations] avoids unrelated state.",
         }
-        if "state" in props.get("aspects", {}).get("items", {}).get("enum", []):
-            props["focus"]["properties"]["state"] = {"type": "array", "minItems": 1, "maxItems": len(STATE_FACETS), "uniqueItems": True, "items": {"enum": list(STATE_FACETS)}}
+        props["focus"]["properties"]["state"] = {"type": "array", "minItems": 1, "maxItems": len(STATE_FACETS), "uniqueItems": True, "items": {"enum": list(STATE_FACETS)}}
     elif name == "inspect_route":
         props["include_objects"] = {
             "type": "boolean",
@@ -149,9 +132,8 @@ def model_tools(tools):
             # the applicability once; ObjectReader/Surface still reject invalid
             # combinations before issuing a native query.
             groups = {}
-            native_state = "state" in props["aspects"].get("items", {}).get("enum", [])
             for kind in KINDS:
-                aspects = tuple(supported_aspects(kind)) + (("state",) if native_state and kind in PHYSICAL else ())
+                aspects = tuple(supported_aspects(kind)) + (("state",) if kind in PHYSICAL else ())
                 groups.setdefault(aspects, []).append(kind)
             rules = "; ".join("/".join(kinds) + ": " + ",".join(aspects) for aspects, kinds in groups.items())
             schema.pop("allOf", None)
@@ -162,8 +144,6 @@ def model_tools(tools):
                     "; cell: identity,state. Omitted: state for physical objects/cells, identity otherwise. "
                     "state is physical/device state, excluding Pawn health/skills/gear/work. Request those aspects explicitly. Do not combine state aspects with distribution. "
                     "actor/user requires a state aspect. stats/context require physical objects; cells accept no stats."
-                    if native_state
-                    else ""
                 )
             )
         elif name == "count" and "metric" in props:

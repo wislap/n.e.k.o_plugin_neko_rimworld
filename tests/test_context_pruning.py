@@ -544,14 +544,6 @@ async def test_contextual_state_matrix_does_not_read_unrequested_paths_or_actor_
     assert all(args["user"]["id"] == "patient" for _, args in native.calls)
 
 
-def test_legacy_contract_does_not_advertise_unavailable_native_state_or_activity():
-    from plugin.plugins.neko_rimworld.agent.context.context_tools import configure_read_spec, query_guide
-    from plugin.plugins.neko_rimworld.agent.world.semantic_surface import tool_schemas
-
-    spec = configure_read_spec(tool_schemas()[0])
-    assert "state" not in spec["parameters"]["properties"]["aspects"]["items"]["enum"]
-    assert "state returns" not in spec["description"]
-    assert "evaluate_activity" not in query_guide(native_state=False, activity=False)
 
 
 @pytest.mark.asyncio

@@ -671,7 +671,6 @@ def prune(value, arguments=None, *, seen_notes=None):
         "look",
         "count",
         "inspect_route",
-        "inspect_space",
         "inspect_state",
         "survey_space",
         "evaluate_activity",
@@ -873,7 +872,7 @@ def prune(value, arguments=None, *, seen_notes=None):
         return out
 
     projected = walk(value)
-    if tool in {"look", "count", "inspect_route", "inspect_state", "inspect_space", "survey_space", "evaluate_activity"}:
+    if tool in {"look", "count", "inspect_route", "inspect_state", "survey_space", "evaluate_activity"}:
         projected = _record_view(projected, arguments, removed)
     return projected, seen, removed
 

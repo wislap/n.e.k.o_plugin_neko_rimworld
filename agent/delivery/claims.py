@@ -442,52 +442,6 @@ def _population_signature(node: Mapping[str, Any], total: int | None) -> str | N
         return None
 
 
-def _completed_legacy_state_scope(observation: Mapping[str, Any]) -> dict[str, bool]:
-    """Compatibility for old native inspect_state replies without scope metadata.
-
-    Only a fully completed, identity-matched native reply can attest that its
-    paired parameters were executed. New response.scope is authoritative, even
-    when it contradicts the request. An attempted/partial/empty read licenses
-    nothing through this compatibility path.
-    """
-    request = observation.get("request")
-    response = observation.get("response")
-    if (
-        not isinstance(request, Mapping)
-        or request.get("operation") != "inspect_state"
-        or not isinstance(response, Mapping)
-    ):
-        return {}
-    payload = response.get("payload")
-    if not isinstance(payload, Mapping) or payload.get("status") != "ok":
-        return {}
-    data = payload.get("data")
-    args = request.get("arguments")
-    if not isinstance(data, Mapping) or data.get("status") != "ok" or not isinstance(args, Mapping):
-        return {}
-    if isinstance(data.get("scope"), Mapping):
-        return {}
-    rows, targets = data.get("objects"), args.get("targets")
-    if not isinstance(rows, list) or not rows or not isinstance(targets, list) or len(rows) != len(targets):
-        return {}
-    for row, target in zip(rows, targets):
-        if not isinstance(row, Mapping) or not isinstance(target, Mapping):
-            return {}
-        identity, facets, coverage = row.get("target"), row.get("facets"), row.get("coverage")
-        if (
-            not isinstance(identity, Mapping)
-            or not isinstance(identity.get("id"), str)
-            or not isinstance(facets, Mapping)
-            or not facets
-            or not isinstance(coverage, Mapping)
-            or coverage.get("registered_facets_read_successfully") is not True
-            or row.get("status") in ("unavailable", "unsupported")
-            or target.get("id") is not None
-            and target["id"] != identity["id"]
-        ):
-            return {}
-    return {"include_fogged_true": True} if args.get("include_fogged") is True else {}
-
 
 def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """把这一轮的观察压成**按主语绑定**的证据索引。
@@ -503,8 +457,8 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
         }
 
     只认真正出现在工具结果里的事实：读取失败/`unavailable` 的字段不计入。
-    `request` 子树不作为普通证据遍历；仅旧inspect_state的完整成功、逐对象匹配返回
-    可核对同份已执行的fog参数（新返回scope优先）。旧版会遍历 `request.arguments`，于是一个失败的
+    `request` 子树不作为证据遍历。读取范围只认结果中的scope；旧版会遍历
+    `request.arguments`，于是一个失败的
     请求只要写了 `include_held: true` 就能为"含被持有"授权（实测漏过）。
     """
     index: dict[str, Any] = {
@@ -520,9 +474,6 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
         "flags": {"include_held_true": False, "include_fogged_true": False},
     }
     observations = tuple(observations)
-    for observation in observations:
-        if isinstance(observation, Mapping):
-            index["flags"].update(_completed_legacy_state_scope(observation))
     budget = [_MAX_NODES]
 
     def entry(subject: str | None) -> dict[str, Any]:

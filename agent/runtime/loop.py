@@ -177,6 +177,11 @@ class AgentRuntime:
         except AgentAuditCapacityError:
             raise
         except Exception as exception:
+            initialization_error = (
+                isinstance(exception, ToolExecutionError)
+                and exception.code in {"semantic_surface_unavailable", "invalid_catalog"}
+                and ledger.summary()["model_calls"] == 0
+            )
             self._logger.error(
                 "[agent] unexpected run failure run_id={} error_type={}",
                 ledger.run_id,
@@ -195,8 +200,8 @@ class AgentRuntime:
             else:
                 result = self._finish_degraded(
                     ledger,
-                    reason=str(exception) if isinstance(exception, ToolExecutionError) and exception.code in {"semantic_surface_unavailable"} else "The internal RimWorld agent failed unexpectedly.",
-                    error_code=exception.code if isinstance(exception, ToolExecutionError) and exception.code in {"semantic_surface_unavailable"} else "agent_internal",
+                    reason=str(exception) if initialization_error else "The internal RimWorld agent failed unexpectedly.",
+                    error_code=exception.code if initialization_error else "agent_internal",
                     observations=session.observations,
                     fallback_answer=session.fallback_answer,
                     already_degraded=ledger.state == AgentRunState.DEGRADED,

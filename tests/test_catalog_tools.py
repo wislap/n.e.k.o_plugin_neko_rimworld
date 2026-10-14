@@ -33,7 +33,7 @@ def test_nonreference_prompt_separates_short_conclusion_from_complete_facts():
 
 
 def catalog():
-    return json.loads((FIXTURES / "query_catalog.json").read_text(encoding="utf-8-sig"))
+    return json.loads((FIXTURES / "current_query_catalog.json").read_text(encoding="utf-8-sig"))
 
 
 def response():
@@ -44,7 +44,7 @@ def response():
 async def test_public_query_replaces_legacy_tools_without_changing_observations():
     source = catalog()
     source["public_query"] = {
-        "version": "public_query.v1",
+        "version": "public_query.v2",
         "parameters": {"type": "object", "properties": {"requests": {"type": "array"}}},
         "rules": "canonical fields",
         "roots": [],
@@ -59,7 +59,7 @@ async def test_public_query_replaces_legacy_tools_without_changing_observations(
         return Observation.from_response(arguments["operation"], arguments["arguments"], response())
 
     setup = make_game_tools(source, query)
-    assert [t.name for t in setup.tools] == ["query", "describe_query"]
+    assert [t.name for t in setup.tools] == ["query", "describe_query", "spatial_query", "survey_space", "inspect_route", "inspect_state"]
     arguments = {"requests": [{"from": "things", "aggregate": {"units": {"op": "sum", "field": "stack_count"}}}]}
     observed = await setup.tools[0].handler(arguments)
     assert calls == [{"operation": "query", "arguments": arguments}]
@@ -167,7 +167,7 @@ async def test_terminal_batch_cannot_submit_before_observation_is_seen():
             return AssistantTurn("r", "m", "tool_calls", "", (submission_call("Observed", "Observed"),))
 
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider(list(setup.tools)),
+        tools_provider=semantic_tool_provider(list(setup.tools[:2])),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: Model(),
@@ -183,7 +183,7 @@ async def test_terminal_batch_cannot_submit_before_observation_is_seen():
 
 
 def test_retired_catalogs_fail_without_querying_or_publishing_tools():
-    for source in (catalog(), _public_source(version="unsupported")):
+    for source in (_public_source(version="public_query.v1"), _public_source(version="unsupported")):
         with pytest.raises(ToolExecutionError) as caught:
             make_game_tools(source, _noop_query)
         assert caught.value.code == "semantic_surface_unavailable"
@@ -195,4 +195,4 @@ def test_public_catalog_does_not_require_retired_template_contracts():
     for key in ("schema", "query_rules", "template_parameters", "query_parameters", "type_index", "query_roots"):
         source.pop(key, None)
     CatalogTools._validate(source)
-    assert [tool.name for tool in make_game_tools(source, _noop_query).tools] == ["query", "describe_query"]
+    assert [tool.name for tool in make_game_tools(source, _noop_query).tools] == ["query", "describe_query", "spatial_query", "survey_space", "inspect_route", "inspect_state"]

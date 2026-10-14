@@ -59,20 +59,6 @@ def test_pawn_map_and_single_id_route_without_dropping_scope():
         surface.normalize_object({"kind": "pawn", "id": "a", "ids": ["b"]})
 
 
-@pytest.mark.parametrize(
-    "value",
-    [
-        {"kind": "cell", "x": True, "z": 1},
-        {"kind": "cell", "x": 2**40, "z": 1},
-        {"kind": "thing", "id": ""},
-        {"kind": "thing", "id": 17},
-        {"kind": "thing", "id": "x", "name": "x"},
-        {"kind": "thing", "name": "x", "map": None},
-    ],
-)
-def test_invalid_spatial_reference_is_rejected_before_backend(value):
-    with pytest.raises(surface.SurfaceError):
-        SemanticInteraction._validate_space_ref(value, "to", {"thing", "cell"})
 
 
 def test_look_schema_rejects_wrong_kind_aspect_before_guessing():
@@ -113,70 +99,8 @@ def test_native_pack_preserves_actual_lookup_root_and_scope():
     assert result["execution"] == "not_run"
 
 
-def test_route_is_one_dispatch_and_partial_keeps_reachability():
-    import asyncio
-
-    from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
-    from plugin.plugins.neko_rimworld.game.observation import Observation
-    from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
-    from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
-
-    from .test_semantic_tools import Session, _update, public_source
-
-    source = public_source(spatial=True)
-    cap = source["spatial_query"]
-    cap["route_summary"] = "native_path_summary.v1"
-    cap["parameters"]["properties"]["detail"] = {"type": "string", "enum": ["summary", "route"]}
-    requests = []
-
-    async def backend(request):
-        requests.append(request)
-        data = {
-            "answer": "reachable",
-            "route": {"status": "unavailable", "reason": "deadline_exceeded"},
-            "checked": {"native_reachability": True},
-        }
-        response = make_envelope(
-            QUERY_RESULT,
-            "1" * 32,
-            1,
-            payload=Payload(
-                status="partial",
-                data=data,
-                issues=[{"code": "deadline_exceeded", "path": ["route"], "message": "path unavailable"}],
-            ),
-            session=SessionDescriptor("2" * 32, "3" * 32, 42, 1),
-            request_id="4" * 32,
-        )
-        return Observation.from_response(request["operation"], request["arguments"], response)
-
-    session = Session()
-    adapter = semantic_interaction_factory(make_game_tools(source, backend), session, _update)
-    spec = next(t for t in adapter.tools() if t.name == "inspect_space")
-    assert 'detail="route"' in spec.description
-    args = {"from": {"kind": "pawn", "name": "Alice"}, "to": {"kind": "thing", "id": "t"}, "detail": "route"}
-    result = asyncio.run(spec.handler(args))
-    assert requests == [{"operation": "spatial_query", "arguments": args}]
-    assert result["answer"] == "reachable" and result["route"]["status"] == "unavailable"
-    assert len(session.observations) == 1
 
 
-def test_old_spatial_mod_does_not_advertise_or_dispatch_route():
-    import asyncio
-
-    from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
-
-    from .test_semantic_tools import Session, _update, setup_for
-
-    adapter = semantic_interaction_factory(setup_for(spatial=True), Session(), _update)
-    spec = next(t for t in adapter.tools() if t.name == "inspect_space")
-    assert "detail" not in spec.parameters["properties"]
-    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
-
-    with pytest.raises(ToolExecutionError):
-        asyncio.run(
-            spec.handler({"from": {"kind": "pawn", "id": "p"}, "to": {"kind": "thing", "id": "t"}, "detail": "route"})
-        )
 
 
 def test_map_alias_routes_to_map_identity_without_scope_conflict():
@@ -187,31 +111,6 @@ def test_map_alias_routes_to_map_identity_without_scope_conflict():
         surface.normalize_object({"kind": "map", "map": "Map_0", "id": "Map_1"})
 
 
-def test_route_adapter_displays_along_path_length_without_mutating_observation():
-    import asyncio
-
-    from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
-
-    from .test_semantic_tools import Session, _update, setup_for
-
-    adapter = semantic_interaction_factory(setup_for(spatial=True), Session(), _update)
-    data = {
-        "answer": "reachable",
-        "route": {"status": "found", "grid_distance": {"value": 238.9066, "unit": "map_cell_widths"}, "steps": 195},
-    }
-    saved = copy.deepcopy(data)
-
-    async def native(*args, **kwargs):
-        return {"data": data, "issues": []}
-
-    adapter.execute_native = native
-    output = asyncio.run(
-        adapter.inspect_space({"from": {"kind": "pawn", "id": "p"}, "to": {"kind": "thing", "id": "t"}})
-    )
-    assert output["route"]["path_length"]["value"] == 238.9066
-    assert "not straight-line" in output["route"]["path_length"]["meaning"]
-    assert "grid_distance" not in output["route"]
-    assert data == saved
 
 
 def test_map_alias_through_real_look_handler():

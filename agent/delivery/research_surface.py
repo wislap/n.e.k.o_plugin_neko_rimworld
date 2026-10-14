@@ -1,15 +1,6 @@
 """Question policy and delivery, independent of the negotiated game vocabulary."""
 
-from dataclasses import dataclass
-
 from .handoff import make_submission_tool
-
-
-@dataclass(frozen=True, slots=True)
-class ResearchGuidance:
-    native_state: bool
-    activity_route: bool
-    compatibility_guide: str = ""
 
 
 class ReadOnlyResearchSurface:
@@ -23,17 +14,13 @@ class ReadOnlyResearchSurface:
         self.finalizing = False
 
     def prompt(self, preferred_cycles):
-        guidance = self.guidance
         from ..context.context_tools import query_guide, task_prompt
 
         prompt = task_prompt(
             preferred_cycles, finalizing=self.finalizing
         )
         if not self.finalizing:
-            prompt += "\n\n" + query_guide(
-                native_state=guidance.native_state, activity=guidance.activity_route
-            )
-            prompt += guidance.compatibility_guide
+            prompt += "\n\n" + query_guide()
         return prompt
 
     def submission(self):

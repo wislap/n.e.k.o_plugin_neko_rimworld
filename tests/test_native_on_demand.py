@@ -2,8 +2,7 @@
 
 Pins the forwarding boundary end to end on the plugin side: which requests
 gain the native `objects` flag, which connections must stay byte-identical,
-and that the older contract keeps the audited dispatch behavior (objects
-on/off produced the same native request under v2.2).
+while old contracts are rejected before consultation dispatch.
 """
 
 import copy
@@ -11,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.tool_contracts import WORLD_OBSERVATION_VERSIONS
+from plugin.plugins.neko_rimworld.tool_contracts import WORLD_OBSERVATION_VERSION
 from plugin.plugins.neko_rimworld.agent.world.object_tools import state_contract
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 
@@ -76,14 +75,12 @@ async def test_v23_survey_explicit_environment_selection_avoids_incidental_objec
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("version", ["world_observation.v2.2", "world_observation.v2.3"])
-async def test_survey_default_and_older_dispatch_remain_compatible(version):
+@pytest.mark.parametrize("version", ["world_observation.v2.3"])
+async def test_current_survey_default_remains_full_discovery(version):
     stub, calls = route_recorder(version)
     await SemanticInteraction._world_read(stub, {"region": {"map": "current"}}, "survey_space")
     assert calls[0][1] == {"region": {"map": "current"}}
-    if version == "world_observation.v2.2":
-        await SemanticInteraction._world_read(stub, {"region": {"map": "current"}, "include": ["environment"]}, "survey_space")
-        assert calls[1][1] == calls[0][1]
+
 
 
 @pytest.mark.asyncio
@@ -92,17 +89,6 @@ async def test_survey_object_opt_in_and_paging_remain_available(extra):
     stub, calls = route_recorder("world_observation.v2.3")
     await SemanticInteraction._world_read(stub, {"region": {"map": "current"}, "include": ["environment"], **extra}, "survey_space")
     assert calls[0][1]["objects"] is True
-
-
-@pytest.mark.asyncio
-async def test_v22_dispatch_control_stays_identical_with_objects_on_and_off():
-    stub, calls = route_recorder("world_observation.v2.2")
-    for objects in (False, True):
-        await SemanticInteraction._world_read(
-            stub, {**ROUTE, "include": ["environment"], "include_objects": objects}, "inspect_route"
-        )
-    assert calls[0][1] == calls[1][1] == ROUTE
-
 
 
 
@@ -137,7 +123,7 @@ def state_directory(version):
     }
 
 
-@pytest.mark.parametrize("version", sorted(WORLD_OBSERVATION_VERSIONS))
+@pytest.mark.parametrize("version", [WORLD_OBSERVATION_VERSION])
 def test_state_contract_accepts_every_supported_version(version):
     assert state_contract(state_directory(version))["name"] == "inspect_state"
 

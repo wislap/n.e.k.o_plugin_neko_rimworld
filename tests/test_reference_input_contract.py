@@ -54,25 +54,6 @@ def test_category_enum_is_native_and_only_applies_to_physical_things():
     assert "enum" not in s.tool_schemas()[0]["parameters"]["properties"]["object"]["properties"]["category"]
 
 
-def test_pawn_target_alias_is_public_for_single_and_batch_without_changing_directory():
-    native = s.spatial_tool_schema()["parameters"]
-    native["properties"]["to"]["properties"]["kind"]["enum"] = ["thing", "cell"]
-    # Native SpatialContract restricts id/name branches as well as the top enum.
-    for form in native["properties"]["to"]["oneOf"][:2]:
-        form["properties"] = {"kind": {"const": "thing"}}
-        form["allOf"] = [{"not": {"anyOf": [{"required": ["x"]}, {"required": ["z"]}]}}]
-    directory = {"spatial_query": {"parameters": native, "route_summary": "native_path_summary.v1"}}
-    original = copy.deepcopy(directory)
-    schema = s.spatial_tool_schema(directory)["parameters"]
-    actor = {"kind": "pawn", "id": "helper"}
-    target = {"kind": "pawn", "id": "patient"}
-    validate({"from": actor, "to": target}, schema)
-    validate({"from": actor, "to": [target], "order_by": "steps"}, schema)
-    with pytest.raises(ValidationError):
-        validate({"from": {"kind": "thing", "id": "helper"}, "to": target}, schema)
-    with pytest.raises(ValidationError):
-        validate({"from": actor, "to": {"kind": "pawn", "x": 1, "z": 2}}, schema)
-    assert directory == original
 
 
 def test_identity_positions_and_trait_description_are_capability_gated():

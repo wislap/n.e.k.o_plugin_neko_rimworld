@@ -8,7 +8,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from ..tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolHandler, ToolSetup, ToolSpec
+from ..tool_contracts import PUBLIC_QUERY_VERSION, WORLD_OBSERVATION_VERSION, ToolExecutionError, ToolHandler, ToolSetup, ToolSpec
 from .bridge import BridgeServer
 from .observation import Observation
 
@@ -16,8 +16,11 @@ from .observation import Observation
 def make_game_tools(catalog: dict[str, Any], query: ToolHandler) -> ToolSetup:
     """Build only the public-query backend required by look/count."""
     public = catalog.get("public_query")
-    if not isinstance(public, dict) or public.get("version") not in {"public_query.v1", "public_query.v2"}:
+    if not isinstance(public, dict) or public.get("version") != PUBLIC_QUERY_VERSION:
         raise ToolExecutionError("semantic_surface_unavailable", "A supported public query directory is required; update the RimWorld Mod.", recoverable=False)
+    world = catalog.get("world_observation")
+    if not isinstance(world, dict) or world.get("version") != WORLD_OBSERVATION_VERSION:
+        raise ToolExecutionError("semantic_surface_unavailable", "Current consultation requires world_observation.v2.3 with native state; update the RimWorld Mod.", recoverable=False)
     return _public_tools(catalog, public, query)
 
 
@@ -48,6 +51,7 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
         for key in ("roots", "rules", "common_fields", "field_index", "field_notes", "value_domains", "examples")
         if key in public
     }
+    directory["public_query_version"] = public["version"]
     spatial_tools = ()
     capability = catalog.get("spatial_query")
     if (
@@ -70,7 +74,7 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
         )
     world_tools = []
     world = catalog.get("world_observation")
-    if isinstance(world, dict) and world.get("version") in WORLD_OBSERVATION_VERSIONS:
+    if isinstance(world, dict) and world.get("version") == WORLD_OBSERVATION_VERSION:
         allowed = {"survey_space", "inspect_route", "inspect_state"}
         specs = world.get("tools", [])
         if (

@@ -59,7 +59,5 @@ class ToolSetup:
     capabilities: tuple[ToolSpec, ...] = ()
 
 
-#: World observation contract versions this plugin serves. v2.3 adds the
-#: optional `objects` input (on-demand object detail; hazard/environment
-#: forensics stay unconditional). v2.2 connections keep full generation.
-WORLD_OBSERVATION_VERSIONS = frozenset({"world_observation.v2.2", "world_observation.v2.3"})
+PUBLIC_QUERY_VERSION = "public_query.v2"
+WORLD_OBSERVATION_VERSION = "world_observation.v2.3"

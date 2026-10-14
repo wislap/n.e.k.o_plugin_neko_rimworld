@@ -11,7 +11,6 @@ CONTEXT_TOOLS = frozenset(
     {
         "look",
         "count",
-        "inspect_space",
         "inspect_route",
         "survey_space",
         "inspect_state",

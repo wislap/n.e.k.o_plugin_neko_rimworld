@@ -1029,8 +1029,11 @@ class NekoRimworldPlugin(NekoPluginBase):
             payload = await asyncio.wait_for(
                 asyncio.to_thread(
                     bridge.request,
-                    "template_query",
-                    {"requests": [{"target": {"type": "colony"}, "sections": ["overview"]}]},
+                    "query",
+                    {"requests": [
+                        {"from": "game", "select": ["paused", "current_map_id"]},
+                        {"from": "maps", "select": ["id", "name", "is_current", "is_player_home", "colonist_count", "has_visible_threat"]},
+                    ]},
                     2.5,
                 ),
                 timeout=3.5,

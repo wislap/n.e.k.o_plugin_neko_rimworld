@@ -13,7 +13,7 @@ The look/count interface is mandatory: missing or uncompiled public query direct
 
 ## Available reads
 
-With native world support, the model sees `look`, `count`, `survey_space`, `evaluate_activity`, `inspect_actions`, `inspect_threats`, available `wiki`, and `submit_response`. Actual tools depend on negotiated capabilities and ready indexes. The activity tool replaces overlapping public path tools while retaining their native readers internally.
+With the required current public-query and native-world contracts, the model sees `look`, `count`, `survey_space`, `evaluate_activity`, `inspect_actions`, `inspect_threats`, available `wiki`, and `submit_response`. Consultation admission requires `public_query.v2` and `world_observation.v2.3` with the complete native state contract. Older versions, missing state readers or incomplete state schemas fail before model dispatch. Optional behavior tools and knowledge still depend on their advertised contracts and ready indexes. The activity tool replaces overlapping public path tools while retaining their native readers internally.
 
 - `look`: explicit aspects; physical `state` does not include Pawn health/skills/work/gear. `focus` selects skills/work/capacities/state facets; `stats` requests exact StatDefs; `include=[body_parts]` retains full anatomy detail. Pawn `identity` carries native gender where the schema has it, so pronouns are read rather than guessed from names.
 - `count`: records or stack units, grouping and bounded examples. Holder membership is not ownership.
@@ -70,9 +70,8 @@ rimworld_consult(question)
 ```
 
 Each call creates a new run with a new message list. The model may answer
-directly, read the game through the semantic tools (`look`, `count`, and, when the
-Mod catalog offers them, `inspect_space`, `survey_space`, `inspect_route`,
-`inspect_state`, `inspect_actions`, `inspect_threats`, `evaluate_activity`), look
+directly, read the game through the semantic tools (`look`, `count`, `survey_space`, `evaluate_activity` and advertised
+`inspect_actions` / `inspect_threats`), look
 up definitions through `wiki`, or finish a detailed response through the private
 `submit_response` tool. The prompt recommends a small number of cycles
 but the runtime does not impose a hard step count. Tool and submission errors
@@ -95,3 +94,6 @@ Live text answer is limited to180 tokens and answer+detail to12000 characters. F
 Run plugin pytest with UTF-8 in both parent and child processes. Software checks and fixed input equivalence do not prove content quality. Windows-only/platform failures are recorded separately.
 
 Retired experiments are under `rimworld-bench-archive/code-20261013/`. Source versions preceding architecture removal are sealed under `.bench-results/architecture-removal-20261014-v1/`. Original experiments, questions, answers, failures and frozen runners stay unchanged. Reproduce old variants with their frozen source.
+
+
+Production reads have one current native-state path. Historical no-state connections, the old public `inspect_space` interface and its ranking implementation are removed; activity comparisons retain the current native route/state readers and actor/user/stage scope bindings. Manual overview probes batch game/map facts in one public query. Existing historical data and frozen runners remain unchanged and require their original sealed implementation.
