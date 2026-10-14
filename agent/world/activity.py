@@ -13,6 +13,7 @@ import re
 from collections.abc import Mapping
 from typing import Protocol
 
+from ...schema_serialization import schema_contract
 from ..context.model_context import MAX_SOURCE_CHARS, model_size
 from ...tool_contracts import MAX_TOOL_RESULT_CHARS, ToolExecutionError, ToolSpec
 
@@ -141,7 +142,7 @@ def normalize_activity(args):
     ):
         _invalid("actor_focus selects skills/work/capacities by exact definition names or labels.")
     result["actor_focus"] = copy.deepcopy(focus)
-    from .object_tools import STATE_FACETS
+    from .native_state import STATE_FACETS
     destination_focus = args.get("focus", {})
     if not isinstance(destination_focus, dict) or set(destination_focus) - {"state"}:
         _invalid("focus selects destination state facets; use actor_focus for actor measurements")
@@ -211,12 +212,12 @@ def schema():
         },
         "anyOf": [{"required": ["definition"]}, {"required": ["capabilities"]}],
     }
-    return {
+    parameters = {
         "type": "object",
         "additionalProperties": False,
         "required": ["kind", "actors", "destinations"],
         "properties": {
-            "kind": {"enum": ["move", "transfer"]},
+            "kind": {"enum": ["move", "transfer", "state"]},
             "actors": {
                 "type": "array",
                 "minItems": 1,
@@ -254,6 +255,51 @@ def schema():
         ],
     }
 
+    parameters["properties"]["kind"]["description"] = (
+        "move/transfer reads paths. state reads only destination state for each actor/user pair; use it for contextual predicates, occupancy or reservations without requesting paths."
+    )
+    parameters["properties"]["include"] = {
+        "type": "array",
+        "uniqueItems": True,
+        "items": {"enum": ["approach", "destination_state", "environment", "objects", "geometry"]},
+        "description": "Select additional content in this call: approach adds actor-to-subject paths for transfer; destination_state checks recipient/actor context; environment returns path/corridor hazards, coverage and tolerances (request for safety questions); objects lists corridor objects; geometry includes full path segments. Default paths only.",
+    }
+    parameters["properties"]["user"] = copy.deepcopy(parameters["properties"]["actors"]["items"])
+    parameters["properties"]["user"]["description"] = (
+        "Optional recipient Pawn for route environmental tolerances and destination state; does not replace the traveller."
+    )
+    parameters["properties"]["margin"] = {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 12,
+        "default": 2,
+        "description": "Corridor width in cells around the path when environmental context is needed.",
+    }
+    parameters["properties"]["actor_aspects"] = {
+        "type": "array",
+        "uniqueItems": True,
+        "items": {"enum": ["health", "skills", "work", "profile", "gear", "mood"]},
+        "description": "Only requested actor facts are read, once per actor. Default none. stats independently requests exact StatDefs.",
+    }
+    parameters["properties"]["actor_focus"] = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            key: {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "string"}}
+            for key in ("skills", "work", "capacities")
+        },
+        "description": "Only these exact named skills/work types/capacities; includes their aspects automatically. Other actor_aspects stay as requested.",
+    }
+    from .native_state import STATE_FACETS
+    parameters["properties"]["focus"] = {"type": "object", "additionalProperties": False, "properties": {
+        "state": {"type": "array", "minItems": 1, "maxItems": len(STATE_FACETS), "uniqueItems": True, "items": {"enum": list(STATE_FACETS)}}},
+        "description": "Destination state facets only, e.g. state=[bed,reservations]. Adds destination_state; actor_focus remains separate."}
+    descriptions = {key: parameters["properties"][key]["description"] for key in ("kind", "include", "focus", "actor_aspects", "actor_focus")}
+    parameters = schema_contract(parameters)
+    for key, description in descriptions.items():
+        parameters["properties"][key]["description"] = description
+    return parameters
+
 
 class ActivityDataSource(Protocol):
     source_kind: str
@@ -278,7 +324,7 @@ class SemanticActivityDataSource:
         return dict(kind=kind, id=obj["id"], map=map_id)
 
     async def _resolve(self, ref, role):
-        from .object_tools import observed_id_reference
+        from .native_state import observed_id_reference
 
         ref = observed_id_reference(ref, getattr(getattr(self.interaction, "session", None), "observations", ()))
         # IDs/cells are native references, not discovery queries. Preserve the
@@ -397,16 +443,12 @@ def _project(value, operation):
         if "segments" in route:
             route.pop("segments")
             omitted.append("route.segments")
-        # grid_distance is the wire compatibility alias of path_length.
-        if "path_length" in route:
-            route.pop("grid_distance", None)
         # Actor, target and full prose meanings are already bound by the stage.
         # Keep the route numbers/units; native geometry remains in the ledger.
         for key in (
             "actor",
             "target",
             "meaning",
-            "grid_distance",
             "read_ms",
             "cooperative_budget_overrun",
             "segments_coverage",
@@ -714,47 +756,4 @@ def make_activity_tool(interaction):
     async def handler(arguments):
         return await evaluate_activity(arguments, SemanticActivityDataSource(interaction))
 
-    parameters = schema()
-    description = "Compare move or transfer candidates. Returns actor health/work/stats, separate approach/transfer routes and destination state with actor/user context. Reads are shared; stages reference reads. Native coverage and unknowns remain explicit; no action or success prediction."
-    parameters["properties"]["kind"]["enum"] = ["move", "transfer", "state"]
-    parameters["properties"]["kind"]["description"] = (
-        "move/transfer reads paths. state reads only destination state for each actor/user pair; use it for contextual predicates, occupancy or reservations without requesting paths."
-    )
-    parameters["properties"]["include"] = {
-        "type": "array",
-        "uniqueItems": True,
-        "items": {"enum": ["approach", "destination_state", "environment", "objects", "geometry"]},
-        "description": "Select additional content in this call: approach adds actor-to-subject paths for transfer; destination_state checks recipient/actor context; environment returns path/corridor hazards, coverage and tolerances (request for safety questions); objects lists corridor objects; geometry includes full path segments. Default paths only.",
-    }
-    parameters["properties"]["user"] = copy.deepcopy(parameters["properties"]["actors"]["items"])
-    parameters["properties"]["user"]["description"] = (
-        "Optional recipient Pawn for route environmental tolerances and destination state; does not replace the traveller."
-    )
-    parameters["properties"]["margin"] = {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 12,
-        "default": 2,
-        "description": "Corridor width in cells around the path when environmental context is needed.",
-    }
-    parameters["properties"]["actor_aspects"] = {
-        "type": "array",
-        "uniqueItems": True,
-        "items": {"enum": ["health", "skills", "work", "profile", "gear", "mood"]},
-        "description": "Only requested actor facts are read, once per actor. Default none. stats independently requests exact StatDefs.",
-    }
-    parameters["properties"]["actor_focus"] = {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            key: {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "string"}}
-            for key in ("skills", "work", "capacities")
-        },
-        "description": "Only these exact named skills/work types/capacities; includes their aspects automatically. Other actor_aspects stay as requested.",
-    }
-    from .object_tools import STATE_FACETS
-    parameters["properties"]["focus"] = {"type": "object", "additionalProperties": False, "properties": {
-        "state": {"type": "array", "minItems": 1, "maxItems": len(STATE_FACETS), "uniqueItems": True, "items": {"enum": list(STATE_FACETS)}}},
-        "description": "Destination state facets only, e.g. state=[bed,reservations]. Adds destination_state; actor_focus remains separate."}
-    description = "Use kind/actors/destinations; actors×destinations expands all pairs. One chosen pair uses singleton arrays. move uses actor/start; transfer uses subject origin; state reads predicates. include/focus select content. Names resolve here; identical reads share. No action, ETA or success prediction."
-    return ToolSpec("evaluate_activity", description, parameters, handler)
+    return ToolSpec("evaluate_activity", 'Compare actors×destinations. move is actor/start→destination; transfer is subject→destination with optional approach; state checks predicates only. Names/selectors resolve here; reads share. Default paths only. No action, ETA or success prediction.', schema(), handler)

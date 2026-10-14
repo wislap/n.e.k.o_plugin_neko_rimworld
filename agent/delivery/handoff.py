@@ -10,7 +10,11 @@ from typing import Any, Mapping
 from ...game.state import redact_text
 from ...tool_contracts import ToolExecutionError, ToolSpec
 from ..model.tokenization import tokenizer as _tokenizer
-from ..runtime.prompt import PLAIN_ANSWER_GUIDANCE, PLAIN_DETAIL_GUIDANCE, PLAIN_SUBMISSION_GUIDANCE
+from ...schema_serialization import schema_contract
+
+PLAIN_ANSWER_GUIDANCE = "Standalone conclusion and material conditions; aim <=100 tokens, hard maximum 180."
+PLAIN_DETAIL_GUIDANCE = "Remaining explicitly requested findings/tables only. Full answer+detail <=12000 characters. Omitted retains saved detail; null clears it."
+PLAIN_SUBMISSION_GUIDANCE = "Submit answer <=180 tokens and remaining requested detail; combined <=12000 characters. Omitted detail stays saved; null clears it. Length-only repair changes answer only."
 
 HANDOFF_TOKEN_BUDGET = 180
 # The host parser truncates at 200 tokens; accepted answers stay below that bound.
@@ -186,7 +190,25 @@ class SubmissionDraft:
         return validate_submission(self.full_text, self.agent_text)
 
 
-def make_submission_tool(draft: SubmissionDraft, observations, on_update=None):
+def submission_parameters(*, answer_only=False):
+    parameters = {
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string", "minLength": 1, "description": PLAIN_ANSWER_GUIDANCE},
+                "detail": {"type": ["string", "null"], "maxLength": MAX_FULL_TEXT_CHARS,
+                           "description": PLAIN_DETAIL_GUIDANCE},
+                "language": {"type": "string", "enum": ["zh", "en"], "default": "zh",
+                             "description": "Language of the whole submission."},
+            },
+            "minProperties": 1, "additionalProperties": False,
+        }
+    if answer_only:
+        parameters["properties"] = {"answer": parameters["properties"]["answer"]}
+        parameters["required"] = ["answer"]
+    return schema_contract(parameters)
+
+
+def make_submission_tool(draft: SubmissionDraft, observations, on_update=None, *, answer_only=False):
     async def submit(arguments):
         try:
             result = draft.apply(arguments, observations=observations)
@@ -199,19 +221,10 @@ def make_submission_tool(draft: SubmissionDraft, observations, on_update=None):
                       {"saved_fields": draft.snapshot()["saved_fields"], "revision": draft.revision})
         return result
 
+    parameters = submission_parameters(answer_only=answer_only)
     return ToolSpec(
         name="submit_response", description=PLAIN_SUBMISSION_GUIDANCE,
-        parameters={
-            "type": "object",
-            "properties": {
-                "answer": {"type": "string", "minLength": 1, "description": PLAIN_ANSWER_GUIDANCE},
-                "detail": {"type": ["string", "null"], "maxLength": MAX_FULL_TEXT_CHARS,
-                           "description": PLAIN_DETAIL_GUIDANCE},
-                "language": {"type": "string", "enum": ["zh", "en"], "default": "zh",
-                             "description": "Language of the whole submission."},
-            },
-            "minProperties": 1, "additionalProperties": False,
-        }, handler=submit, terminal=True,
+        parameters=parameters, handler=submit, terminal=True,
     )
 
 

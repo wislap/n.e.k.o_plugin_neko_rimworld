@@ -36,25 +36,17 @@ def test_exact_definition_lookup_uses_negotiated_index_and_retains_label_union()
 
 
 def test_capability_selection_schema_includes_native_meanings():
+    import json
+    from pathlib import Path
     from plugin.plugins.neko_rimworld.agent.world.semantic_surface import _object_schema
+    from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
-    directory = {
-        "roots": [{"from": "things", "type": "Thing", "args": [{"name": "capabilities"}]}],
-        "field_index": {"Thing": {"capabilities": {}}},
-        "world_observation": {
-            "capability_meanings": {"production": "IBillGiver, including Pawn surgery bills"},
-            "tools": [
-                {
-                    "name": "survey_space",
-                    "parameters": {
-                        "properties": {
-                            "select": {"properties": {"capabilities": {"items": {"enum": ["production", "building"]}}}}
-                        }
-                    },
-                }
-            ],
-        },
-    }
+    async def forbidden(arguments):
+        raise AssertionError("Catalog schema construction must not read the game")
+    catalog = json.loads((Path(__file__).parent / "fixtures/current_query_catalog.json").read_text(encoding="utf-8"))
+    directory = make_game_tools(catalog, forbidden).directory
     schema = _object_schema(directory)
-    assert schema["properties"]["capabilities"]["items"]["enum"] == ["production", "building"]
-    assert "Pawn surgery bills" in schema["properties"]["capabilities"]["description"]
+    capabilities = schema["properties"]["capabilities"]
+    assert "bill_giver" in capabilities["items"]["enum"]
+    assert "production" not in capabilities["items"]["enum"]
+    assert "Pawn surgery" in capabilities["description"]

@@ -1,5 +1,6 @@
 import asyncio
 import copy
+from types import SimpleNamespace
 import json
 
 import pytest
@@ -8,14 +9,17 @@ from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
-from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
+from plugin.plugins.neko_rimworld.agent.world.native_state import NativeStateReader
+from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
 
 
 class NativeInteraction:
-    """Real ObjectReader with a deterministic native transport; no model/game."""
+    """Current look composition with a deterministic native transport; no model/game."""
 
     def __init__(self):
         self.calls = []
+        self.native_state = NativeStateReader(self)
+        self.query_readings = SimpleNamespace(look=self.query_look)
         self.objects = {
             name: {
                 "id": name,
@@ -31,9 +35,9 @@ class NativeInteraction:
         self.large = False
 
     async def look(self, args):
-        return await ObjectReader(self).look(args)
+        return await read_look(self, args)
 
-    async def _look_legacy(self, args):
+    async def query_look(self, args):
         obj = args["object"]
         if obj.get("capabilities"):
             rows = [{"id": f"bed{i + 1}", "map_id": "Map_0"} for i in range(self.selector_count)]

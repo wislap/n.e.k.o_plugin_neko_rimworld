@@ -352,24 +352,8 @@ class AgentRuntime:
             request_messages = session.request_messages(advisory)
             repair_messages = session.length_repair_messages()
             if repair_messages is not None:
-                submission_tool = session.interaction.submission()
                 tools = ToolRegistry()
-                tools.register(
-                    ToolSpec(
-                        name="submit_response",
-                        description="Save the shortened answer; existing detail stays unchanged.",
-                        parameters={
-                            "type": "object",
-                            "properties": {"answer": {"type": "string"}},
-                            "required": ["answer"],
-                            "additionalProperties": False,
-                        },
-                        handler=submission_tool.handler,
-                        terminal=submission_tool.terminal,
-                        exclusive=submission_tool.exclusive,
-                        max_result_chars=submission_tool.max_result_chars,
-                    )
-                )
+                tools.register(session.interaction.submission(answer_only=True))
                 request_messages = repair_messages
                 ledger.record("length_repair_context", {"game_evidence_replayed": False, "saved_detail_changed": False})
             tool_schemas = tools.schemas()

@@ -17,67 +17,19 @@ import copy
 from typing import Any
 
 from ..delivery.research_surface import ReadOnlyResearchSurface
-from ...tool_contracts import PUBLIC_QUERY_VERSION, WORLD_OBSERVATION_VERSION, ToolExecutionError, ToolSpec
+from ...tool_contracts import PUBLIC_QUERY_VERSION, ToolExecutionError, ToolSpec
 from .activity import make_activity_tool
-from .object_tools import ObjectReader, extend_look_schema, observed_id_reference, state_contract
+from .native_state import NativeStateReader, state_contract
+from .look_tools import look_spec, read_look
+from .count_tools import count_spec
+from .query_readings import QueryReadings
+from .survey_tools import survey_spec
 from .query_surface import Surface, SurfaceError
-from .semantic_surface import (
-    DEF_KINDS,
-    THING_KINDS,
-    apply_lookup,
-    capability_values,
-    interpret_lookup,
-    lookup_spec,
-    normalize_object,
-    pack,
-    plan_count,
-    plan_look,
-    render,
-    render_blocked,
-    tool_schemas,
-    validate_aspects,
-    validate_by,
-    validate_detail,
-    validate_metric,
-)
+from .semantic_surface import pack
 from .world_order import order_world_fields
 
 # Only this explicitly approved non-observation tool survives the adapter.
 PASSTHROUGH_TOOLS = frozenset({"wiki", "inspect_actions", "inspect_threats"})
-
-
-
-def _with_field_semantics(result):
-    """Annotate observed measures in place within the projection, never raw evidence."""
-    result = copy.deepcopy(result)
-    for item in result.get("facts", []):
-        facts = item.get("facts", {})
-        summary = facts.get("health", {}).get("summary")
-        if isinstance(summary, dict) and summary.get("state") != "unavailable":
-            meanings = {
-                "health_percent": {
-                    "unit": "fraction",
-                    "meaning": "Overall game health summary, not blood volume or proof of no injuries.",
-                },
-                "bleed_rate": {
-                    "unit": "blood_loss_fraction_per_game_day",
-                    "ticks_per_game_day": 60000,
-                    "meaning": "Multiply by 100 for percentage points of blood loss per game day; not per second or an ETA.",
-                },
-                "pain": {
-                    "unit": "fraction",
-                    "meaning": "Game pain total, separate from injury severity and blood loss.",
-                },
-            }
-            summary["field_semantics"] = {key: value for key, value in meanings.items() if key in summary}
-        traits = facts.get("profile", {}).get("traits")
-        if isinstance(traits, dict) and traits.get("state") != "unavailable":
-            traits["field_semantics"] = {
-                "degree": "Trait variant code, not a numeric speed or stat bonus.",
-                "description": "Game-generated trait tooltip, including effects when available. Respect suppressed; a trait effect is not the pawn's final stat value.",
-            }
-    return result
-
 
 
 
@@ -120,39 +72,25 @@ class SemanticInteraction(ReadOnlyResearchSurface):
         self.original = {tool.name: tool for tool in setup.tools}
         self.surface = _compile_supported_surface(setup)
         self.sample_identity: tuple[Any, Any, Any] | None = None
-        directory = setup.directory if isinstance(getattr(setup, "directory", None), dict) else {}
-        self.object_contract = state_contract(directory)
-        self.object_reader = ObjectReader(self)
-        self._def_name_resolver = None
+        self.native_state = NativeStateReader(self)
+        self.query_readings = QueryReadings(self)
 
     # -- runtime contract -------------------------------------------------
 
     def read_tools(self) -> tuple[Any, ...]:
-        handlers = {"look": self.look, "count": self.count}
+        async def survey(args):
+            return await self._world_read(args, "survey_space")
+
+        handlers = {"look": self.look, "count": self.count, "survey_space": survey}
         specs = []
-        semantic_specs = tool_schemas(self.setup.directory)
         semantic_specs = [
-            extend_look_schema(spec, self.object_contract) if spec["name"] == "look" else spec
-            for spec in semantic_specs
+            look_spec(self.setup.directory),
+            count_spec(self.setup.directory),
+            survey_spec(self.original["survey_space"].schema()["function"]),
         ]
-        for spec in self.setup.directory["world_observation"]["tools"]:
-            name = spec["name"]
-            if name == "inspect_state":
-                continue
 
-            async def observe(args, operation=name):
-                return await self._world_read(args, operation)
-
-            handlers[name] = observe
-            semantic_specs.append(spec)
-
-        # Activity compares paths in one batch; native readers stay internal.
-        semantic_specs = [spec for spec in semantic_specs if spec["name"] != "inspect_route"]
+        # Activity owns public path comparisons; route/state readers remain internal.
         for tool in semantic_specs:
-            if tool["name"] in ("look", "inspect_route", "survey_space"):
-                from ..context.context_tools import configure_read_spec
-
-                tool = configure_read_spec(tool)
             handler = handlers[tool["name"]]
 
             async def guarded(args, handler=handler):
@@ -265,110 +203,11 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             ],
         )
 
-    def _def_resolver(self):
-        """Optional deterministic Def-name recovery; None keeps lookups unchanged.
-
-        A broken or unavailable index degrades to no resolver: recovery is an
-        affordance, never a new failure path for ordinary lookups.
-        """
-        view = getattr(self.setup, "knowledge_view", None)
-        if view is None:
-            return None
-        if self._def_name_resolver is None:
-            from .def_names import DefNameResolver
-
-            self._def_name_resolver = DefNameResolver.try_from_knowledge_view(view)
-        return self._def_name_resolver or None
-
-    async def _resolve(self, obj: dict[str, Any]):
-        """Resolve a name or definition, or return candidates instead of a pick.
-
-        An ambiguous or incomplete lookup must never silently choose one object:
-        the caller gets the candidates and the scope that produced them.
-        """
-        if obj.get("kind") in ("pawn", "thing") and len(obj.get("names", [])) == 1:
-            reference = {"kind": obj["kind"], "name": obj["names"][0]}
-            if "map" in obj:
-                reference["map"] = obj["map"]
-            recovered = observed_id_reference(reference, self.session.observations)
-            if "id" in recovered:
-                obj = {**obj, "ids": [recovered["id"]]}
-                obj.pop("names")
-        resolver = self._def_resolver()
-        name_resolution = None
-        requested_term = None
-        if resolver is not None and isinstance(obj.get("definition"), str) and obj["kind"] in DEF_KINDS + THING_KINDS:
-            requested_term = obj["definition"]
-            advice = resolver.normalize(requested_term)
-            if advice["state"] == "unique" and advice["auto_selection"] != requested_term:
-                # Deterministic word-order recovery only rewrites the requested
-                # name; the native exact lookup below stays the arbiter of what
-                # exists, so a stale index degrades to an ordinary miss.
-                name_resolution = {
-                    "requested": requested_term,
-                    "resolved_as": advice["auto_selection"],
-                    "method": "token_normalization",
-                    "catalog": resolver.source,
-                }
-                obj = {**obj, "definition": advice["auto_selection"]}
-        spec = lookup_spec(self.surface, obj)
-        if spec is None:
-            return obj, None, None
-        native = await self.execute_native(spec["request"])
-        resolution = interpret_lookup(spec, native["data"])
-        if name_resolution is not None:
-            resolution["name_resolution"] = name_resolution
-        if resolver is not None and spec.get("kind") == "definition" and resolution["status"] == "missing_in_scope":
-            discovery = resolver.discovery(requested_term or spec["names"][0], *spec["names"])
-            if discovery is not None:
-                resolution["discovery"] = discovery
-        return apply_lookup(obj, spec, resolution), resolution, native
-
-    # -- tools ------------------------------------------------------------
-
     async def look(self, args: dict[str, Any]) -> dict[str, Any]:
-        return await self.object_reader.look(args)
-
-    def _validate_capabilities(self, obj):
-        if "capabilities" in obj:
-            allowed = capability_values(self.setup.directory)
-            if not allowed or any(value not in allowed for value in obj["capabilities"]):
-                raise SurfaceError("Unsupported capability selection on this connection")
-
-    async def _look_legacy(self, args: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(args, dict) or "object" not in args or "aspects" not in args:
-            raise SurfaceError("look requires object and aspects")
-        original = normalize_object(args["object"])
-        self._validate_capabilities(original)
-        aspects = validate_aspects(original["kind"], args["aspects"])
-        detail = validate_detail(args.get("detail", 0))
-        obj, resolution, lookup_native = await self._resolve(original)
-        if obj is None:
-            return render_blocked("look", original, resolution, lookup_native)
-        plan = plan_look(self.surface, obj, aspects, detail)
-        offset = args.get("offset", 0)
-        if type(offset) is not int or not 0 <= offset <= 8192:
-            raise SurfaceError("offset must be 0..8192")
-        plan.request["offset"] = offset
-        native = await self.execute_native(plan.request)
-        result = _with_field_semantics(render(plan, native, resolution))
-        result["page"] = copy.deepcopy((native.get("pages") or [None])[0] or {})
-        return result
+        return await read_look(self, args)
 
     async def count(self, args: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(args, dict) or "object" not in args or "metric" not in args:
-            raise SurfaceError("count requires object and metric")
-        original = normalize_object(args["object"])
-        self._validate_capabilities(original)
-        metric = validate_metric(original["kind"], args["metric"])
-        by = validate_by(original["kind"], args.get("by"))
-        detail = validate_detail(args.get("detail", 0))
-        obj, resolution, lookup_native = await self._resolve(original)
-        if obj is None:
-            return render_blocked("count", original, resolution, lookup_native)
-        plan = plan_count(self.surface, obj, metric, by, detail)
-        native = await self.execute_native(plan.request)
-        return render(plan, native, resolution)
+        return await self.query_readings.count(args)
 
 
 def semantic_interaction_factory(setup: Any, session: Any, update: Any):

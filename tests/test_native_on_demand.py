@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from plugin.plugins.neko_rimworld.tool_contracts import WORLD_OBSERVATION_VERSION
-from plugin.plugins.neko_rimworld.agent.world.object_tools import state_contract
+from plugin.plugins.neko_rimworld.agent.world.native_state import state_contract
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 
 
@@ -93,34 +93,10 @@ async def test_survey_object_opt_in_and_paging_remain_available(extra):
 
 
 def state_directory(version):
-    return {
-        "world_observation": {
-            "version": version,
-            "tools": [
-                {
-                    "name": "inspect_state",
-                    "operation": "inspect_state",
-                    "description": "state",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            key: {}
-                            for key in (
-                                "targets",
-                                "stats",
-                                "actor",
-                                "user",
-                                "include_fogged",
-                                "detail_limit",
-                                "exact_lookup",
-                            )
-                        }
-                        | {"sections": {"items": {"enum": ["identity", "state", "health", "skills", "gear", "work"]}}},
-                    },
-                }
-            ],
-        }
-    }
+    from .consultation_setup import consultation_setup
+    directory = copy.deepcopy(consultation_setup().directory)
+    directory['world_observation']['version'] = version
+    return directory
 
 
 @pytest.mark.parametrize("version", [WORLD_OBSERVATION_VERSION])

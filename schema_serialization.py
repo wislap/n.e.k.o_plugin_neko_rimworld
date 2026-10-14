@@ -7,7 +7,7 @@ import json
 from collections import Counter
 from functools import lru_cache
 
-from ...serialization import canonical
+from .serialization import canonical
 
 MAPS = frozenset({"properties", "patternProperties", "dependentSchemas", "$defs", "definitions"})
 ARRAYS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})

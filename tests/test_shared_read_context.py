@@ -5,7 +5,7 @@ import jsonschema
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner, _record_view, prune
-from plugin.plugins.neko_rimworld.agent.context.schema_compaction import remove_redundant_constraints
+from plugin.plugins.neko_rimworld.schema_serialization import remove_redundant_constraints
 
 
 def environment_read():

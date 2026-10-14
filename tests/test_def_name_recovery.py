@@ -15,7 +15,7 @@ from plugin.plugins.neko_rimworld.agent.world.def_names import (
     DefNameResolver,
     tokens,
 )
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
+from plugin.plugins.neko_rimworld.agent.world.query_readings import QueryReadings
 
 
 class RecordingSurface:
@@ -152,7 +152,7 @@ def interaction(view, responses):
         calls.append(copy.deepcopy(request))
         return responses[len(calls) - 1]
 
-    stub = SemanticInteraction.__new__(SemanticInteraction)
+    stub = QueryReadings.__new__(QueryReadings)
     stub.setup = SimpleNamespace(knowledge_view=view)
     stub.session = SimpleNamespace(observations=[])
     stub.surface = RecordingSurface()
@@ -169,7 +169,7 @@ RESOLVED_ROW = {"def_name": "ComponentIndustrial", "label": "零部件"}
 @pytest.mark.asyncio
 async def test_unique_recovery_rewrites_once_and_discloses():
     stub, calls = interaction(FakeView(CATALOG), [native_payload([RESOLVED_ROW], ["ComponentIndustrial"])])
-    obj, resolution, _ = await SemanticInteraction._resolve(
+    obj, resolution, _ = await QueryReadings._resolve(
         stub, {"kind": "things", "definition": "IndustrialComponent"}
     )
     assert calls[0]["blocks"][0]["args"] == {"exact_names": ["ComponentIndustrial"]}
@@ -187,7 +187,7 @@ async def test_unique_recovery_rewrites_once_and_discloses():
 async def test_stale_index_degrades_to_honest_missing_with_candidates():
     # Native is the arbiter: the rewritten canonical name may itself be missing.
     stub, calls = interaction(FakeView(CATALOG), [native_payload([], ["ComponentIndustrial"])])
-    obj, resolution, _ = await SemanticInteraction._resolve(
+    obj, resolution, _ = await QueryReadings._resolve(
         stub, {"kind": "thing_def", "definition": "IndustrialComponent"}
     )
     assert obj is None and resolution["status"] == "missing_in_scope"
@@ -198,7 +198,7 @@ async def test_stale_index_degrades_to_honest_missing_with_candidates():
 @pytest.mark.asyncio
 async def test_localized_missing_gets_discovery_without_auto_selection():
     stub, calls = interaction(FakeView(CATALOG), [native_payload([], ["工业零部件"])])
-    obj, resolution, _ = await SemanticInteraction._resolve(stub, {"kind": "things", "definition": "工业零部件"})
+    obj, resolution, _ = await QueryReadings._resolve(stub, {"kind": "things", "definition": "工业零部件"})
     assert obj is None and resolution["status"] == "missing_in_scope"
     assert calls[0]["blocks"][0]["args"] == {"exact_names": ["工业零部件"]}  # never rewritten
     assert "name_resolution" not in resolution
@@ -215,7 +215,7 @@ async def test_broken_view_degrades_to_unchanged_lookups():
             raise ValueError("knowledge payload changed")
 
     stub, calls = interaction(Broken(), [native_payload([], ["IndustrialComponent"])])
-    obj, resolution, _ = await SemanticInteraction._resolve(
+    obj, resolution, _ = await QueryReadings._resolve(
         stub, {"kind": "things", "definition": "IndustrialComponent"}
     )
     assert obj is None and resolution["status"] == "missing_in_scope"
@@ -248,5 +248,5 @@ async def test_identity_name_lookups_are_out_of_scope():
             }
         ],
     )
-    await SemanticInteraction._resolve(stub, {"kind": "things", "names": ["IndustrialComponent"], "map": "current"})
+    await QueryReadings._resolve(stub, {"kind": "things", "names": ["IndustrialComponent"], "map": "current"})
     assert calls[0]["blocks"][0]["where"] == {"label": {"in": ["IndustrialComponent"]}}

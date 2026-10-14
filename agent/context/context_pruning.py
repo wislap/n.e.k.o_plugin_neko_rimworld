@@ -86,8 +86,6 @@ def _aliases(x):
                 and pos.get("map_id", retained.get("map")) == retained.get("map")
             ):
                 out.pop("status")
-    if "grid_distance" in out and out.get("grid_distance") == out.get("path_length"):
-        out.pop("grid_distance")
     if isinstance(out.get("pawn_membership"), dict) and _subset(out["pawn_membership"], out):
         out.pop("pawn_membership")
     return out
@@ -290,7 +288,7 @@ def _duplicate_work_summary(data):
         sample = data.get("sample", {})
         if summary["sample"] != {"load_epoch": sample.get("load_epoch"), "game_tick": sample.get("game_tick"), "atomic": False}:
             return False
-    from ..world.object_tools import summarize_work_assignments
+    from ..world.native_state import summarize_work_assignments
 
     expected = summarize_work_assignments(facts, data.get("coverage", {}))
     if summary.get("meaning", expected["meaning"]) != expected["meaning"]:
@@ -534,8 +532,6 @@ def _record_view(value, arguments, removed):
             omit |= key == "map_id" and child is not None and "map" in node and child == node["map"]
             omit |= key == "definition_label" and isinstance(child, str) and isinstance(node.get("definition"), dict) and child == node["definition"].get("label")
             omit |= key == "label" and isinstance(child, str) and child == node.get("definition")
-            if key == "grid_distance" and isinstance(child, dict) and isinstance(node.get("path_length"), dict):
-                omit |= type(child.get("value")) in (int, float) and all(child.get(k) == node["path_length"].get(k) for k in ("value", "unit"))
             omit |= key in inherited and child is not None and not isinstance(child, (dict, list)) and child == inherited[key]
             omit |= key in ("sample", "context") and key in inherited and isinstance(child, dict) and canonical(child) == canonical(inherited[key])
             if omit:

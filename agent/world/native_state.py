@@ -1,4 +1,4 @@
-"""One object-facing reader; native state and legacy facts are internal adapters."""
+"""Native physical identity, device state and selected Pawn facts."""
 
 from __future__ import annotations
 
@@ -8,16 +8,11 @@ import re
 from ..context.model_context import MAX_SOURCE_CHARS, model_size
 from ...serialization import canonical
 from ...tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSION
+from ...game.catalog_contract import has_retired_capability_alias
 from .query_surface import SurfaceError
 from .semantic_surface import (
-    ASPECTS,
-    KINDS,
     PAWN_KINDS,
     THING_KINDS,
-    normalize_object,
-    supported_aspects,
-    validate_aspects,
-    validate_detail,
 )
 from .world_order import order_world_fields
 
@@ -193,12 +188,12 @@ def state_contract(directory):
     if not isinstance(directory, dict):
         return None
     world = directory.get("world_observation")
-    if not isinstance(world, dict) or world.get("version") != WORLD_OBSERVATION_VERSION:
+    if not isinstance(world, dict) or world.get("version") != WORLD_OBSERVATION_VERSION or has_retired_capability_alias(world):
         return None
     tools = world.get("tools")
     if not isinstance(tools, list):
         return None
-    required = {"targets", "stats", "actor", "user", "sections", "include_fogged", "detail_limit", "exact_lookup"}
+    required = {"targets", "stats", "actor", "user", "sections", "include_fogged", "detail_limit", "exact_lookup", "facets"}
     for tool in tools:
         if not isinstance(tool, dict) or tool.get("name") != "inspect_state" or tool.get("operation") != "inspect_state":
             continue
@@ -215,270 +210,12 @@ def state_contract(directory):
     return None
 
 
-def extend_look_schema(spec, contract):
-    """Keep one selector/aspects interface, exposing only negotiated capabilities."""
-    spec = copy.deepcopy(spec)
-    spec["description"] = (
-        "Find objects and read their requested facts in one call. Physical objects support state "
-        "(all current native facets), plus selected health/skills/gear/work for pawns. "
-        "Work includes assignments and current jobs. Identity discovery does not inspect environment. "
-        "Other aspects retain biography, mood, resources and definition facts. "
-        "Use stats for exact game-computed StatDefs. actor performs interaction/travel; user is "
-        "the intended recipient; omitted actor defaults to user. Context checks are observations, not action eligibility guarantees. "
-        "Resolve names directly; prefer id/ids for stable IDs. Already observed IDs can be normalized from name. Do not look up IDs first. "
-        "object.location gives canonical position and held_position cells without removing legacy fields. "
-        "Unknown StatDefs may provide discovery.matches and matching_definition_kind; names are not computed values. "
-        "Scope, coverage and unavailable facts are explicit."
-    )
-    props = spec["parameters"]["properties"]
-    cell = {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["kind", "x", "z"],
-        "properties": {
-            "kind": {"const": "cell"},
-            "map": {"type": "string", "default": "current"},
-            "x": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647},
-            "z": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647},
-        },
-    }
-    props["offset"] = {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 8192,
-        "default": 0,
-        "description": "Continue object rows using returned page.next_offset. Each page is a fresh observation, not a frozen snapshot.",
-    }
-    props["object"] = {"oneOf": [props["object"], cell]}
-    props["aspects"]["items"]["enum"] = list(ASPECTS) + ["state"]
-    props["detail"]["description"] = (
-        "Bounds long Pawn/work detail lists (conditions, body parts, gear, queued jobs); 0 uses reader defaults. Skills, capacities and work-type assignments remain complete when observed, including mod-added definitions. Other facets report their own bounds. Does not change selection or requested stats."
-    )
-    props["aspects"]["description"] = (
-        "Omitted: current state for physical objects/cells, identity otherwise. Select only needed aspects for smaller reads. state already contains native health, skills, gear, work and device facets; mood/biography are separate."
-    )
-    for key in ("stats", "actor", "user"):
-        props[key] = copy.deepcopy(contract["parameters"]["properties"][key])
-        if key in ("actor", "user"):
-            props[key] = {
-                "type": "object",
-                "additionalProperties": False,
-                "description": "Pawn context: provide exactly one of id or name, not both. Optional map defaults to current.",
-                "properties": {
-                    **{name: copy.deepcopy(props[key]["properties"][name]) for name in ("id", "name", "map")},
-                    "kind": {"type": "string", "const": "pawn"},
-                },
-                "oneOf": [
-                    {"required": ["id"], "not": {"required": ["name"]}},
-                    {"required": ["name"], "not": {"required": ["id"]}},
-                ],
-            }
-    # Replace legacy per-kind constraints as well as the top-level vocabulary.
-    spec["parameters"]["allOf"] = [
-        {
-            "if": {
-                "properties": {"object": {"properties": {"kind": {"const": kind}}, "required": ["kind"]}},
-                "required": ["object"],
-            },
-            "then": {
-                "properties": {
-                    "aspects": {
-                        "items": {"enum": list(supported_aspects(kind)) + (["state"] if kind in PHYSICAL else [])}
-                    }
-                }
-            },
-        }
-        for kind in KINDS
-    ] + [
-        {
-            "if": {"properties": {"object": {"properties": {"kind": {"const": "cell"}}, "required": ["kind"]}}},
-            "then": {
-                "properties": {"aspects": {"items": {"enum": ["identity", "state"]}}, "offset": {"const": 0}},
-                "not": {"required": ["stats"]},
-            },
-        },
-        {
-            "not": {
-                "properties": {
-                    "aspects": {
-                        "allOf": [{"contains": {"enum": list(STATE_ASPECTS)}}, {"contains": {"const": "distribution"}}]
-                    }
-                },
-                "required": ["aspects"],
-            }
-        },
-    ]
-    spec["parameters"]["allOf"].extend(
-        [
-            {
-                "if": {
-                    "properties": {
-                        "object": {"properties": {"kind": {"not": {"enum": [*PHYSICAL, "cell"]}}}, "required": ["kind"]}
-                    }
-                },
-                "then": {"not": {"anyOf": [{"required": [key]} for key in ("stats", "actor", "user")]}},
-            },
-            {
-                "if": {"anyOf": [{"required": ["actor"]}, {"required": ["user"]}]},
-                "then": {"properties": {"aspects": {"contains": {"enum": list(STATE_ASPECTS)}}}},
-            },
-        ]
-    )
-    spec["parameters"]["required"] = ["object"]
-    return spec
-
-
-class ObjectReader:
+class NativeStateReader:
     def __init__(self, interaction):
         self.interaction = interaction
         self.work_readings = WorkReadings()
 
-    async def look(self, args):
-        if not isinstance(args, dict) or not isinstance(args.get("object"), dict):
-            raise SurfaceError("look requires object")
-        unknown = set(args) - {
-            "object",
-            "aspects",
-            "detail",
-            "stats",
-            "actor",
-            "user",
-            "offset",
-            *({"include", "focus"}),
-        }
-        if unknown:
-            raise SurfaceError("look does not accept: " + ", ".join(sorted(unknown)))
-        include = args.get("include", [])
-        if not isinstance(include, list) or any(v not in ("body_parts",) for v in include):
-            raise SurfaceError("look include accepts body_parts")
-        # Model-only inclusion controls never enter the native request.
-        focus = args.get("focus", {})
-        if (
-            not isinstance(focus, dict)
-            or set(focus) - {"skills", "work", "capacities", "state"}
-            or any(
-                not isinstance(v, list)
-                or not 1 <= len(v) <= 32
-                or any(not isinstance(n, str) or not n or len(n) > 256 for n in v)
-                for v in focus.values()
-            )
-        ):
-            raise SurfaceError("focus selects skills/work/capacities or physical state facets")
-        if "state" in focus and (len(set(focus["state"])) != len(focus["state"]) or set(focus["state"]) - set(STATE_FACETS)):
-            raise SurfaceError("focus.state requires distinct registered physical facet names")
-            # Native requests below are built from explicit native keys. Retain
-            # these controls here so page fitting uses the requested model view.
-        raw_object = args["object"]
-        kind = raw_object.get("kind")
-        if kind in ("pawn", "thing"):
-            raw_object = observed_id_reference(
-                raw_object, getattr(getattr(self.interaction, "session", None), "observations", ())
-            )
-        cell = kind == "cell"
-        obj = copy.deepcopy(raw_object) if cell else normalize_object(raw_object)
-        if kind in ("pawn", "thing") and len(obj.get("names", [])) == 1:
-            reference = {"kind": kind, "name": obj["names"][0]}
-            if "map" in obj:
-                reference["map"] = obj["map"]
-            recovered = observed_id_reference(
-                reference, getattr(getattr(self.interaction, "session", None), "observations", ())
-            )
-            if "id" in recovered:
-                obj["ids"] = [recovered["id"]]
-                obj.pop("names")
-        aspects = args.get("aspects", ["state"] if kind in PHYSICAL or cell else ["identity"])
-        if not isinstance(aspects, list) or not aspects or any(not isinstance(a, str) for a in aspects):
-            raise SurfaceError("aspects must be a nonempty string array")
-        aspects = list(dict.fromkeys(aspects))
-        aspects = list(
-            dict.fromkeys(
-                [
-                    *aspects,
-                    *(
-                        {"skills": "skills", "work": "work", "capacities": "health", "state": "state"}[k]
-                        for k in args.get("focus", {})
-                    ),
-                ]
-            )
-        )
-        detail = validate_detail(args.get("detail", 0))
-        offset = args.get("offset", 0)
-        if type(offset) is not int or not 0 <= offset <= 8192 or cell and offset:
-            raise SurfaceError("offset must be 0..8192 for object populations; cells use zero")
-        state = [a for a in aspects if a in STATE_ASPECTS]
-        if state and "distribution" in aspects:
-            raise SurfaceError("Use count for quantities/grouping; look for object state")
-        legacy = [a for a in aspects if a not in STATE_ASPECTS]
-        if kind not in PHYSICAL and not cell:
-            if state or any(k in args for k in ("stats", "actor", "user")):
-                raise SurfaceError("state/stats/context require physical objects or cells")
-            return await self.interaction._look_legacy({**args, "aspects": aspects})
-        if cell:
-            if set(aspects) - {"identity", "state"} or "stats" in args:
-                raise SurfaceError("cells support identity/state, not Pawn/Thing stats")
-            if set(obj) - {"kind", "map", "x", "z"} or any(type(obj.get(k)) is not int for k in ("x", "z")):
-                raise SurfaceError("cell requires integer x/z and optional map")
-        else:
-            validate_aspects(kind, [a for a in aspects if a != "state"]) if any(a != "state" for a in aspects) else None
-        stats = args.get("stats")
-        if "stats" in args and (
-            not isinstance(stats, list)
-            or not 1 <= len(stats) <= 16
-            or any(not isinstance(x, str) or not x for x in stats)
-        ):
-            raise SurfaceError("stats requires 1..16 exact StatDef names")
-        for key in ("actor", "user"):
-            if key in args:
-                ref = args[key]
-                if (
-                    not isinstance(ref, dict)
-                    or set(ref) - {"id", "name", "kind", "map"}
-                    or ("id" in ref) == ("name" in ref)
-                    or ref.get("kind", "pawn") != "pawn"
-                    or not isinstance(ref.get("id", ref.get("name")), str)
-                    or not ref.get("id", ref.get("name"))
-                ):
-                    raise SurfaceError(key + " requires one Pawn id or name and optional map")
-        if any(k in args for k in ("actor", "user")) and not state:
-            raise SurfaceError("actor/user context requires a state aspect")
-        if not cell and not state and stats is None and not any(k in args for k in ("actor", "user")):
-            return self._fit_page(
-                self._normalize_identities(await self.interaction._look_legacy({**args, "aspects": aspects})),
-                args,
-            )
-        direct = (
-            kind in ("pawn", "thing")
-            and offset == 0
-            and not set(obj) - {"kind", "ids", "names", "map", "include_fogged"}
-            and len(obj.get("ids", obj.get("names", []))) == 1
-            and not set(legacy) - {"identity"}
-        )
-        if cell or direct:
-            base = {
-                "status": "ok",
-                "tool": "look",
-                "object": obj,
-                "scope": {"object": obj, "include_fogged": False if cell else obj.get("include_fogged", True)},
-                "coverage": {},
-                "facts": [{"object": obj, "facts": {}}],
-                "not_read": [],
-            }
-        else:
-            # Identity selection uses the established population/scope/ambiguity contract.
-            # Mood/biography still use their existing reader, but no duplicate health/work read.
-            base = await self.interaction._look_legacy(
-                {
-                    "object": raw_object,
-                    "aspects": list(dict.fromkeys(["identity", *legacy])),
-                    "detail": detail,
-                    "offset": offset,
-                }
-            )
-            if not base.get("facts"):
-                return base
-        return await self._enrich(base, obj, args, aspects, detail, direct=direct)
-
-    async def _enrich(self, base, obj, args, aspects, detail, *, direct=False):
+    async def read(self, base, obj, args, aspects, detail, *, direct=False):
         cell = obj["kind"] == "cell"
         state = [aspect for aspect in aspects if aspect in STATE_ASPECTS]
         stats = args.get("stats")
@@ -487,11 +224,8 @@ class ObjectReader:
         base["not_read"] = [s for s in base.get("not_read", []) if not s.startswith("aspects not requested:")]
         base["state_observations"] = []
         focused_state = args.get("focus", {}).get("state")
-        directory = getattr(getattr(self.interaction, "setup", None), "directory", {})
-        contract = state_contract(directory)
-        native_facets = bool(contract and "facets" in contract["parameters"]["properties"])
         if focused_state:
-            base["state_facet_selection"] = {"requested": list(focused_state), "native_selected": native_facets}
+            base["state_facet_selection"] = {"requested": list(focused_state), "native_selected": True}
         base["consistency"] = (
             "Selection and state have separate samples below; no atomic snapshot or silent merge across loads."
         )
@@ -518,7 +252,7 @@ class ObjectReader:
                 "include_fogged": False if cell else obj.get("include_fogged", True),
                 "detail": "details" if detail else "summary",
             }
-            if focused_state and native_facets:
+            if focused_state:
                 request["facets"] = list(focused_state)
             if direct:
                 request["exact_lookup"] = True

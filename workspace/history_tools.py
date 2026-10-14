@@ -67,10 +67,7 @@ def make_history_tool(*, storage=None, workspace_id=None, owner=None, turn_id=No
 
     return ToolSpec(
         "workspace_history",
-        "Read prior work and reports; historical, never current game facts. list finds records in this work. "
-        "read accepts turn_id or report_id; observation_id (or report index) reads original evidence. "
-        "Reports from another work require their exact ID in the caller's question. checkpoint reads an existing note. "
-        "Completed answers and evidence are saved automatically; no separate note-writing tool is needed.",
+        "Historical work/reports, not current game facts. list discovers records in this work; read accepts turn_id or report_id and optional observation_id/report index; checkpoint reads an existing note. Another work's report requires its exact ID in the question. Exchanges save automatically.",
         {"type": "object", "properties": {
             "action": {"type": "string", "enum": ["list", "read", "checkpoint"]},
             "turn_id": {"type": "string"}, "report_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},

@@ -265,8 +265,7 @@
   "world_observation": {
     "version": "world_observation.v2.3",
     "capability_meanings": {
-      "bill_giver": "Native IBillGiver: an owner of bills, including Pawn surgery orders as well as worktable production. Not proof of manufacturing capability or executable work.",
-      "production": "Compatibility alias of bill_giver (IBillGiver), including Pawn surgery bills. Inspect bill_owner and bill_kind; this is not a manufacturing-only category."
+      "bill_giver": "Native IBillGiver: an owner of bills, including Pawn surgery orders as well as worktable production. Not proof of manufacturing capability or executable work."
     },
     "spatial_object_state": "spatial_object_state.v1",
     "visibility": "Visible spawned objects/cells and real contents of visible holders. Hidden objects are not evidence of absence.",
@@ -1023,7 +1022,7 @@
                 "capabilities": {
                   "type": "array",
                   "minItems": 1,
-                  "maxItems": 13,
+                  "maxItems": 12,
                   "items": {
                     "type": "string",
                     "enum": [
@@ -1037,14 +1036,13 @@
                       "powered",
                       "refuelable",
                       "storage",
-                      "production",
                       "bill_giver",
                       "hazard"
                     ]
                   }
                 }
               },
-              "description": "Exact definition names and/or native capabilities. OR within each list, AND between lists. Selection filters objects, never suppresses environmental hazards. {\"bill_giver\":\"Native IBillGiver: an owner of bills, including Pawn surgery orders as well as worktable production. Not proof of manufacturing capability or executable work.\",\"production\":\"Compatibility alias of bill_giver (IBillGiver), including Pawn surgery bills. Inspect bill_owner and bill_kind; this is not a manufacturing-only category.\"}"
+              "description": "Exact definition names and/or native capabilities. OR within each list, AND between lists. Selection filters objects, never suppresses environmental hazards. {\"bill_giver\":\"Native IBillGiver: an owner of bills, including Pawn surgery orders as well as worktable production. Not proof of manufacturing capability or executable work.\"}"
             }
           },
           "required": [
@@ -2324,10 +2322,6 @@
   },
   "public_query": {
     "version": "public_query.v2",
-    "references": {
-      "version": "observed_values.v1",
-      "coverage": "Every public_query result carries an observed_values.v1 description of the values it returned: aggregates as readings with unit, completeness and lower bound, and each reading's context carries the resolved selection, where and display window. Descriptions never add a game read."
-    },
     "parameters": {
       "type": "object",
       "properties": {
@@ -2415,13 +2409,12 @@
                         "powered",
                         "refuelable",
                         "storage",
-                        "production",
                         "bill_giver",
                         "hazard"
                       ]
                     },
                     "minItems": 1,
-                    "maxItems": 13,
+                    "maxItems": 12,
                     "description": "Match any native capability before projection/aggregation; intersects other selectors."
                   },
                   "def_name": {
@@ -2717,13 +2710,12 @@
                                 "powered",
                                 "refuelable",
                                 "storage",
-                                "production",
                                 "bill_giver",
                                 "hazard"
                               ]
                             },
                             "minItems": 1,
-                            "maxItems": 13,
+                            "maxItems": 12,
                             "description": "Match any native capability before projection/aggregation; intersects other selectors."
                           }
                         },
@@ -2926,13 +2918,12 @@
                   "powered",
                   "refuelable",
                   "storage",
-                  "production",
                   "bill_giver",
                   "hazard"
                 ]
               },
               "minItems": 1,
-              "maxItems": 13,
+              "maxItems": 12,
               "description": "Match any native capability before projection/aggregation; intersects other selectors."
             },
             "def_name": {
@@ -3254,13 +3245,12 @@
                               "powered",
                               "refuelable",
                               "storage",
-                              "production",
                               "bill_giver",
                               "hazard"
                             ]
                           },
                           "minItems": 1,
-                          "maxItems": 13,
+                          "maxItems": 12,
                           "description": "Match any native capability before projection/aggregation; intersects other selectors."
                         }
                       },
@@ -5214,5 +5204,5 @@
       }
     ]
   },
-  "schema_id": "e322b094b7409b9c3e79527466f2d52b54254ade86518bd4922d2f36c03b7aad"
+  "schema_id": "a35400c8a1c5a61daeb315f781cca2b56b206cc6dcb151d9aedf20f589ba4b5e"
 }

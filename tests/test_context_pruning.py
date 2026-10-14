@@ -13,7 +13,7 @@ from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 
 
 def work_reading():
-    from plugin.plugins.neko_rimworld.agent.world.object_tools import summarize_work_assignments
+    from plugin.plugins.neko_rimworld.agent.world.native_state import summarize_work_assignments
 
     facts = [{"object": {"id": "Doctor"}, "state_sample": {"tick": 8, "observation_id": "work-read"},
               "facts": {"work": {"status": "observed", "work_types_complete": True,
@@ -436,11 +436,11 @@ def test_script_outputs_are_not_reinterpreted_as_native_metadata():
 
 @pytest.mark.asyncio
 async def test_state_no_longer_smuggles_all_pawn_facts_and_selected_health_still_arrives():
-    from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
+    from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
     native = NativeInteraction()
-    result = await ObjectReader(native).look({"object": {"kind": "pawn", "id": "a"}, "aspects": ["state", "health"]})
+    result = await read_look(native, {"object": {"kind": "pawn", "id": "a"}, "aspects": ["state", "health"]})
     facts = result["facts"][0]["facts"]
     assert "pawn" not in facts["state"]["facets"] and "work" not in facts["state"]["facets"]
     assert facts["health"]["health_summary_fraction"] == 0.9
@@ -548,11 +548,11 @@ async def test_contextual_state_matrix_does_not_read_unrequested_paths_or_actor_
 
 @pytest.mark.asyncio
 async def test_named_focus_includes_its_aspect_in_the_same_native_read():
-    from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
+    from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
     from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 
     native = NativeInteraction()
-    result = await ObjectReader(native).look(
+    result = await read_look(native,
         {"object": {"kind": "pawn", "id": "a"}, "aspects": ["health"], "focus": {"skills": ["Medicine"]}}
     )
     assert len(native.calls) == 1 and native.calls[0][1]["sections"] == ["health", "skills"]

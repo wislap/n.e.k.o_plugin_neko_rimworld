@@ -345,16 +345,20 @@ def make_wiki_tool(store: WikiStore) -> ToolSpec:
             raise ToolExecutionError("invalid_arguments", "wiki accepts only the required query string.")
         return await asyncio.to_thread(store.query, arguments["query"])
 
+    return wiki_spec(wiki)
+
+
+def wiki_spec(handler):
     return ToolSpec(
         name="wiki",
-        description=WIKI_GUIDANCE,
+        description='Lookup local definitions by keywords/key and optional fields. source:keywords finds implementation; query a returned source:<ref> with optional member=Name or lines=START:COUNT (COUNT<=120) to read it. Explicit keys never fall back. Knowledge is not current-instance evidence.',
         parameters={
             "type": "object",
             "properties": {"query": {"type": "string", "maxLength": MAX_QUERY_CHARS}},
             "required": ["query"],
             "additionalProperties": False,
         },
-        handler=wiki,
+        handler=handler,
     )
 
 

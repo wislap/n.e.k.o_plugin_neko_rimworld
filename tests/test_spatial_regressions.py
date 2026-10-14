@@ -1,3 +1,5 @@
+from plugin.plugins.neko_rimworld.agent.world.look_tools import look_spec
+from .consultation_setup import consultation_setup
 """Regression contracts from the V2.1 eight-case trace, without model calls."""
 
 import copy
@@ -61,14 +63,20 @@ def test_pawn_map_and_single_id_route_without_dropping_scope():
 
 
 
-def test_look_schema_rejects_wrong_kind_aspect_before_guessing():
-    from jsonschema import ValidationError, validate
+@pytest.mark.asyncio
+async def test_look_reader_rejects_wrong_kind_aspect_before_guessing():
+    from jsonschema import validate
+    from .test_object_tools import Reader
+    from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
+    from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
 
-    schema = surface.tool_schemas()[0]["parameters"]
+    schema = look_spec(consultation_setup().directory)["parameters"]
     validate({"object": {"kind": "pawn", "id": "p", "map": "m"}, "aspects": ["work"]}, schema)
     validate({"object": {"kind": "thing", "id": "t"}, "aspects": ["identity"]}, schema)
-    with pytest.raises(ValidationError):
-        validate({"object": {"kind": "thing", "id": "t"}, "aspects": ["work"]}, schema)
+    reader = Reader([])
+    with pytest.raises(SurfaceError):
+        await read_look(reader, {"object": {"kind": "thing", "id": "t"}, "aspects": ["work"]})
+    assert reader.calls == []
 
 
 def test_native_pack_preserves_actual_lookup_root_and_scope():

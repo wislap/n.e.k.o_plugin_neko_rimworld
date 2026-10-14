@@ -6,7 +6,8 @@ import pytest
 
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner
 from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
-from plugin.plugins.neko_rimworld.agent.world.object_tools import STATE_FACETS, ObjectReader
+from plugin.plugins.neko_rimworld.agent.world.native_state import STATE_FACETS, NativeStateReader
+from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
 from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 from plugin.plugins.neko_rimworld.tests.test_native_on_demand import state_directory
 
@@ -30,8 +31,8 @@ def test_survey_geometry_is_optional_but_environment_and_distance_origin_stay_ex
 def test_unavailable_identity_map_is_not_sent_as_a_native_map_selector():
     identity={'id':'pawn','map_id':{'state':'unavailable','reason':'deadline_exceeded'}}
     saved=copy.deepcopy(identity)
-    assert ObjectReader._target(identity,{'kind':'colonists'})=={'id':'pawn'}
-    assert ObjectReader._target(identity,{'kind':'colonists','map':'Map_0'})=={'id':'pawn','map':'Map_0'}
+    assert NativeStateReader._target(identity,{'kind':'colonists'})=={'id':'pawn'}
+    assert NativeStateReader._target(identity,{'kind':'colonists','map':'Map_0'})=={'id':'pawn','map':'Map_0'}
     assert identity==saved
 
 
@@ -49,21 +50,16 @@ def test_environment_retains_gas_positions_without_full_geometry_and_never_promo
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('native_selection', [True, False])
-async def test_selected_state_forwards_only_negotiated_facets_without_extra_read(native_selection):
+async def test_selected_state_forwards_only_current_native_facets_without_extra_read():
     native = NativeInteraction()
     directory = state_directory('world_observation.v2.3')
-    if native_selection:
-        directory['world_observation']['tools'][0]['parameters']['properties']['facets'] = {'items': {'enum':list(STATE_FACETS)}}
     native.setup = SimpleNamespace(directory=directory)
     args = {'object':{'kind':'thing','id':'bed1'}, 'focus':{'state':['bed','reservations']},
             'aspects':['identity'], 'actor':{'kind':'pawn','id':'a'}, 'user':{'kind':'pawn','id':'patient'}}
-    result = await ObjectReader(native).look(args)
+    result = await read_look(native, args)
     assert len(native.calls) == 1
     request = native.calls[0][1]
-    assert ('facets' in request) is native_selection
-    if native_selection:
-        assert request['facets'] == ['bed','reservations']
+    assert request['facets'] == ['bed','reservations']
     assert request['sections'] == ['state']  # Native target identity accompanies each state read.
     saved = copy.deepcopy(result)
     view = json.loads(ContextPruner().compile({'tool':'look','data':result},arguments=args).content)['data']
@@ -73,7 +69,7 @@ async def test_selected_state_forwards_only_negotiated_facets_without_extra_read
     assert state['facets']['reservations']['status'] == 'not_observed'
     assert 'pawn' not in state['facets'] and result == saved
     assert view['state_observations'][0]['context'] == {'actor_id':'a','user_id':'patient'}
-    assert view['state_facet_selection']['native_selected'] is native_selection
+    assert view['state_facet_selection']['native_selected'] is True
 
 
 @pytest.mark.asyncio

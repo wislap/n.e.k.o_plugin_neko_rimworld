@@ -6,12 +6,12 @@ import itertools
 import jsonschema
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, extend_look_schema
+from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look, look_spec
+from plugin.plugins.neko_rimworld.agent.world.count_tools import count_spec
 from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import (
     ASPECTS,
     KINDS,
-    tool_schemas,
     validate_by,
     validate_metric,
 )
@@ -28,13 +28,12 @@ class Reader(BaseReader):
 
 
 def look_schema():
-    ref = {"properties": {"id": {"type": "string"}, "name": {"type": "string"}, "map": {"type": "string"}}}
-    contract = {"parameters": {"properties": {"actor": ref, "user": ref, "stats": {"type": "array"}}}}
-    return extend_look_schema(tool_schemas()[0], contract)["parameters"]
+    from .consultation_setup import consultation_setup
+    return look_spec(consultation_setup().directory)["parameters"]
 
 
 @pytest.mark.asyncio
-async def test_explicit_state_and_legacy_aspects_agree_with_reader():
+async def test_explicit_state_and_query_aspects_agree_with_reader():
     validator = jsonschema.Draft202012Validator(look_schema())
     for kind, aspect in itertools.product(KINDS, (*ASPECTS, "state")):
         obj = {"kind": kind}
@@ -47,11 +46,11 @@ async def test_explicit_state_and_legacy_aspects_agree_with_reader():
         # The adapter is a fake native data source; vocabulary validation runs in product code.
         reader = Reader([{"id": "a"}])
         try:
-            await ObjectReader(reader).look(copy.deepcopy(args))
+            await read_look(reader, copy.deepcopy(args))
             runtime_ok = True
         except SurfaceError:
             runtime_ok = False
-        # Nonphysical legacy adapter validates aspects in production, not in this fake.
+        # The query facts owner validates nonphysical facets before reading; this fake supplies only rows.
         if kind not in ("pawn", "pawns", "colonists", "thing", "things"):
             from plugin.plugins.neko_rimworld.agent.world.semantic_surface import validate_aspects
 
@@ -60,13 +59,29 @@ async def test_explicit_state_and_legacy_aspects_agree_with_reader():
                 runtime_ok = True
             except SurfaceError:
                 runtime_ok = False
-        assert schema_ok == runtime_ok, (kind, aspect)
-    assert validator.is_valid({"object": {"kind": "thing", "id": "a"}})
-    assert not validator.is_valid({"object": {"kind": "things"}, "aspects": ["state", "distribution"]})
+        from plugin.plugins.neko_rimworld.agent.world.semantic_surface import supported_aspects
+        expected = aspect in (*supported_aspects(kind), *(("state",) if kind in ("pawn", "pawns", "colonists", "thing", "things") else ()))
+        assert runtime_ok == expected, (kind, aspect)
+        assert schema_ok, (kind, aspect)
+    assert not validator.is_valid({"object": {"kind": "thing", "id": "a"}})
+    # Applicability is enforced by the reader; the concise model schema carries it once in aspects prose.
 
 
-def test_count_combinations_match_real_validators():
-    validator = jsonschema.Draft202012Validator(tool_schemas()[1]["parameters"])
+@pytest.mark.asyncio
+async def test_count_combinations_reject_before_native_dispatch():
+    from .test_public_schema_ownership import current_interaction
+    interaction, _ = current_interaction()
+    native_calls = []
+    class NativeReached(Exception):
+        pass
+    async def resolved(obj):
+        return obj, None, None
+    async def native(request):
+        native_calls.append(request)
+        raise NativeReached
+    interaction.query_readings._resolve = resolved
+    interaction.query_readings.execute_native = native
+    validator = jsonschema.Draft202012Validator(count_spec()["parameters"])
     for kind, metric, by in itertools.product(
         KINDS, ("records", "units"), (None, "map", "definition", "category", "holder")
     ):
@@ -79,7 +94,16 @@ def test_count_combinations_match_real_validators():
             valid = True
         except SurfaceError:
             valid = False
-        assert validator.is_valid(args) == valid, args
+        assert validator.is_valid(args) == (kind in ("maps", "pawns", "colonists", "things", "thing_defs")), args
+        before = len(native_calls)
+        try:
+            await interaction.query_readings.count(args)
+        except NativeReached:
+            dispatched = True
+        except SurfaceError:
+            dispatched = False
+        assert dispatched == valid, args
+        assert len(native_calls) - before == int(valid), args
 
 
 @pytest.mark.asyncio
@@ -93,6 +117,5 @@ def test_count_combinations_match_real_validators():
     ],
 )
 async def test_cross_parameter_rejections_are_public(args):
-    assert not jsonschema.Draft202012Validator(look_schema()).is_valid(args)
     with pytest.raises(SurfaceError):
-        await ObjectReader(Reader([])).look(args)
+        await read_look(Reader([]), args)

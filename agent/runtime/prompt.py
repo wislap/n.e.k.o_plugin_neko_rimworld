@@ -119,10 +119,3 @@ __all__ = [
     "system_sections",
     "finalization_sections",
 ]
-
-
-# Existing plain-text policy wording lives here; preserve each surface verbatim.
-PLAIN_ANSWER_GUIDANCE = "Short answer delivered to the caller: give the main conclusion and decision-changing conditions or unknowns. Aim for <=120 tokens; hard maximum 180 tokens. Put full tables in detail; keep the core interpretations here before optional metadata."
-PLAIN_DETAIL_GUIDANCE = "Complete factual report: put requested lists, tables, per-person findings and scope explanations here when they do not fit the concise conclusion. Answer and detail together must cover the question. May expand facts summarized in answer. Omit only if answer suffices; null clears saved detail."
-PLAIN_SUBMISSION_GUIDANCE = "Finish with answer as one concise text string giving the main conclusion and decision-changing conditions (aim <=120 tokens, maximum 180) and detail for the complete requested factual report (answer plus detail <=12000 characters). Include detail whenever answer alone cannot cover the question. Both must agree; the conclusion may summarize facts expanded in detail. Submit after reading the evidence. For length-only repair with unchanged evidence, submit the shortened answer alone. For other revisions, update or reconfirm matching detail; clear it with null only if unnecessary."
-PLAIN_FINISH_GUIDANCE = "Finish with submit_response: answer is one concise text string giving the main conclusion and decision-changing conditions; detail covers every requested finding. Answer is at most 180 tokens, combined text at most 12000 characters. Preserve scope and unknowns; fix only rejected fields."

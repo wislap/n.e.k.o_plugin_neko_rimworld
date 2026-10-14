@@ -1,16 +1,9 @@
-"""v1.9 语义工具表面：模型只传封闭枚举，程序生成 blocks 并复用 Surface.compile。
+"""Current public-query selection and factual projection for the look/count owners.
 
-模型可见 2 个工具：
-
-    look(object, aspects, detail?)      # 读对象事实
-    count(object, metric, by?, detail?) # 计量
-
-object 的选择器（kind/name/names/ids/definition/category/map/include_held/include_fogged）全部是
-封闭枚举或精确值。aspects→原生字段包、metric→aggregate、by→group_by、kind→原生 root 的
-映射只存在于本模块；模型无法传字段名、路径、原生参数键或不透明 handle。
-
-结果全部明文内联：scope、coverage、not_read、语义说明。不使用 _meaning/_measure/
-_unavailable/provenance 这类代号，也不把 unknown 落成 0/null。
+Only query-backed identity, mood/profile, map resources and population measures
+are planned here. Native Pawn health/skills/gear/work and physical state belong
+to native_state. Public tools own their final schemas outside this planner.
+Scope, coverage, unavailable values and meanings remain ordinary JSON.
 """
 
 from __future__ import annotations
@@ -196,10 +189,6 @@ SEMANTICS = {
     "ownership, and it does not establish usable, tradable or colony property.",
     "pawn": "Pawn includes humans, animals and mechanoids regardless of faction; Pawn is not a human, colonist "
     "or ownership identity.",
-    "health": 'health_percent is "Game summaryHealth.SummaryHealthPercent: an overall game-computed health '
-    "indicator. Report it separately from conditions and body-part HP; this read is not a "
-    "blood-volume measurement. A value of 1 does not establish a cause or a general rule about "
-    'which conditions affect it." A value of 1 is therefore not "fully healthy".',
     "holder": "held_by is the nearest containing Pawn (containment, not ownership); null means no Pawn holds this "
     "instance. held_by_faction is that Pawn's faction: null means the holder has no faction (or there is no "
     "holder) - it does NOT mean the read failed. Use held_by_faction.is_player instead of inferring "
@@ -220,15 +209,6 @@ SEMANTICS = {
     "issue at its path is the game returning no value for this member (some definitions carry no "
     "durability); that is neither zero nor a failed read. An issue at the path means the read failed.",
 }
-
-# 接口说明：只说工具怎么用，不包含语义提醒。
-# study 臂在共享的 Architecture prompt 前缀之后只接这一段——语义提醒由工具结果内联给出，
-# 不靠额外提示词奖励，否则就不是接口对比而是提示词对比了。
-
-# 独立使用（不挂 Architecture）时的语义提醒。
-
-
-
 
 # --- schema -------------------------------------------------------------------
 
@@ -335,119 +315,6 @@ def _object_schema(directory=None):
             }
         ]
     return schema
-
-
-def _space_ref_schema(kind_enum):
-    kinds = tuple(kind_enum)
-    selector_forms = [
-        {"required": ["id"], "not": {"required": ["name"]}},
-        {"required": ["name"], "not": {"required": ["id"]}},
-    ]
-    if "cell" in kinds:
-        selector_forms.append(
-            {
-                "required": ["x", "z"],
-                "properties": {"kind": {"const": "cell"}},
-                "not": {"anyOf": [{"required": ["id"]}, {"required": ["name"]}]},
-            }
-        )
-    return {
-        "type": "object",
-        "description": "A Pawn/Thing name or ID, or a map cell. The tool resolves names and returns candidates on ambiguity.",
-        "properties": {
-            "kind": {"type": "string", "enum": list(kind_enum)},
-            "id": {"type": "string", "description": "Exact native object ID when already known."},
-            "name": {"type": "string", "description": "Exact display name; ambiguity is returned, never guessed."},
-            "map": {"type": "string", "default": "current"},
-            "x": {"type": "integer"},
-            "z": {"type": "integer"},
-        },
-        "required": ["kind"],
-        "oneOf": selector_forms,
-        "additionalProperties": False,
-    }
-
-
-def tool_schemas(directory=None):
-    """模型可见读取工具；空间能力由连接 capability 决定。"""
-    specs = [
-        dict(
-            name="look",
-            description=(
-                "Read one object or a population through closed aspects: "
-                "identity health skills gear work mood profile resources quantity distribution. "
-                "No field names or native arguments; the program routes them. "
-                "Pawn supports identity/health/skills/gear/work/mood/profile; Thing supports identity; "
-                "map supports identity/resources. Populations also support quantity, and some distribution. "
-                "detail controls nested detail; ordinary look always returns object facts. "
-                "Results inline scope, coverage, not_read and meanings; unknown is not zero."
-            ),
-            parameters={
-                "type": "object",
-                "properties": {
-                    "object": _object_schema(directory),
-                    "aspects": {"type": "array", "minItems": 1, "items": {"type": "string", "enum": list(ASPECTS)}},
-                    "detail": {"type": "integer", "minimum": 0, "maximum": 100, "default": 0},
-                },
-                "required": ["object", "aspects"],
-                "additionalProperties": False,
-            },
-        ),
-        dict(
-            name="count",
-            description=(
-                "Measure a population. metric units sums stack_count; records counts objects. "
-                "by groups the measurement by definition, category, holder or map. "
-                "detail is the number of raw rows (0 = aggregate only); with by it caps listed groups. "
-                "For kind things each detail row gives the instance id, spawned, stack_count, "
-                "current/max hit_points and the immediate parent_holder type. "
-                "The aggregate is complete or explicitly a lower bound/unavailable, never silently zero."
-            ),
-            parameters={
-                "type": "object",
-                "properties": {
-                    "object": _object_schema(directory),
-                    "metric": {"type": "string", "enum": list(METRICS)},
-                    "by": {"type": "string", "enum": list(GROUPINGS)},
-                    "detail": {"type": "integer", "minimum": 0, "maximum": 100, "default": 0},
-                },
-                "required": ["object", "metric"],
-                "additionalProperties": False,
-            },
-        ),
-    ]
-
-    specs[0]["parameters"]["allOf"] = [
-        {
-            "if": {"properties": {"object": {"properties": {"kind": {"const": kind}}}}},
-            "then": {"properties": {"aspects": {"items": {"enum": list(supported_aspects(kind))}}}},
-        }
-        for kind in KINDS
-    ]
-    count = specs[1]["parameters"]
-    count["properties"]["by"]["description"] = "Allowed by kind: " + "; ".join(
-        kind + ": " + (", ".join(BY_KINDS[kind]) or "no grouping") for kind in POPULATIONS
-    )
-    count["allOf"] = [
-        {"properties": {"object": {"properties": {"kind": {"enum": list(POPULATIONS)}}}}},
-        *[
-            {
-                "if": {
-                    "properties": {"object": {"properties": {"kind": {"const": kind}}, "required": ["kind"]}},
-                    "required": ["object"],
-                },
-                "then": {
-                    "properties": {
-                        "metric": {"enum": ["records", "units"] if kind == "things" else ["records"]},
-                        "by": {"enum": list(BY_KINDS[kind])} if BY_KINDS[kind] else False,
-                    }
-                },
-            }
-            for kind in POPULATIONS
-        ],
-    ]
-    return specs
-
 
 
 # --- 校验 ---------------------------------------------------------------------
@@ -686,48 +553,6 @@ def _entry(aspect, at, key, fields=None, limit=None, listing=False):
 def _pawn_entries(surface, aspect, detail):
     if aspect == "identity":
         return [_entry("identity", "", "object", _supported(surface, "pawn", IDENTITY_FIELDS["pawn"]))]
-    if aspect == "health":
-        return [
-            _entry(
-                "health",
-                "health.summary",
-                "summary",
-                ["health_percent", "pain", "bleed_rate", "in_pain_shock", "downed"],
-            ),
-            _entry(
-                "health",
-                "health.conditions",
-                "conditions",
-                ["id", "def_name", "label", "severity", "severity_label", "visible"],
-                detail,
-            ),
-            _entry(
-                "health",
-                "health.body_parts",
-                "body_parts",
-                ["key", "def_name", "label", "index", "health", "max_health"],
-                detail,
-            ),
-            _entry("health", "health.capacities", "capacities", ["def_name", "label", "level"], detail),
-        ]
-    if aspect == "skills":
-        return [
-            _entry(
-                "skills",
-                "profile.skills",
-                "skills",
-                ["def_name", "label", "level", "passion", "aptitude", "totally_disabled", "permanently_disabled"],
-                detail,
-            )
-        ]
-    if aspect == "gear":
-        fields = ["id", "stack_count", "label", "definition.def_name", "definition.label"]
-        return [_entry("gear", rel, rel, fields, detail) for rel in ("equipment", "apparel", "inventory", "carried")]
-    if aspect == "work":
-        return [
-            _entry("work", "status.current_job", "current_job", ["id", "def_name", "report"]),
-            _entry("work", "status", "status", ["drafted", "in_mental_state", "mental_state"]),
-        ]
     if aspect == "mood":
         return [
             _entry("mood", "mood", "mood", ["level", "instant"]),
@@ -898,7 +723,7 @@ def plan_look(surface, obj, aspects, detail):
         grouping = DEFAULT_GROUP[obj["kind"]]
     # look 是"看这些东西"，不是"数这些东西"：只要请求里有任何非计量 aspect，
     # 就必须返回被寻址对象本身。否则模型问"殖民者是谁"只会得到"有 3 个"。
-    # detail 只控制嵌套关系（conditions/body_parts/skills）的展开深度，
+    # detail 只控制 mood/profile 等 query 关系的展开深度，
     # 不应该成为"能不能看到主语"的隐藏开关。
     rows_wanted = any(aspect not in ("quantity", "distribution") for aspect in aspects)
     needs_rows = (
@@ -1415,8 +1240,6 @@ def _semantics(plan, surface, result, resolution=None):
         notes.append(SEMANTICS["holder"])
     if kind in PAWN_KINDS:
         notes.append(SEMANTICS["pawn"])
-    if "health" in plan.aspects:
-        notes.append(SEMANTICS["health"])
     # 字段是点分路径（parent_holder.runtime_type），必须用子串判断而不是全等。
     if any(any(f.startswith("parent_holder") for f in (entry.get("fields") or [])) for entry in plan.structure):
         notes.append(SEMANTICS["parent_holder"])

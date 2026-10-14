@@ -1,8 +1,10 @@
 import copy
+from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, WorkReadings, summarize_work_assignments
+from plugin.plugins.neko_rimworld.agent.world.native_state import NativeStateReader, WorkReadings, summarize_work_assignments
+from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
 from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import route_object
 
@@ -105,9 +107,11 @@ class Reader:
     def __init__(self, rows, reply=None):
         self.rows = rows
         self.calls = []
+        self.native_state = NativeStateReader(self)
+        self.query_readings = SimpleNamespace(look=self.query_look)
         self.reply = reply
 
-    async def _look_legacy(self, args):
+    async def query_look(self, args):
         self.calls.append(("query", copy.deepcopy(args)))
         return {
             "status": "ok",
@@ -157,7 +161,7 @@ class Reader:
 @pytest.mark.asyncio
 async def test_known_objects_use_one_reader_and_internal_batching():
     adapter = Reader([{"id": str(i), "name": str(i), "map_id": "Map_1"} for i in range(9)])
-    result = await ObjectReader(adapter).look(
+    result = await read_look(adapter,
         {
             "object": {"kind": "pawns", "ids": [str(i) for i in range(9)]},
             "aspects": ["health", "skills", "work"],
@@ -196,7 +200,7 @@ async def test_partial_prefix_and_reasons_survive_without_inventing_missing_rows
     }
     original = copy.deepcopy(reply)
     adapter = Reader([{"id": "a"}, {"id": "b"}], reply)
-    result = await ObjectReader(adapter).look({"object": {"kind": "pawns", "ids": ["a", "b"]}, "aspects": ["work"]})
+    result = await read_look(adapter, {"object": {"kind": "pawns", "ids": ["a", "b"]}, "aspects": ["work"]})
     assert result["status"] == "partial" and result["coverage"]["state_facets_read_successfully"] is False
     assert result["facts"][0]["facts"]["work"]["status"] == "unavailable"
     assert result["facts"][1]["state"]["reason"] == "state_read_incomplete"
@@ -215,7 +219,7 @@ async def test_cell_identity_uses_visible_native_identity_not_legacy_or_environm
             "data": {"objects": [{"target": {"kind": "cell", "map": "Map_0", "x": 2, "z": 3}}]},
         },
     )
-    result = await ObjectReader(adapter).look({"object": {"kind": "cell", "x": 2, "z": 3}, "aspects": ["identity"]})
+    result = await read_look(adapter, {"object": {"kind": "cell", "x": 2, "z": 3}, "aspects": ["identity"]})
     assert [n for n, a in adapter.calls] == ["inspect_state"]
     assert adapter.calls[0][1]["sections"] == ["identity"] and adapter.calls[0][1]["include_fogged"] is False
     assert result["facts"][0]["facts"] == {"identity": {"kind": "cell", "map": "Map_0", "x": 2, "z": 3}}
@@ -224,7 +228,7 @@ async def test_cell_identity_uses_visible_native_identity_not_legacy_or_environm
 @pytest.mark.asyncio
 async def test_plain_identity_does_not_enrich_state_and_bad_combinations_read_nothing():
     adapter = Reader([{"id": "a"}])
-    await ObjectReader(adapter).look({"object": {"kind": "thing", "id": "a"}, "aspects": ["identity"]})
+    await read_look(adapter, {"object": {"kind": "thing", "id": "a"}, "aspects": ["identity"]})
     assert len(adapter.calls) == 1
     for args in [
         {"object": {"kind": "things"}, "aspects": ["state", "distribution"]},
@@ -234,7 +238,7 @@ async def test_plain_identity_does_not_enrich_state_and_bad_combinations_read_no
     ]:
         adapter.calls.clear()
         with pytest.raises(SurfaceError):
-            await ObjectReader(adapter).look(args)
+            await read_look(adapter, args)
         assert adapter.calls == []
 
 
@@ -253,7 +257,7 @@ def test_output_page_limits_whole_objects_and_preserves_continuation_offset():
         "page": {"offset": 10, "returned": 8, "has_more": True, "next_offset": 18},
         "not_read": [],
     }
-    result = ObjectReader._fit_page(data)
+    result = NativeStateReader._fit_page(data)
     assert 0 < len(result["facts"]) < 8
     assert result["facts"] == original[: len(result["facts"])]
     assert result["page"]["next_offset"] == 10 + len(result["facts"])
@@ -263,7 +267,7 @@ def test_output_page_limits_whole_objects_and_preserves_continuation_offset():
 @pytest.mark.asyncio
 async def test_legacy_quantity_can_accompany_state_without_an_extra_count_call():
     adapter = Reader([{"id": "p"}])
-    result = await ObjectReader(adapter).look({"object": {"kind": "colonists"}, "aspects": ["health", "quantity"]})
+    result = await read_look(adapter, {"object": {"kind": "colonists"}, "aspects": ["health", "quantity"]})
     assert adapter.calls[0][1]["aspects"] == ["identity", "quantity"]
     assert [name for name, args in adapter.calls] == ["query", "inspect_state"]
     assert "health" in result["facts"][0]["facts"]
@@ -302,7 +306,7 @@ async def test_single_reference_resolves_and_reads_once_with_preserved_map_defau
             },
         },
     )
-    result = await ObjectReader(adapter).look({"object": obj, "aspects": ["state"]})
+    result = await read_look(adapter, {"object": obj, "aspects": ["state"]})
     assert len(adapter.calls) == 1 and adapter.calls[0][0] == "inspect_state"
     request = adapter.calls[0][1]
     assert request["targets"] == [target] and request["exact_lookup"] is True
@@ -328,7 +332,7 @@ async def test_direct_ambiguous_reference_keeps_candidates_without_inventing_ide
             },
         },
     )
-    result = await ObjectReader(adapter).look({"object": {"kind": "pawn", "name": "Alex"}})
+    result = await read_look(adapter, {"object": {"kind": "pawn", "name": "Alex"}})
     assert result["status"] == "partial"
     assert result["facts"][0]["state"]["resolution"]["candidates"] == [{"id": "a"}, {"id": "b"}]
     assert "id" not in result["facts"][0]["object"] and not result["facts"][0]["facts"]
@@ -366,11 +370,11 @@ async def test_canonical_location_unifies_direct_and_population_without_mutating
         "status": {"position": {"map_id": "Map_0", "x": 10, "z": 20}},
     }
     reader = Reader([legacy], native)
-    direct = await ObjectReader(reader).look({"object": {"kind": "pawn", "id": "Thing_Human7"}, "aspects": ["health"]})
-    grouped = await ObjectReader(reader).look(
+    direct = await read_look(reader, {"object": {"kind": "pawn", "id": "Thing_Human7"}, "aspects": ["health"]})
+    grouped = await read_look(reader,
         {"object": {"kind": "pawns", "ids": ["Thing_Human7"]}, "aspects": ["health"]}
     )
-    identity = await ObjectReader(reader).look(
+    identity = await read_look(reader,
         {"object": {"kind": "pawn", "id": "Thing_Human7"}, "aspects": ["identity"]}
     )
     expected = {"kind": "cell", "map": "Map_0", "x": 10, "z": 20}
@@ -391,7 +395,7 @@ def test_canonical_location_never_substitutes_holder_position_for_own():
         "map_held": {"id": "Map_0"},
         "held_position": {"map": "Map_0", "x": 3, "z": 4},
     }
-    result = ObjectReader._canonical_identity(raw)
+    result = NativeStateReader._canonical_identity(raw)
     assert result["location"]["position"] is None
     assert result["location"]["held_position"] == {"kind": "cell", "map": "Map_0", "x": 3, "z": 4}
     assert result["position"] == raw["position"]
@@ -409,7 +413,7 @@ async def test_id_like_unresolved_name_gets_hint_without_coercion():
         },
     }
     reader = Reader([], reply)
-    result = await ObjectReader(reader).look({"object": {"kind": "thing", "name": "Thing_Bed7"}})
+    result = await read_look(reader, {"object": {"kind": "thing", "name": "Thing_Bed7"}})
     assert reader.calls[0][1]["targets"] == [{"kind": "thing", "name": "Thing_Bed7", "map": "current"}]
     assert result["input_hints"][0]["code"] == "possible_id_in_name"
     assert result["input_hints"][0]["suggested_field"] == "object.id"
@@ -432,7 +436,7 @@ async def test_id_like_real_display_name_keeps_its_resolved_identity():
             ]
         },
     }
-    result = await ObjectReader(Reader([], reply)).look({"object": {"kind": "thing", "name": "Thing_Bed7"}})
+    result = await read_look(Reader([], reply), {"object": {"kind": "thing", "name": "Thing_Bed7"}})
     assert result["facts"][0]["object"]["id"] == "Thing_Actual9"
     assert not result.get("input_hints")
 
@@ -471,7 +475,7 @@ async def test_unknown_stat_discovery_and_observed_sibling_are_preserved():
             ]
         },
     }
-    result = await ObjectReader(Reader([], reply)).look(
+    result = await read_look(Reader([], reply),
         {"object": {"kind": "pawn", "id": "p"}, "stats": ["MoveSpeed", "Moving"]}
     )
     assert result["facts"][0]["facts"]["stats"] == stats

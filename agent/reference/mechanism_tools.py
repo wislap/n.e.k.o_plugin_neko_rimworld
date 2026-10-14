@@ -9,8 +9,8 @@ from dataclasses import replace
 from pathlib import Path
 
 from ...mechanisms.store import MechanismStore
-from ...tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
-from .wiki_tools import WIKI_GUIDANCE, knowledge_directory
+from ...tool_contracts import ToolExecutionError, ToolSetup
+from .wiki_tools import knowledge_directory, wiki_spec
 
 GUIDANCE = (
     "wiki also reads version-bound implementation knowledge: query 'source:keywords' to find source, "
@@ -69,11 +69,7 @@ async def compose_implementation_knowledge(setup: ToolSetup, directory: Path | N
         except (ValueError, KeyError) as error:
             raise ToolExecutionError("invalid_knowledge_query", str(error)) from error
 
-    parameters = original.parameters if original else {
-        "type": "object", "properties": {"query": {"type": "string", "maxLength": 4096}},
-        "required": ["query"], "additionalProperties": False,
-    }
-    wiki = ToolSpec("wiki", (original.description if original else WIKI_GUIDANCE) + "\n" + GUIDANCE, parameters, lookup)
+    wiki = wiki_spec(lookup)
     tools = tuple(wiki if tool.name == "wiki" else tool for tool in setup.tools)
     if original is None:
         tools = (*tools, wiki)

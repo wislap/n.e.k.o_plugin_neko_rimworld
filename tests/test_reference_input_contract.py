@@ -43,7 +43,7 @@ def test_exact_thing_set_preserves_scope_and_does_not_change_single_thing():
 def test_category_enum_is_native_and_only_applies_to_physical_things():
     directory = {"value_domains": {"Verse.ThingCategory": {"values": ["Item", "Building", "Pawn"]}}}
     original = copy.deepcopy(directory)
-    schema = s.tool_schemas(directory)[0]["parameters"]
+    schema = {"type": "object", "properties": {"object": s._object_schema(directory)}}
     validate({"object": {"kind": "things", "category": "Item"}, "aspects": ["identity"]}, schema)
     with pytest.raises(ValidationError):
         validate({"object": {"kind": "things", "category": "Medicine"}, "aspects": ["identity"]}, schema)
@@ -51,7 +51,7 @@ def test_category_enum_is_native_and_only_applies_to_physical_things():
     validate({"object": {"kind": "thing_defs", "category": "Medicine"}, "aspects": ["identity"]}, schema)
     assert directory == original
     assert "things: ids, names" in schema["properties"]["object"]["description"]
-    assert "enum" not in s.tool_schemas()[0]["parameters"]["properties"]["object"]["properties"]["category"]
+    assert "enum" not in s._object_schema()["properties"]["category"]
 
 
 

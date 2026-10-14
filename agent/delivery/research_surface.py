@@ -23,11 +23,12 @@ class ReadOnlyResearchSurface:
             prompt += "\n\n" + query_guide()
         return prompt
 
-    def submission(self):
+    def submission(self, *, answer_only=False):
         return make_submission_tool(
             self.session.submission,
             self.session.observations,
             self.update,
+            answer_only=answer_only,
         )
 
     def tools(self):

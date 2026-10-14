@@ -9,6 +9,8 @@ from collections.abc import Callable
 from typing import Any
 
 from ..tool_contracts import PUBLIC_QUERY_VERSION, WORLD_OBSERVATION_VERSION, ToolExecutionError, ToolHandler, ToolSetup, ToolSpec
+from ..schema_serialization import schema_contract
+from .catalog_contract import has_retired_capability_alias
 from .bridge import BridgeServer
 from .observation import Observation
 
@@ -21,6 +23,8 @@ def make_game_tools(catalog: dict[str, Any], query: ToolHandler) -> ToolSetup:
     world = catalog.get("world_observation")
     if not isinstance(world, dict) or world.get("version") != WORLD_OBSERVATION_VERSION:
         raise ToolExecutionError("semantic_surface_unavailable", "Current consultation requires world_observation.v2.3 with native state; update the RimWorld Mod.", recoverable=False)
+    if has_retired_capability_alias(world):
+        raise ToolExecutionError("semantic_surface_unavailable", "The Mod advertises the retired production selection capability; update the RimWorld Mod.", recoverable=False)
     return _public_tools(catalog, public, query)
 
 
@@ -99,6 +103,7 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
         names = {"inspect_actions", "inspect_threats"}
         if not isinstance(specs, list) or len(specs) != 2 or {s.get("name") for s in specs if isinstance(s, dict)} != names:
             raise ToolExecutionError("invalid_catalog", "Invalid native behavior tool set")
+        behavior_descriptions = {'inspect_actions': 'Inspect native player-order conditions for the selected actor/target/actions; this performs no action.', 'inspect_threats': 'Inspect current native threats and target/subject checks. Hostility, active classification and attack coverage differ; partial is not safe.'}
         for spec in specs:
             if spec.get("operation") != spec["name"] or not isinstance(spec.get("parameters"), dict) or not isinstance(spec.get("description"), str):
                 raise ToolExecutionError("invalid_catalog", "Invalid native behavior operation")
@@ -106,7 +111,7 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
             async def inspect(arguments, operation=spec["name"]):
                 return await query({"operation": operation, "arguments": copy.deepcopy(arguments)})
 
-            world_tools.append(ToolSpec(spec["name"], spec["description"], copy.deepcopy(spec["parameters"]), inspect))
+            world_tools.append(ToolSpec(spec["name"], behavior_descriptions[spec["name"]], schema_contract(spec["parameters"]), inspect))
         directory["native_behavior"] = copy.deepcopy(behavior)
     if isinstance(catalog.get("game_implementation"), dict):
         directory["game_implementation"] = copy.deepcopy(catalog["game_implementation"])

@@ -5,7 +5,8 @@ import pytest
 
 from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.world.activity import SemanticActivityDataSource
-from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, observed_id_reference
+from plugin.plugins.neko_rimworld.agent.world.native_state import observed_id_reference
+from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
 from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import normalize_object, route_object
 
@@ -67,7 +68,7 @@ async def test_known_id_in_name_uses_one_current_native_read(selector):
     )
     adapter.session = SimpleNamespace(observations=receipts(BED))
     args = {"object": {"kind": "thing", **selector}, "aspects": ["state"]}
-    result = await ObjectReader(adapter).look(args)
+    result = await read_look(adapter, args)
     assert result["status"] == "ok"
     assert len(adapter.calls) == 1
     assert adapter.calls[0][1]["targets"][0]["id"] == "Thing_Bed7"

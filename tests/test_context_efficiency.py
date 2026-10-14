@@ -8,7 +8,7 @@ from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 def test_named_schema_definitions_are_factored_without_changing_valid_calls():
     import jsonschema
 
-    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import canonical, compact_schema
+    from plugin.plugins.neko_rimworld.schema_serialization import canonical, compact_schema
     ref = {'type':'object','additionalProperties':False,'required':['id'],
            'properties':{'id':{'type':'string','minLength':1,'maxLength':256},'map':{'type':'string','minLength':1,'maxLength':256}}}
     activity = {'type':'object','required':['actor','target'],'additionalProperties':False,
@@ -72,7 +72,7 @@ def test_body_keys_reconstruct_from_native_owner_without_dropping_anatomy():
 
 
 def test_minimal_schema_prose_keeps_all_contracts_and_literal_property_names():
-    from plugin.plugins.neko_rimworld.agent.context.schema_compaction import schema_contract
+    from plugin.plugins.neko_rimworld.schema_serialization import schema_contract
 
     schema = {"type": "object", "description": "Long annotation", "title": "Title", "examples": [{}],
               "properties": {"description": {"type": "string", "description": "A real argument"},
