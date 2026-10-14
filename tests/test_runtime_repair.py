@@ -1,5 +1,7 @@
 """Current completion protocol, private provider continuation and stale-world exits."""
 
+from .consultation_setup import semantic_tool_provider
+
 import json
 from types import SimpleNamespace
 
@@ -45,7 +47,7 @@ class Script:
 async def test_progress_text_is_not_a_successful_submission():
     model = Script([AssistantTurn("offline", "offline", "stop", "Next I will inspect the route risks."), submit()])
     registry = AgentAuditRegistry()
-    runtime = AgentRuntime(observation_tools=[], audit_registry=registry, logger=LOG, model_factory=lambda _: model)
+    runtime = AgentRuntime(tools_provider=semantic_tool_provider([]), audit_registry=registry, logger=LOG, model_factory=lambda _: model)
     result = await runtime.run("Compare routes.", settings())
     assert model.calls == 2 and result["status"] == "ok"
     assert result["submission_mode"] == "submit_response" and result["agent_text"] == "Verified report."
@@ -69,7 +71,7 @@ async def test_world_changed_stops_the_batch_and_prevents_next_model_call():
     calls = tuple(ToolCall(str(i), n, "{}") for i, n in enumerate(["changed", "later"]))
     model = Script([AssistantTurn("offline", "offline", "tool_calls", "", calls), submit("Stale claim.")])
     runtime = AgentRuntime(
-        observation_tools=[ToolSpec("changed", "test", {}, changed), ToolSpec("later", "test", {}, forbidden)],
+        tools_provider=semantic_tool_provider([ToolSpec("changed", "test", {}, changed), ToolSpec("later", "test", {}, forbidden)]),
         audit_registry=AgentAuditRegistry(),
         logger=LOG,
         model_factory=lambda _: model,
@@ -137,7 +139,7 @@ async def test_provider_continuation_roundtrip_is_private_in_audit():
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[ToolSpec("read_value", "test", {}, read)],
+        tools_provider=semantic_tool_provider([ToolSpec("read_value", "test", {}, read)]),
         audit_registry=registry,
         logger=LOG,
         model_factory=lambda s: OpenAICompatibleModelClient(s, transport=httpx.MockTransport(respond)),
@@ -156,9 +158,9 @@ def test_length_repair_retains_detail_without_retransmission():
     draft = SubmissionDraft()
     detail = "The complete requested evidence stays saved."
     with pytest.raises(SubmissionPatchError, match="maximum"):
-        draft.apply({"answer": [{"text": "word " * 250}], "detail": detail}, references_supported=False)
+        draft.apply({"answer": "word " * 250, "detail": detail})
     result = draft.apply(
-        {"answer": [{"text": "Main conclusion; conditions are in the full report."}]}, references_supported=False
+        {"answer": "Main conclusion; conditions are in the full report."}
     )
     assert draft.detail == detail and detail in result["full_text"]
     assert draft.snapshot()["complete"]

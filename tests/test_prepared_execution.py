@@ -1,5 +1,7 @@
 """Caller-prepared work uses the same execution and delivery as single queries."""
 
+from .consultation_setup import consultation_setup, semantic_tool_provider
+
 import asyncio
 import copy
 import json
@@ -57,7 +59,7 @@ async def test_caller_context_is_detached_and_does_not_replace_current_question(
     history["content"] = "Changed outside the execution."
     model = Script([submit("The requested comparison remains conditional.")])
     runtime = AgentRuntime(
-        observation_tools=[], audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
+        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
     )
     result = await runtime.execute(session, settings())
     assert result["status"] == "ok" and session.result is result
@@ -73,10 +75,10 @@ async def test_single_question_and_prepared_execution_have_identical_dispatch(mo
     direct = Script([submit("Conditional recommendation.")])
     prepared = Script([submit("Conditional recommendation.")])
     original = AgentRuntime(
-        observation_tools=[], audit_registry=AgentAuditRegistry(), model_factory=lambda _: direct, logger=LOG
+        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: direct, logger=LOG
     )
     shared = AgentRuntime(
-        observation_tools=[], audit_registry=AgentAuditRegistry(), model_factory=lambda _: prepared, logger=LOG
+        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: prepared, logger=LOG
     )
     first = await original.run("Compare routes.", settings())
     second = await shared.execute(prepare("Compare routes."), settings())
@@ -90,7 +92,7 @@ async def test_completed_execution_cannot_be_replayed_as_new_work():
     session = prepare("Read once.")
     model = Script([submit("Read completed.")])
     runtime = AgentRuntime(
-        observation_tools=[], audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
+        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
     )
     await runtime.execute(session, settings())
     with pytest.raises(ValueError, match="fresh"):
@@ -104,7 +106,7 @@ def test_length_edit_uses_current_question_with_historical_user_messages():
     )
     with pytest.raises(SubmissionPatchError):
         session.submission.apply(
-            {"answer": [{"text": "word " * 250}], "detail": "Preserved transfer evidence."}, references_supported=False
+            {"answer": "word " * 250, "detail": "Preserved transfer evidence."}
         )
     repair = session.length_repair_messages()
     assert repair[1] == {"role": "user", "content": "Compare the transfer stage."}
@@ -122,7 +124,7 @@ async def test_cancelled_execution_exposes_its_result_without_an_audit_projectio
 
     session = prepare("Wait for a result.")
     runtime = AgentRuntime(
-        observation_tools=[], audit_registry=AgentAuditRegistry(), model_factory=lambda _: Waiting(), logger=LOG
+        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: Waiting(), logger=LOG
     )
     task = asyncio.create_task(runtime.execute(session, settings()))
     await asyncio.wait_for(started.wait(), 2)
@@ -143,12 +145,12 @@ async def test_preparing_execution_has_one_owner_before_first_model_request():
 
         preparing.set()
         await release.wait()
-        return ToolSetup(())
+        return consultation_setup()
 
     session = prepare("Prepare once.")
     model = Script([submit("Prepared execution completed.")])
     runtime = AgentRuntime(
-        observation_tools=[],
+
         tools_provider=setup,
         audit_registry=AgentAuditRegistry(),
         model_factory=lambda _: model,

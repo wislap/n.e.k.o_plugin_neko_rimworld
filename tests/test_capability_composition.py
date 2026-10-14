@@ -104,12 +104,12 @@ async def test_default_game_surface_reads_and_workspace_ability_coexist():
         ]
     )
     runtime = AgentRuntime(
-        observation_tools=[],
+
         tools_provider=provide,
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,
-        interaction_factory=semantic_interaction_factory,
+
     )
     result = await runtime.run("Read current quantities and reopen previous work.", settings())
     assert result["status"] == "ok" and len(reads) == len(history_reads) == 1
@@ -145,12 +145,12 @@ async def test_admitted_session_keeps_its_surface_but_new_session_rejects_retire
         mutate=change,
     )
     runtime = AgentRuntime(
-        observation_tools=[],
+
         tools_provider=provide,
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,
-        interaction_factory=semantic_interaction_factory,
+
     )
     result = await runtime.execute(session, settings())
     assert result["status"] == "ok" and session.context_pruner is not None
@@ -170,20 +170,12 @@ def test_colliding_capabilities_are_not_silently_replaced():
 
 
 @pytest.mark.asyncio
-async def test_supported_study_registry_and_attempt_limit_still_control_execution(monkeypatch):
-    registries = []
-
-    class StudyRegistry(ToolRegistry):
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-            registries.append(self)
-
+async def test_current_semantic_dispatch_respects_the_model_attempt_limit(monkeypatch):
     class Failure(Script):
         async def complete(self, messages, tools, *, timeout):
             self.requests.append(copy.deepcopy({"messages": messages, "tools": tools}))
             raise ModelClientError("model_transport", "Offline transport failure")
 
-    monkeypatch.setattr(loop, "ToolRegistry", StudyRegistry)
     monkeypatch.setattr(loop, "MAX_MODEL_ATTEMPTS", 1)
     model = Failure([])
 
@@ -194,14 +186,14 @@ async def test_supported_study_registry_and_attempt_limit_still_control_executio
         return make_game_tools(public_source(), native)
 
     runtime = AgentRuntime(
-        observation_tools=[],
+
         tools_provider=provide,
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,
-        interaction_factory=semantic_interaction_factory,
+
     )
     result = await runtime.run("Offline study fixture", replace(settings(), finalization_reserve_seconds=0))
     assert result["status"] == "degraded" and len(model.requests) == 1
-    assert len(registries) >= 2
-    assert any("count" in r._tools for r in registries)
+    names = {tool["function"]["name"] for tool in model.requests[0]["tools"]}
+    assert {"look", "count", "submit_response"} <= names and "query" not in names

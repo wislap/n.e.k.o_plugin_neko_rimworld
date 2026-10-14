@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .consultation_setup import semantic_tool_provider
+
 import asyncio
 import json
 from typing import Any
@@ -67,7 +69,7 @@ class ScriptedModel:
 
     async def complete(self, messages, tools, *, timeout: float) -> AssistantTurn:
         assert timeout > 0
-        assert tools and tools[0]["function"]["name"] == "query_game"
+        assert {"look", "count", "submit_response"} <= {t["function"]["name"] for t in tools} or {t["function"]["name"] for t in tools} == {"submit_response"}
         self.requests.append([dict(message) for message in messages])
         item = self.turns.pop(0)
         if isinstance(item, Exception):
@@ -100,7 +102,7 @@ def submission_call(full_text: str, agent_text: str, call_id: str = "submit-1") 
     return ToolCall(
         call_id,
         "submit_response",
-        json.dumps({"detail": full_text, "answer": [{"text": agent_text}]}, ensure_ascii=False),
+        json.dumps({"detail": full_text, "answer": agent_text}, ensure_ascii=False),
     )
 
 
@@ -132,7 +134,7 @@ async def test_connection_change_preserves_answer_but_reports_degraded_delivery(
         raise ToolExecutionError("connection_changed", "The game connection changed.")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(interrupted)],
+        tools_provider=semantic_tool_provider([query_tool(interrupted)]),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -154,7 +156,7 @@ async def test_agent_can_answer_without_reading_game() -> None:
         raise AssertionError("digest should not be called")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -168,7 +170,7 @@ async def test_agent_can_answer_without_reading_game() -> None:
     latest = registry.snapshot()["latest_run"]
     assert latest["state"] == AgentRunState.COMPLETED
     events = [event["event"] for event in latest["events"]]
-    assert events[:3] == ["run_created", "model_request_started", "model_response_received"]
+    assert events[:4] == ["run_created", "interaction_state", "model_request_started", "model_response_received"]
     assert events[-3:] == ["final_received", "run_completed", "handoff_built"]
     assert "submission_patch_accepted" in events and "tool_completed" in events
     assert all(event["data"].get("name") == "submit_response"
@@ -189,7 +191,7 @@ async def test_agent_tool_call_round_trip_is_auditable() -> None:
         return digest_view()
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -226,7 +228,7 @@ async def test_agent_reuses_summary_and_appends_detail() -> None:
         raise AssertionError("digest should not be called")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -253,7 +255,7 @@ async def test_over_budget_submission_is_returned_to_the_model_for_revision() ->
         async def complete(self, messages, tools, *, timeout):
             assert timeout > 0
             names = [tool["function"]["name"] for tool in tools]
-            assert names[0] == "query_game" if not self.requests else names == ["submit_response"]
+            assert "query_game" in names if not self.requests else names == ["submit_response"]
             self.requests.append([dict(message) for message in messages])
             return self.turns.pop(0)
 
@@ -268,7 +270,7 @@ async def test_over_budget_submission_is_returned_to_the_model_for_revision() ->
         raise AssertionError("digest should not be called")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -299,7 +301,7 @@ async def test_saved_detail_gets_prompt_feedback_instead_of_code_summarization()
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -325,7 +327,7 @@ async def test_prompt_cycle_target_is_soft_not_a_hard_step_limit() -> None:
         return digest_view()
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -351,7 +353,7 @@ async def test_unknown_tool_is_returned_to_model_instead_of_blocking_the_loop() 
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -374,7 +376,7 @@ async def test_empty_model_turn_gets_auditable_recovery_prompt() -> None:
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -413,7 +415,7 @@ async def test_model_failure_returns_degraded_result_without_stopping_runtime() 
     registry = AgentAuditRegistry()
     logger = FakeLogger()
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=logger,
         model_factory=lambda _settings: model,
@@ -454,7 +456,7 @@ async def test_transient_provider_failure_is_retried_before_any_useful_delta() -
         raise AssertionError("no game tool should run")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -490,7 +492,7 @@ async def test_transient_failure_after_useful_delta_is_not_retried() -> None:
         raise AssertionError("no game tool should run")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -516,7 +518,7 @@ async def test_non_retryable_http_failure_is_not_retried() -> None:
         raise AssertionError("no game tool should run")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -554,7 +556,7 @@ async def test_transient_retries_are_bounded_and_usage_is_accumulated(monkeypatc
         raise AssertionError("no game tool should run")
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: model,
@@ -599,7 +601,7 @@ async def test_wall_time_fuse_returns_collected_evidence_instead_of_a_hard_failu
         return digest_view()
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _settings: SlowToolModel(),
@@ -635,7 +637,7 @@ async def test_concurrent_runs_have_independent_message_sessions() -> None:
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: EchoModel(),
@@ -667,7 +669,7 @@ async def test_cancellation_is_recorded_and_does_not_leave_an_active_run() -> No
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _settings: WaitingModel(),
@@ -716,7 +718,7 @@ def test_audit_capacity_records_its_terminal_reason() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("ending", ["empty", "provider_failure", "success"])
-@pytest.mark.parametrize("capacity", [22, 23, 24, 25])
+@pytest.mark.parametrize("capacity", [24, 25, 26, 27])
 async def test_runtime_audit_capacity_retains_observations_draft_and_result(monkeypatch, ending, capacity):
     from plugin.plugins.neko_rimworld.agent.runtime import audit
     from plugin.plugins.neko_rimworld.reports import ReportStore
@@ -745,7 +747,7 @@ async def test_runtime_audit_capacity_retains_observations_draft_and_result(monk
         return store.save(record)
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(read)],
+        tools_provider=semantic_tool_provider([query_tool(read)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _: Model(),
@@ -911,7 +913,7 @@ async def test_http_model_tool_loop_end_to_end() -> None:
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[query_tool(digest)],
+        tools_provider=semantic_tool_provider([query_tool(digest)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda model_settings: OpenAICompatibleModelClient(
@@ -932,14 +934,14 @@ async def test_http_model_tool_loop_end_to_end() -> None:
 async def test_audit_limit_on_tool_completion_keeps_just_read_observation(monkeypatch):
     from plugin.plugins.neko_rimworld.agent.runtime import audit
 
-    monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 8)
+    monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 9)
     registry = AgentAuditRegistry()
 
     async def read(_):
         return digest_view()
 
     runtime = AgentRuntime(
-        observation_tools=[query_tool(read)],
+        tools_provider=semantic_tool_provider([query_tool(read)]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _: ScriptedModel([turn("", ToolCall("q", "query_game", "{}"))]),
@@ -953,7 +955,7 @@ async def test_audit_limit_on_tool_completion_keeps_just_read_observation(monkey
 async def test_cancellation_at_audit_limit_still_propagates(monkeypatch):
     from plugin.plugins.neko_rimworld.agent.runtime import audit
 
-    monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 3)
+    monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 4)
     started = asyncio.Event()
 
     class Model:
@@ -963,13 +965,13 @@ async def test_cancellation_at_audit_limit_still_propagates(monkeypatch):
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        observation_tools=[],
+        tools_provider=semantic_tool_provider([]),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _: Model(),
     )
     task = asyncio.create_task(runtime.run("Cancel", settings()))
-    await started.wait()
+    await asyncio.wait_for(started.wait(), 2)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task

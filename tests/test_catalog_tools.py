@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .consultation_setup import semantic_tool_provider
+
 import asyncio
 import copy
 import json
@@ -23,8 +25,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def test_nonreference_prompt_separates_short_conclusion_from_complete_facts():
     from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 
-    prompt = build_system_prompt(4, references_supported=False)
-    assert "Observation reference parts are unavailable" in prompt
+    prompt = build_system_prompt(4)
+    assert "Finish explicitly with submit_response" in prompt
     assert "detail holds the remaining requested findings and evidence" in prompt
     assert "180 tokens" in prompt and "12000 characters" in prompt
     assert "Pure factual answers can contain only reference parts" not in prompt
@@ -58,7 +60,6 @@ async def test_public_query_replaces_legacy_tools_without_changing_observations(
 
     setup = make_game_tools(source, query)
     assert [t.name for t in setup.tools] == ["query", "describe_query"]
-    assert setup.references_supported is False
     arguments = {"requests": [{"from": "things", "aggregate": {"units": {"op": "sum", "field": "stack_count"}}}]}
     observed = await setup.tools[0].handler(arguments)
     assert calls == [{"operation": "query", "arguments": arguments}]
@@ -83,26 +84,8 @@ async def _noop_query(arguments):
     raise AssertionError("no query expected")
 
 
-@pytest.mark.asyncio
-async def test_fact_references_are_opt_in_not_the_shipped_default():
-    """默认必须是纯文本，直到在线配对实验给出结论。
-
-    v1.3 把引用提交发到真实运行里，用了引用的 7 份提交全部未交付。把默认打开等于
-    未经验证的晋升，不符合本项目自己的止损纪律。所以：Mod 声明能力是必要条件，
-    显式选择候选臂才是充分条件。
-    """
-    advertised = _public_source(references={"version": "observed_values.v1", "coverage": "x"})
-    assert make_game_tools(advertised, _noop_query).references_supported is False
-    assert make_game_tools(_public_source(), _noop_query).references_supported is False
 
 
-@pytest.mark.asyncio
-async def test_live_reference_mode_remains_disabled_even_when_advertised():
-    advertised = _public_source(references={"version": "observed_values.v1"})
-    assert make_game_tools(advertised, _noop_query).references_supported is False
-    # 引用公告不改变当前纯文本提交契约。
-    assert make_game_tools(_public_source(), _noop_query).references_supported is False
-    assert make_game_tools(advertised, _noop_query).references_supported is False
 
 
 
@@ -184,7 +167,7 @@ async def test_terminal_batch_cannot_submit_before_observation_is_seen():
             return AssistantTurn("r", "m", "tool_calls", "", (submission_call("Observed", "Observed"),))
 
     runtime = AgentRuntime(
-        observation_tools=list(setup.tools),
+        tools_provider=semantic_tool_provider(list(setup.tools)),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: Model(),

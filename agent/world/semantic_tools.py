@@ -1,24 +1,14 @@
 """Production interaction that exposes look/count instead of the raw query tool.
 
-Why this exists: the Mod-owned directory the query tool needs is 48,927 characters
-of field catalogue, sent on every request so the model can write canonical field
-paths. Measured in the v1.10 study, that catalogue is 84% of the first-request
-prompt. This adapter replaces the tool vocabulary with a closed enum, so the
-catalogue is not needed at all: the same 12 pairs held quality level while using
-two thirds fewer tokens.
-
-It is a replacement, not an extra: the model does not see `query`, and the
-directory is dropped from the prompt. A closed enum cannot express every possible
-request, so `semantic_surface_available()` is the single place that decides
-    whether the connection is supported. Unsupported connections fail before any model request.
+The Mod-owned directory stays behind the semantic vocabulary. The model does
+not see the native query backend. Unsupported directories fail before dispatch.
 
 Results use request-scoped ordinary JSON with scope, coverage, unknown states
 and native semantics. Same-read identities may refer to their retained native
 ID; there is no numbered fact vocabulary. Raw evidence remains in the audit.
 
-The contract is the one `agent.runtime.loop` already calls on `session.interaction`:
-prompt, tools, attach_result, request_messages, snapshot, aclose,
-plus `finalizing` and `supports_finalization`.
+The runtime uses this single interaction's prompt, tools, submission, snapshot
+and finalizing state.
 """
 
 from __future__ import annotations
@@ -121,17 +111,7 @@ def semantic_surface_available(setup: Any) -> bool:
 
 
 class SemanticInteraction(ReadOnlyResearchSurface):
-    """Expose look/count and render their native results as plain text."""
-
-    supports_finalization = True
-
-    #: Reference answer parts cite data-relative paths into the native payload, and
-    #: this interface never shows the model a path: results arrive rendered, with
-    #: their scope, coverage and not_read already stated. A model asked for paths
-    #: here could only invent them, so the capability is off regardless of what the
-    #: connection advertises. The paired study that promoted this surface pinned
-    #: references off for the same reason and refused to run the combination.
-    references_supported = False
+    """Expose look/count and project native results as ordinary JSON."""
 
     def __init__(self, setup: Any, session: Any, update: Any) -> None:
         super().__init__(setup, session, update)
@@ -223,9 +203,6 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             native_reads=len(self.session.observations),
             finalizing=self.finalizing,
             spatial_supported=self.spatial_supported,
-            # Recorded so the audit shows that a connection advertising references
-            # had them suppressed here rather than silently ignored.
-            references_suppressed=bool(getattr(self.setup, "references_supported", False)),
         )
 
     async def _world_read(self, args: dict[str, Any], operation: str) -> dict[str, Any]:

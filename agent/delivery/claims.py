@@ -1114,20 +1114,16 @@ def _quantifier_rejections(text: str, index: Mapping[str, Any]) -> list[dict]:
     return rejected
 
 
-def check_claims(answer, detail=None, *, observations=(), index: Mapping[str, Any] | None = None) -> list[dict]:
+def check_claims(answer: str, detail=None, *, observations=(), index: Mapping[str, Any] | None = None) -> list[dict]:
     """Check every affirmative occurrence, with evidence bound to each subject.
 
     Offsets are Unicode character offsets in the named answer/detail field
-    (or answer item text). They are feedback locations, not an assertion that
+    They are feedback locations, not an assertion that
     this bounded deterministic checker understands every natural-language claim.
     """
     fields: list[tuple[str, str, str]] = []
     if isinstance(answer, str):
         fields.append(("answer", "answer", answer))
-    else:
-        for position, part in enumerate(answer or ()):
-            if isinstance(part, Mapping) and isinstance(part.get("text"), str):
-                fields.append(("answer", f"answer[{position}].text", part["text"]))
     if isinstance(detail, str):
         fields.append(("detail", "detail", detail))
     idx = dict(index) if index is not None else build_read_index(observations)
@@ -1169,16 +1165,6 @@ def check_claims(answer, detail=None, *, observations=(), index: Mapping[str, An
                 )
         rejected.extend({**item, "field": field, "path": path} for item in current)
     return rejected
-
-
-def _text(answer: Sequence[Mapping[str, Any]] | str, detail: str | None) -> str:
-    if isinstance(answer, str):
-        return answer + ("\n" + (detail or ""))
-    parts = []
-    for part in answer or ():
-        if isinstance(part, Mapping) and isinstance(part.get("text"), str):
-            parts.append(part["text"])
-    return "\n".join(parts) + ("\n" + (detail or ""))
 
 
 def describe(rejected: Iterable[Mapping[str, Any]]) -> str:

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from .handoff import attach_agent_handoff, make_submission_tool
+from .handoff import make_submission_tool
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,8 +15,6 @@ class ResearchGuidance:
 class ReadOnlyResearchSurface:
     """One current research policy; subclasses supply only game reads/guidance."""
 
-    supports_finalization = True
-    references_supported = False
 
     def __init__(self, setup, session, update):
         self.setup = setup
@@ -29,7 +27,7 @@ class ReadOnlyResearchSurface:
         from ..context.context_tools import query_guide, task_prompt
 
         prompt = task_prompt(
-            preferred_cycles, finalizing=self.finalizing, references_supported=self.references_supported
+            preferred_cycles, finalizing=self.finalizing
         )
         if not self.finalizing:
             prompt += "\n\n" + query_guide(
@@ -43,18 +41,8 @@ class ReadOnlyResearchSurface:
             self.session.submission,
             self.session.observations,
             self.update,
-            references_supported=self.references_supported,
         )
 
     def tools(self):
         submit = self.submission()
         return (submit,) if self.finalizing else (*self.read_tools(), submit)
-
-    def request_messages(self, messages):
-        return messages
-
-    def attach_result(self, result):
-        return attach_agent_handoff(result)
-
-    async def aclose(self):
-        return None

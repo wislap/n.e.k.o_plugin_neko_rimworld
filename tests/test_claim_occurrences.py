@@ -138,10 +138,10 @@ def test_every_unsupported_occurrence_is_located_in_its_own_field():
     assert "detail[" in describe(rejected)
 
 
-def test_answer_item_location_and_quote_do_not_hide_next_occurrence():
-    parts = [{"text": "“Bob是殖民者”尚未证实。"}, {"text": "Bob是殖民者。"}]
-    rejected = check_claims(parts, observations=mixed())
-    assert len(rejected) == 1 and rejected[0]["path"] == "answer[1].text"
+def test_answer_location_and_quote_do_not_hide_next_occurrence():
+    answer = "“Bob是殖民者”尚未证实。\nBob是殖民者。"
+    rejected = check_claims(answer, observations=mixed())
+    assert len(rejected) == 1 and rejected[0]["path"] == "answer"
 
 
 def test_colonist_root_membership_does_not_license_another_subject():

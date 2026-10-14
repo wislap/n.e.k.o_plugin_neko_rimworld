@@ -7,7 +7,7 @@ bench 的 `tests/test_claims.py::test_submission_path_is_wired_to_the_claim_chec
   1. 拒绝的提交不会留下可交付文本（`SubmissionDraft` 里 full_text/agent_text 不被写）。
   2. 降级路径不会把被拒的句子交出去（`AgentRunSession.fallback_answer`）。
   3. 检查失败后模型修正措辞可以成功提交。
-  4. `claims_supported=False` 可以关掉（对照臂需要），且只在这个显式开关下生效。
+  4. claims 检查在当前文本提交中始终启用。
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def observation_without_identity():
 def test_refused_submission_does_not_commit_text():
     draft = SubmissionDraft()
     with pytest.raises(SubmissionPatchError) as caught:
-        draft.apply({"answer": [{"text": "他是我们的殖民者。"}]}, observations=[observation_without_identity()])
+        draft.apply({"answer": "他是我们的殖民者。"}, observations=[observation_without_identity()])
     assert caught.value.code == "identity_claim"
     assert draft.claims_blocked is True
     # 关键：被拒的句子没有落进任何可交付字段。
@@ -50,9 +50,9 @@ def test_refused_submission_does_not_commit_text():
 def test_resubmitting_a_supported_claim_succeeds_and_lifts_the_block():
     draft = SubmissionDraft()
     with pytest.raises(SubmissionPatchError):
-        draft.apply({"answer": [{"text": "他是我们的殖民者。"}]}, observations=[observation_without_identity()])
+        draft.apply({"answer": "他是我们的殖民者。"}, observations=[observation_without_identity()])
     result = draft.apply(
-        {"answer": [{"text": "本次读取没有取得该对象的派系字段。"}]}, observations=[observation_without_identity()]
+        {"answer": "本次读取没有取得该对象的派系字段。"}, observations=[observation_without_identity()]
     )
     assert draft.claims_blocked is False
     assert "派系字段" in result["agent_text"]
@@ -64,18 +64,18 @@ def test_corrected_claim_then_length_error_uses_small_repair_without_bypassing_c
     session.observations.append(observation_without_identity())
     session.messages.append({"role": "tool", "content": "LARGE ORIGINAL EVIDENCE"})
     with pytest.raises(SubmissionPatchError) as rejected:
-        session.submission.apply({"answer": [{"text": "他是我们的殖民者。"}]}, observations=session.observations, references_supported=False)
+        session.submission.apply({"answer": "他是我们的殖民者。"}, observations=session.observations)
     assert rejected.value.code == "identity_claim" and session.length_repair_messages() is None
     detail = "已保存的完整报告：本次没有取得派系字段。"
     with pytest.raises(SubmissionPatchError) as length:
-        session.submission.apply({"answer": [{"text": "本次没有取得派系字段。" * 100}], "detail": detail}, observations=session.observations, references_supported=False)
+        session.submission.apply({"answer": "本次没有取得派系字段。" * 100, "detail": detail}, observations=session.observations)
     assert length.value.code == "handoff_over_budget" and session.submission.claims_blocked is False
     repair = session.length_repair_messages()
     assert repair is not None and "LARGE ORIGINAL EVIDENCE" not in str(repair) and detail not in str(repair)
     with pytest.raises(SubmissionPatchError):
-        session.submission.apply({"answer": [{"text": "他是我们的殖民者。"}]}, observations=session.observations, references_supported=False)
+        session.submission.apply({"answer": "他是我们的殖民者。"}, observations=session.observations)
     assert session.submission.claims_blocked is True and session.length_repair_messages() is None
-    result = session.submission.apply({"answer": [{"text": "派系未读，身份尚未验证。"}]}, observations=session.observations, references_supported=False)
+    result = session.submission.apply({"answer": "派系未读，身份尚未验证。"}, observations=session.observations)
     assert detail in result["full_text"] and session.submission.snapshot()["complete"]
 
 
@@ -84,20 +84,12 @@ def test_fallback_never_re_emits_a_refused_sentence():
     session = AgentRunSession.create(ledger=_ledger(), system_prompt="s", question="q")
     session.observations.append(observation_without_identity())
     with pytest.raises(SubmissionPatchError):
-        session.submission.apply({"answer": [{"text": "他是我们的殖民者。"}]}, observations=session.observations)
+        session.submission.apply({"answer": "他是我们的殖民者。"}, observations=session.observations)
     answer = session.fallback_answer
     assert "殖民者" not in answer
     assert "refused for unsupported claims" in answer
 
 
-def test_claims_can_be_switched_off_for_a_control_arm():
-    draft = SubmissionDraft()
-    result = draft.apply(
-        {"answer": [{"text": "他是我们的殖民者。"}]},
-        observations=[observation_without_identity()],
-        claims_supported=False,
-    )
-    assert "殖民者" in result["agent_text"]
 
 
 @pytest.mark.asyncio
@@ -107,7 +99,7 @@ async def test_submission_tool_surfaces_the_rejection_to_the_model():
     draft = SubmissionDraft()
     tool = make_submission_tool(draft, [observation_without_identity()])
     with pytest.raises(ToolExecutionError) as caught:
-        await tool.handler({"answer": [{"text": "他是我们的殖民者。"}]})
+        await tool.handler({"answer": "他是我们的殖民者。"})
     assert caught.value.code == "identity_claim"
     assert caught.value.details["required_fields"] == ["answer"]
     assert caught.value.details["rejected_claims"][0]["quote"] == "殖民者"
@@ -115,7 +107,7 @@ async def test_submission_tool_surfaces_the_rejection_to_the_model():
 
 def test_a_clean_text_submission_still_goes_through_unchanged():
     draft = SubmissionDraft()
-    result = draft.apply({"answer": [{"text": "地面范围为 200 单位。"}]}, observations=[observation_without_identity()])
+    result = draft.apply({"answer": "地面范围为 200 单位。"}, observations=[observation_without_identity()])
     assert result["agent_text"] == "地面范围为 200 单位。"
 
 

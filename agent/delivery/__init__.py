@@ -1,1 +1,1 @@
-"""Answer delivery: handoff, submission claims, presentation and research surface."""
+"""Text answer delivery: draft, submission claims, handoff and research guidance."""

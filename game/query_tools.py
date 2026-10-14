@@ -146,8 +146,6 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
         + spatial_tools
         + tuple(world_tools),
         context="".join(text for _, text in context_blocks),
-        # Live delivery is text-only; stored historical reference parts still resolve.
-        references_supported=False,
         directory=copy.deepcopy(directory),
         context_blocks=context_blocks,
     )

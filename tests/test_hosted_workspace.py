@@ -81,13 +81,13 @@ def configure(plugin, directory, models, provider=empty_tools):
         return replace(semantic, capabilities=(*setup.capabilities, *setup.tools))
 
     plugin._agent_runtime = AgentRuntime(
-        observation_tools=[],
+
         tools_provider=configured_tools,
         model_factory=lambda _: models.pop(0),
         audit_registry=plugin._agent_audit,
         logger=plugin.logger,
         report_sink=plugin._save_report,
-        interaction_factory=semantic_interaction_factory,
+
     )
 
     async def export(**kwargs):

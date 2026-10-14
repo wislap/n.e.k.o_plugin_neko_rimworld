@@ -88,10 +88,10 @@ Valid caller/colony identity binds persistent work; missing identity or retained
 
 A failed submission retains valid draft fields. Pure short-answer length repair sends answer only and preserves detail; other invalid claims keep research evidence. Research closes near the deadline and only submission remains. preferred_cycles is guidance, not a hard model-call limit. Existing deadlines and tool/result size bounds remain.
 
-Live text answer is limited to180 tokens and answer+detail to12000 characters. Full reports, raw evidence, failures, usage and incomplete status remain visible. Historical reference parts still resolve; removing the live reference option does not invalidate saved reports.
+Live text answer is limited to180 tokens and answer+detail to12000 characters. Full reports, raw evidence, failures, usage and incomplete status remain visible. Saved reports use their retained full_text; retrieval does not run a reference renderer or the old submission protocol.
 
 ## Development and preserved research
 
 Run plugin pytest with UTF-8 in both parent and child processes. Software checks and fixed input equivalence do not prove content quality. Windows-only/platform failures are recorded separately.
 
-Retired execution policy, delivery review, production input-budget code and old configuration studies are under `rimworld-bench/experiments/runtime_options_20261007/`. The previous README is `plugin-README-before.md` there. Original experiments, questions, answers, failures and frozen runners stay unchanged. Reproduce old variants with their frozen source, never with current defaults pretending to be an old mode.
+Retired experiments are under `rimworld-bench-archive/code-20261013/`. Source versions preceding architecture removal are sealed under `.bench-results/architecture-removal-20261014-v1/`. Original experiments, questions, answers, failures and frozen runners stay unchanged. Reproduce old variants with their frozen source.

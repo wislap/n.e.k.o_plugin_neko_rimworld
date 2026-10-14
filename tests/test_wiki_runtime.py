@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .consultation_setup import semantic_tool_provider
+
 import copy
 import json
 from dataclasses import replace
@@ -90,12 +92,12 @@ def runtime_factory(request, monkeypatch):
             return store.save(record)
 
         runtime = AgentRuntime(
-            observation_tools=[],
+
             tools_provider=provide_tools,
             audit_registry=audit,
             logger=FakeLogger(),
             model_factory=lambda _: model,
-            interaction_factory=semantic_interaction_factory,
+
             report_sink=save,
         )
         return runtime, store, audit
@@ -131,7 +133,7 @@ async def test_wiki_then_submit_retains_knowledge_in_result_and_report(runtime_f
     assert saved["observation_count"] == 0
     assert saved["samples"] == []
     assert saved.get("freshness") is None
-    assert saved["provenance"]["sources"] == []
+    assert "provenance" not in saved
     message = next(message for message in model.requests[1] if message.get("tool_call_id") == "wiki-1")
     assert json.loads(message["content"])["data"] == data
     assert "wiki" in model.tools[0]
@@ -232,10 +234,10 @@ async def test_session_retains_first_sixteen_knowledge_results_and_counts_omissi
 async def test_audit_capacity_on_wiki_completion_keeps_knowledge(monkeypatch):
     from plugin.plugins.neko_rimworld.agent.runtime import audit
 
-    monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 8)
+    monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 9)
     model = ScriptedModel([turn("", ToolCall("wiki-1", "wiki", '{"query":"Steel"}'))])
     runtime = AgentRuntime(
-        observation_tools=[wiki_tool(definition())],
+        tools_provider=semantic_tool_provider([wiki_tool(definition())]),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,

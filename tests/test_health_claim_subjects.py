@@ -33,7 +33,7 @@ def readings():
 @pytest.mark.parametrize("text", ["技能最高且自身完全健康。", "他完全健康。", "完全健康。"])
 def test_unbound_prose_is_not_a_mechanical_proof_of_missing_evidence(text):
     assert check_claims(text, observations=readings()) == []
-    assert SubmissionDraft().apply({"answer": [{"text": text}]}, observations=readings())["agent_text"] == text
+    assert SubmissionDraft().apply({"answer": text}, observations=readings())["agent_text"] == text
 
 
 @pytest.mark.parametrize(

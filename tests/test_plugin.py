@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .consultation_setup import semantic_tool_provider
+
 import asyncio
 import copy
 import json
@@ -99,7 +101,7 @@ def make_plugin(config: object) -> tuple[NekoRimworldPlugin, list[dict[str, Any]
 
     plugin._knowledge = SimpleNamespace(request_refresh=lambda: None, close=lambda: None, open_view=lambda: None)
     plugin._agent_runtime = AgentRuntime(
-        observation_tools=[],
+
         tools_provider=plugin._load_agent_tools,
         audit_registry=plugin._agent_audit,
         logger=logger,
@@ -727,6 +729,8 @@ async def test_consult_returns_only_independent_agent_result() -> None:
             return {
                 "status": "ok",
                 "answer": "The colony is stable.",
+                "agent_text": "The colony is stable.",
+                "submission_mode": "submit_response",
                 "caveats": [],
                 "game_evidence": None,
                 "freshness": None,
@@ -789,15 +793,15 @@ async def test_pending_agent_model_call_does_not_block_dashboard_context() -> No
     )
     plugin._agent_audit = AgentAuditRegistry()
     plugin._agent_runtime = AgentRuntime(
-        observation_tools=[],
-        tools_provider=plugin._catalog_tools.load,
+
+        tools_provider=semantic_tool_provider(),
         audit_registry=plugin._agent_audit,
         logger=plugin.logger,
         model_factory=lambda _settings: WaitingModel(),
     )
 
     task = asyncio.create_task(plugin.rimworld_consult(question="How is the colony?"))
-    await started.wait()
+    await asyncio.wait_for(started.wait(), 2)
     dashboard = await asyncio.wait_for(plugin.dashboard_ui_context(), timeout=0.2)
     assert dashboard["agent"]["active_count"] == 1
     assert dashboard["agent"]["latest_run"]["state"] == "model_requesting"

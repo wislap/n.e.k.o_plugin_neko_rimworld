@@ -1,8 +1,8 @@
-"""The semantic surface is the shipped interface, and it knows when to step aside.
+"""The semantic surface is the sole shipped interface.
 
 What matters here is the wiring: which connections get the closed-enum vocabulary,
-that the Mod's directory really leaves the prompt, and that the one combination
-the adapter cannot serve keeps working. The compile and render semantics are
+that the Mod's directory really leaves the prompt, and that unsupported
+directories stop before dispatch. The compile and render semantics are
 covered by the surface's own tests.
 """
 
@@ -254,58 +254,6 @@ def test_a_directory_that_cannot_compile_is_refused_before_the_prompt_promises_i
         semantic_interaction_factory(setup, None, None)
 
 
-@pytest.mark.asyncio
-async def test_an_attached_report_keeps_the_semantic_interface():
-    """Historical evidence is composed as a capability, not another game vocabulary."""
-    engaged = []
-
-    def factory(setup, session, update):
-        engaged.append(setup)
-        return semantic_interaction_factory(setup, session, update)
-
-    model = _Model(
-        [
-            turn("", ToolCall("history", "read_report_evidence", '{"index":0}')),
-            turn(
-                "",
-                ToolCall(
-                    "finish",
-                    "submit_response",
-                    json.dumps(
-                        {"detail": "历史报告的完整说明。", "answer": "历史报告的结论。"}, ensure_ascii=False
-                    ),
-                ),
-            ),
-        ]
-    )
-
-    async def tools_provider():
-        return setup_for()
-
-    runtime = AgentRuntime(
-        observation_tools=[],
-        tools_provider=tools_provider,
-        audit_registry=AgentAuditRegistry(),
-        logger=FakeLogger(),
-        model_factory=lambda _: model,
-        interaction_factory=factory,
-    )
-
-    historical = report()
-    historical["observations"] = [{"observation_id": "historical-fixture", "historical_value": 28}]
-    result = await runtime.run("这一问。", settings(), reference_report=historical)
-
-    assert len(engaged) == 1
-    assert result["status"] == "ok"
-    assert "历史报告的结论。" in result["agent_text"]
-    for request in model.requests:
-        names = {tool["function"]["name"] for tool in request["tools"]}
-        assert {"look", "count", "read_report_evidence"} <= names
-        assert not names & {"query", "query_game", "get_game_info", "describe_query"}
-    evidence = next(json.loads(message["content"])["data"] for message in model.requests[1]["messages"]
-                    if message.get("role") == "tool" and message.get("name") == "read_report_evidence")
-    assert evidence["historical"] is True
-    assert evidence["observation"] == historical["observations"][0]
 
 
 @pytest.mark.asyncio
@@ -317,9 +265,9 @@ async def test_unsupported_semantic_connection_never_calls_the_model():
     async def provider():
         return setup_for(directory=False)
 
-    runtime = AgentRuntime(observation_tools=[], tools_provider=provider, audit_registry=AgentAuditRegistry(),
+    runtime = AgentRuntime( tools_provider=provider, audit_registry=AgentAuditRegistry(),
                            logger=FakeLogger(), model_factory=lambda _: NeverCalled(),
-                           interaction_factory=semantic_interaction_factory)
+                           )
     result = await runtime.run("question", settings())
     assert result["status"] == "degraded"
     assert result["audit"]["error_code"] == "semantic_surface_unavailable"

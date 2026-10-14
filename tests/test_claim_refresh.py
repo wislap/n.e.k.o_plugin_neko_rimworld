@@ -99,10 +99,10 @@ def test_submission_can_recover_after_real_partial_rejection():
     readings = receipts()
     draft = SubmissionDraft()
     with pytest.raises(SubmissionPatchError) as caught:
-        draft.apply({"answer": [{"text": TEXT}]}, observations=readings[:1])
+        draft.apply({"answer": TEXT}, observations=readings[:1])
     assert caught.value.code == "incomplete_quantifier_claim"
     assert draft.claims_blocked is True
-    submitted = draft.apply({"answer": [{"text": TEXT}]}, observations=readings)
+    submitted = draft.apply({"answer": TEXT}, observations=readings)
     assert submitted["agent_text"] == TEXT
     assert draft.claims_blocked is False
 

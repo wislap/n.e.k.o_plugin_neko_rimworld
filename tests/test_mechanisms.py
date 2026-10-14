@@ -101,7 +101,7 @@ async def test_mechanisms_and_native_actions_use_production_runtime_and_report(t
     async def save(record):
         return reports.save(record)
 
-    runtime = AgentRuntime(observation_tools=[], audit_registry=AgentAuditRegistry(), logger=FakeLogger(), tools_provider=provide, model_factory=lambda _: model, interaction_factory=semantic_interaction_factory, report_sink=save)
+    runtime = AgentRuntime( audit_registry=AgentAuditRegistry(), logger=FakeLogger(), tools_provider=provide, model_factory=lambda _: model,  report_sink=save)
     result = await runtime.run("Can Lumi equip this?", settings())
     assert result["status"] == "ok"
     assert requests == [{"operation": "inspect_actions", "arguments": {"actor": {"name": "Lumi"}}}]

@@ -45,9 +45,9 @@ def query_guide(*, native_state, activity):
     return text
 
 
-def task_prompt(preferred_cycles, *, finalizing=False, references_supported=False):
+def task_prompt(preferred_cycles, *, finalizing=False):
     sections = finalization_sections if finalizing else system_sections
-    parts = dict(sections(preferred_cycles, references_supported=references_supported))
+    parts = dict(sections(preferred_cycles))
     if not finalizing:
         parts["query_policy"] = (
             "Investigate the explicit question, not a larger hypothetical mission. "
@@ -67,14 +67,13 @@ def task_prompt(preferred_cycles, *, finalizing=False, references_supported=Fals
         "priority 0 is unassigned for autonomous work. Among assigned priorities 1..4, lower wins; "
         "with higher natural priority breaking ties.\n"
     )
-    if not references_supported:
-        parts["submission"] = (
-            "Finish through submit_response. answer is a standalone conclusion with material conditions, "
-            "aiming for <=100 tokens (hard maximum 180). detail contains only the remaining findings "
-            "explicitly requested by the caller, including complete requested tables. "
-            "Do not add adjacent investigations, speculative mechanisms or a catalogue of unasked unknowns. "
-            "answer+detail <=12000 characters. Length-only repair sends answer only; saved detail remains.\n"
-        )
+    parts["submission"] = (
+        "Finish through submit_response. answer is a standalone conclusion with material conditions, "
+        "aiming for <=100 tokens (hard maximum 180). detail contains only the remaining findings "
+        "explicitly requested by the caller, including complete requested tables. "
+        "Do not add adjacent investigations, speculative mechanisms or a catalogue of unasked unknowns. "
+        "answer+detail <=12000 characters. Length-only repair sends answer only; saved detail remains.\n"
+    )
     return "".join(parts.values())
 
 

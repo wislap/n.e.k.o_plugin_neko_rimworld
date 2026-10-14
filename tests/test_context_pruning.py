@@ -1,3 +1,5 @@
+
+from .consultation_setup import semantic_tool_provider
 import copy
 import json
 
@@ -253,7 +255,7 @@ def test_pruned_work_input_retains_zero_priority_rule_in_its_model_policy():
     from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
     session = AgentRunSession.create(ledger=AgentAuditLedger("q"),
-        system_prompt=task_prompt(4, references_supported=False), question="Compare Doctor work priorities.")
+        system_prompt=task_prompt(4), question="Compare Doctor work priorities.")
     value = work_reading()
     value["data"]["facts"][0]["facts"]["work"]["work_types"][0]["priority"] = 0
     value["data"].pop("work_assignments")
@@ -452,13 +454,13 @@ def test_length_only_repair_does_not_replay_world_or_detail_and_never_hides_clai
 
     session = AgentRunSession.create(ledger=AgentAuditLedger("question"), system_prompt="policy", question="question")
     session.messages.append({"role": "tool", "content": "LARGE WORLD DATA"})
-    session.submission.answer = [{"text": "A conditional answer; B remains unknown."}]
+    session.submission.answer = "A conditional answer; B remains unknown."
     session.submission.detail = "SAVED FULL REPORT"
     session.submission.errors = {"delivery": {"code": "handoff_over_budget"}}
     before = copy.deepcopy(session.messages)
     repair = session.length_repair_messages()
     assert "LARGE WORLD DATA" not in json.dumps(repair) and "SAVED FULL REPORT" not in json.dumps(repair)
-    assert repair[2]["content"] == session.submission.answer[0]["text"]
+    assert repair[2]["content"] == session.submission.answer
     assert session.messages == before and session.submission.detail == "SAVED FULL REPORT"
     session.submission.errors = {"delivery": {"code": "unsupported_claim"}}
     assert session.length_repair_messages() is None
@@ -493,7 +495,7 @@ async def test_runtime_length_repair_uses_one_small_request_and_preserves_full_r
 
     model = Model()
     runtime = AgentRuntime(
-        observation_tools=[], audit_registry=AgentAuditRegistry(), logger=FakeLogger(), model_factory=lambda _: model
+        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), logger=FakeLogger(), model_factory=lambda _: model
     )
     result = await runtime.run("Answer with detail.", settings())
     assert result["status"] == "ok" and model.calls == 2

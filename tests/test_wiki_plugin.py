@@ -53,7 +53,6 @@ async def test_provider_composes_wiki_without_losing_original_setup(tmp_path, mo
     assert setup.tools[:-1] == original.tools
     assert setup.tools[-1].name == "wiki"
     assert setup.directory == original.directory
-    assert setup.references_supported == original.references_supported
     assert setup.context.startswith(original.context)
     assert "wiki(query)" in setup.context
     assert setup.context_blocks[-1][0] == "wiki"

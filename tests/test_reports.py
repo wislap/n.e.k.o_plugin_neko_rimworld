@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .consultation_setup import semantic_tool_provider
+
 import asyncio
 import json
 
@@ -106,23 +108,23 @@ async def test_explicit_report_reference_preserves_cross_work_and_unbound_ui_fol
 def test_length_patch_keeps_detail_without_retransmission():
     draft = SubmissionDraft()
     with pytest.raises(SubmissionPatchError) as caught:
-        draft.apply({"detail": "Detailed original", "answer": [{"text": "超限内容。" * 300}]})
+        draft.apply({"detail": "Detailed original", "answer": "超限内容。" * 300})
     assert caught.value.details["saved_fields"] == ["answer", "detail"]
     assert caught.value.details["required_fields"] == ["answer"]
-    result = draft.apply({"answer": [{"text": "Brief"}]})
+    result = draft.apply({"answer": "Brief"})
     assert result["full_text"] == "Brief\n\nDetailed original"
     assert draft.snapshot()["complete"]
 
 
 def test_invalid_replacements_preserve_valid_inputs_and_clearing_is_explicit():
     draft = SubmissionDraft()
-    assert draft.apply({"answer": [{"text": "Brief"}], "detail": "Original"})["agent_text"] == "Brief"
+    assert draft.apply({"answer": "Brief", "detail": "Original"})["agent_text"] == "Brief"
     with pytest.raises(SubmissionPatchError):
         draft.apply({"detail": 7})
     assert draft.detail == "Original"
     with pytest.raises(SubmissionPatchError):
-        draft.apply({"answer": [{"text": "New brief"}]})
-    assert draft.answer == [{"text": "New brief"}] and draft.detail == "Original"
+        draft.apply({"answer": "New brief"})
+    assert draft.answer == "New brief" and draft.detail == "Original"
     result = draft.apply({"detail": None})
     assert result["full_text"] == result["agent_text"] == "New brief"
     with pytest.raises(SubmissionPatchError):
@@ -167,7 +169,7 @@ def runtime_for(model, store):
         return store.save(value)
 
     return AgentRuntime(
-        observation_tools=[query_tool(unused)],
+        tools_provider=semantic_tool_provider([query_tool(unused)]),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,
@@ -231,24 +233,6 @@ async def test_cancel_after_draft_preserves_saved_body():
     assert saved["full_text"] == "Saved draft"
 
 
-@pytest.mark.asyncio
-async def test_explicit_reference_and_evidence_are_historical_not_live():
-    reference = record(
-        created_at="2026-01-01", observations=[{"request": {"operation": "old query"}, "response": {"game_tick": 12}}]
-    )
-    model = ScriptedModel(
-        [turn("", ToolCall("1", "read_report_evidence", '{"index":0}')), submitted_turn("Historical explanation")]
-    )
-    store = ReportStore()
-    result = await runtime_for(model, store).run("Explain old report", settings(), reference_report=reference)
-    assert "A full historical report." in str(model.requests[0])
-    assert "historical" in str(model.requests[1])
-    assert result["observations"] == []
-    assert result["freshness"] is None
-    assert store.read(result["report"]["report_id"])["reference_report_id"] == reference["report_id"]
-    fresh = ScriptedModel([submitted_turn("Fresh")])
-    await runtime_for(fresh, store).run("Fresh", settings())
-    assert "A full historical report." not in str(fresh.requests[0])
 
 
 @pytest.mark.asyncio
@@ -281,7 +265,7 @@ async def test_report_storage_failure_keeps_complete_result():
 
     model = ScriptedModel([submitted_turn("Complete answer")])
     runtime = AgentRuntime(
-        observation_tools=[query_tool(unused)],
+        tools_provider=semantic_tool_provider([query_tool(unused)]),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,

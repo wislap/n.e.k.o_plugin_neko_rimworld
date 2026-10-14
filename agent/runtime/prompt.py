@@ -52,29 +52,26 @@ def research_sections(preferred_cycles: int) -> tuple[tuple[str, str], ...]:
     )
 
 
-def system_sections(preferred_cycles: int, *, references_supported: bool = True) -> tuple[tuple[str, str], ...]:
-    if references_supported:
-        submission = "Finish through submit_response by composing answer parts. Each part is either\ntext or a reference to this run's observation_id and existing data paths.\nA reference part IS factual answer text: the program renders its values with\nsubject, unit, scope, completeness and sample context. It is not a citation\nattached to an already-written answer. Do not restate those same facts in a text\npart or detail. Choose the parts needed to answer the question sufficiently.\nPure factual answers can contain only reference parts. For interpretation, add\na concise text part that contributes reasoning rather than repeating facts.\nUse optional detail for additional explanation. A text-only answer can use a\nsingle text part. Parts are rendered in order into both the full report and the\nshort handoff; no second paraphrase is needed. References do not excuse selecting\nwrong evidence, omitting required facts or writing unsupported analysis.\nUse paths relative to the data object, with literal array indices. Do not copy\n/payload/data prefixes or the descriptor's ~2 pattern positions. Redundant\nreferences to the same bound reading are rendered once. No new calculations,\nfilters or freely named quantity labels are available at submission.\nUse at most 16 paths for one observation and 32 paths across the answer.\nModel-written text must fit 180 tokens; rendered facts have a separate budget,\nbut the complete short handoff must fit the host's 200-token transport limit.\nFull answer + detail must fit 12000 characters. Budget feedback separates fact\ncost from text space. Correct wording/display choices without changing factual scope or dropping necessary\nunknowns. A presentation repair does not itself require another game query.\nOrdinary assistant text does not submit the report or automatically save detail.\nUse submit_response explicitly with the intended answer parts and detail. Valid saved inputs survive rejection. Omitted detail is retained; update it when the conclusions change, or explicitly clear it with null only if unnecessary. A saved\ndraft is unfinished. Text and reference parts always remain one cohesive answer.\n"
-    else:
-        submission = (
-            "Observation reference parts are unavailable. Finish explicitly with submit_response. "
-            "answer is one concise text string giving the standalone conclusion in at most 180 tokens; "
-            "detail holds the remaining requested findings and evidence. Together they must cover the question, "
-            "agree with each other and observations, and fit 12000 characters. "
-            "Use detail only for relevant findings, not background padding. "
-            "For length-only repair, shorten answer; omitted detail stays saved. "
-            "When changing conclusions, update or reconfirm matching detail; null clears unnecessary detail. "
-            "A saved draft is not a completed submission.\n"
-        )
+def system_sections(preferred_cycles: int) -> tuple[tuple[str, str], ...]:
+    submission = (
+        "Finish explicitly with submit_response. "
+        "answer is one concise text string giving the standalone conclusion in at most 180 tokens; "
+        "detail holds the remaining requested findings and evidence. Together they must cover the question, "
+        "agree with each other and observations, and fit 12000 characters. "
+        "Use detail only for relevant findings, not background padding. "
+        "For length-only repair, shorten answer; omitted detail stays saved. "
+        "When changing conclusions, update or reconfirm matching detail; null clears unnecessary detail. "
+        "A saved draft is not a completed submission.\n"
+    )
     return (*research_sections(preferred_cycles), ("submission", submission), ("style", build_style_guidance()))
 
 
-def build_system_prompt(preferred_cycles: int, *, references_supported: bool = True) -> str:
-    return "".join(t for _, t in system_sections(preferred_cycles, references_supported=references_supported))
+def build_system_prompt(preferred_cycles: int) -> str:
+    return "".join(t for _, t in system_sections(preferred_cycles))
 
 
-def finalization_sections(preferred_cycles: int, *, references_supported: bool = True) -> tuple[tuple[str, str], ...]:
-    parts = dict(system_sections(preferred_cycles, references_supported=references_supported))
+def finalization_sections(preferred_cycles: int) -> tuple[tuple[str, str], ...]:
+    parts = dict(system_sections(preferred_cycles))
     phase = (
         "The research deadline has been reached. Query tools are unavailable for the rest of this run. "
         "Finish using the observations already obtained. Answer supported requested facts and clearly state missing or incomplete facts. "
@@ -86,9 +83,9 @@ def finalization_sections(preferred_cycles: int, *, references_supported: bool =
     ) + (("phase", phase), ("submission", parts["submission"]), ("style", parts["style"]))
 
 
-def build_finalization_prompt(preferred_cycles: int, *, references_supported: bool = True) -> str:
+def build_finalization_prompt(preferred_cycles: int) -> str:
     return "".join(
-        text for _, text in finalization_sections(preferred_cycles, references_supported=references_supported)
+        text for _, text in finalization_sections(preferred_cycles)
     )
 
 

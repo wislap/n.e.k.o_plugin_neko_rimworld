@@ -49,7 +49,6 @@ class ToolSpec:
 class ToolSetup:
     tools: tuple[ToolSpec, ...]
     context: str = ""
-    references_supported: bool = False
     directory: dict[str, Any] | None = None
     context_blocks: tuple[tuple[str, str], ...] = ()
     #: Ready immutable Def-knowledge view for this consultation, attached by

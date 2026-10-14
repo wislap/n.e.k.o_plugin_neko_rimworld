@@ -28,7 +28,6 @@ export function ReportsView({ c }: { c: DiagnosticsController }) {
         {clipboard.copied ? <TextBlock text="已复制" /> : null}
         {clipboard.error ? <InlineError title="复制失败" error={clipboard.error} /> : null}
         <Button tone="primary" disabled={c.running} onClick={() => c.askAboutReport(report.report_id)}>基于这份报告追问</Button>
-        {report.reference_report_id ? <Button onClick={() => c.openReport(report.reference_report_id)}>查看引用的原报告</Button> : null}
         {report.evidence_status === "omitted_size_limit" ? <Alert tone="warning">观察数据超出保存上限，正文与采样标识已保留，原始观察未保留。</Alert> : null}
         <TextBlock text={`原调查包含 ${report.observation_count ?? 0} 份观察；不同采样不合并为同一快照。`} />
         {report.state === "draft" ? <JsonView data={report.draft_errors || {}} /> : null}

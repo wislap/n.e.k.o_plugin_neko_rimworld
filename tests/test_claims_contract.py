@@ -60,12 +60,12 @@ def assert_contract(entry, text, readings, code=None):
     draft = SubmissionDraft()
     if code:
         with pytest.raises(SubmissionPatchError) as caught:
-            draft.apply({"answer": [{"text": text}]}, observations=readings)
+            draft.apply({"answer": text}, observations=readings)
         assert caught.value.code == code
         assert draft.claims_blocked is True
         assert draft.full_text is None and draft.agent_text is None
     else:
-        result = draft.apply({"answer": [{"text": text}]}, observations=readings)
+        result = draft.apply({"answer": text}, observations=readings)
         assert result["agent_text"] == text
         assert draft.snapshot()["complete"] is True
         assert draft.claims_blocked is False
