@@ -13,9 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSetup
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSetup
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import (
     SemanticInteraction,
     semantic_interaction_factory,
@@ -344,7 +346,8 @@ async def test_wiki_is_the_only_extra_passthrough_and_never_an_observation(tmp_p
     from dataclasses import replace
 
     from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore, make_wiki_tool
-    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSpec
+    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 
     from .test_wiki_tools import write_snapshot
 

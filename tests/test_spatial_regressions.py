@@ -171,7 +171,7 @@ def test_old_spatial_mod_does_not_advertise_or_dispatch_route():
     adapter = semantic_interaction_factory(setup_for(spatial=True), Session(), _update)
     spec = next(t for t in adapter.tools() if t.name == "inspect_space")
     assert "detail" not in spec.parameters["properties"]
-    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 
     with pytest.raises(ToolExecutionError):
         asyncio.run(

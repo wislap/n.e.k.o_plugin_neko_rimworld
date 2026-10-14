@@ -8,25 +8,8 @@ from typing import Any
 
 from ...game.observation import Observation
 from ..context.model_context import CONTEXT_TOOLS, MAX_SOURCE_CHARS, model_size
-from .contracts import PreparedToolCall, ToolCall, ToolResult
-from .tool_contracts import (
-    MAX_TOOL_RESULT_CHARS as MAX_TOOL_RESULT_CHARS,
-)
-from .tool_contracts import (
-    WORLD_OBSERVATION_VERSIONS as WORLD_OBSERVATION_VERSIONS,
-)
-from .tool_contracts import (
-    ToolExecutionError as ToolExecutionError,
-)
-from .tool_contracts import (
-    ToolHandler as ToolHandler,
-)
-from .tool_contracts import (
-    ToolSetup as ToolSetup,
-)
-from .tool_contracts import (
-    ToolSpec as ToolSpec,
-)
+from ...message_contracts import PreparedToolCall, ToolCall, ToolResult
+from ...tool_contracts import MAX_TOOL_RESULT_CHARS, ToolExecutionError, ToolSpec
 
 
 class ToolRegistry:
@@ -246,4 +229,4 @@ class ToolRegistry:
         )
 
 
-__all__ = ["ToolExecutionError", "ToolRegistry", "ToolSpec", "ToolSetup"]
+__all__ = ["ToolRegistry"]

@@ -834,45 +834,6 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
     return index
 
 
-def observed_categories(
-    observations: Iterable[Mapping[str, Any]], index: Mapping[str, Any] | None = None
-) -> dict[str, bool]:
-    """扁平证据视图，保留旧接口。
-
-    新代码应使用 :func:`build_read_index`：这个视图会丢掉主语绑定，只适合
-    兼容调用方与结构自检。
-    """
-    idx = dict(index) if index is not None else build_read_index(observations)
-    found = dict(
-        identity=False,
-        faction=False,
-        held_by_faction=False,
-        health_conditions=False,
-        health_conditions_visible_only=False,
-        health_body_parts=False,
-        health_capacities=False,
-        include_held_true=bool(idx["flags"]["include_held_true"]),
-        include_fogged_true=bool(idx["flags"]["include_fogged_true"]),
-        colonists_root=bool(idx["flags"]["colonists_root"]),
-    )
-    buckets = [idx["global"], *idx["subjects"].values()]
-    for bucket in buckets:
-        fields = bucket["fields"]
-        if fields & {"is_player", "is_free_colonist", "is_colonist"}:
-            found["identity"] = True
-        if fields & {"is_player", "faction"}:
-            found["faction"] = True
-        if fields & {"held_by_faction", "held_by"}:
-            found["held_by_faction"] = True
-        # 健康名单两种口径分开：只有含隐藏条目的那次才能证明“没有伤病”。
-        found["health_conditions"] = "health_conditions_all" in fields
-        found["health_conditions_visible_only"] = "health_conditions_visible" in fields
-        for name in ("body_parts", "capacities"):
-            if name in fields:
-                found["health_" + name] = True
-    return found
-
-
 # ---------------------------------------------------------------------------
 # 检查
 # ---------------------------------------------------------------------------
@@ -1229,4 +1190,4 @@ def describe(rejected: Iterable[Mapping[str, Any]]) -> str:
     return " ".join(lines)
 
 
-__all__ = ["CLAIM_CLASSES", "build_read_index", "check_claims", "describe", "observed_categories"]
+__all__ = ["CLAIM_CLASSES", "build_read_index", "check_claims", "describe"]

@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 from ..delivery.handoff import make_submission_tool
 from .prompt import build_system_prompt
-from .tool_contracts import ToolSetup, ToolSpec
+from ...tool_contracts import ToolSetup, ToolSpec
 from .tools import ToolRegistry
 
 
@@ -56,7 +56,7 @@ class ExecutionEnvironment:
         if interaction_factory is not None:
             session.interaction = interaction_factory(setup, session, update)
             if session.interaction is None:
-                from .tool_contracts import ToolExecutionError
+                from ...tool_contracts import ToolExecutionError
 
                 raise ToolExecutionError("interaction_surface_unavailable", "The configured consultation surface is unavailable.", recoverable=False)
             self.set_prompt(session.interaction.prompt(session.preferred_cycles))

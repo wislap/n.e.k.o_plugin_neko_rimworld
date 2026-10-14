@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 
-from .serialization import canonical, digest
+from ...serialization import canonical, digest
 
 GUIDE = (
     "Ordinary JSON. Equal nested map/world/sample/context fields inherit their parent; "

@@ -69,7 +69,9 @@ def test_source_window_and_search_are_data_not_execution(tmp_path):
 
 @pytest.mark.asyncio
 async def test_mechanisms_and_native_actions_use_production_runtime_and_report(tmp_path):
-    from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
+    from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+    from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+    from plugin.plugins.neko_rimworld.message_contracts import ToolCall
     from plugin.plugins.neko_rimworld.reports import ReportStore
 
     target, metadata, implementation = library(tmp_path)
@@ -125,7 +127,7 @@ async def test_missing_index_does_not_disable_current_tools(tmp_path):
 
 @pytest.mark.asyncio
 async def test_wiki_preserves_definitions_and_exact_source_windows(tmp_path):
-    from plugin.plugins.neko_rimworld.agent.runtime.tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
 
     target, metadata, implementation = library(tmp_path)
     definition_queries = []
@@ -159,7 +161,7 @@ async def test_wiki_preserves_definitions_and_exact_source_windows(tmp_path):
 
 @pytest.mark.asyncio
 async def test_missing_source_index_preserves_the_definition_tool(tmp_path):
-    from plugin.plugins.neko_rimworld.agent.runtime.tool_contracts import ToolSetup, ToolSpec
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolSetup, ToolSpec
 
     async def definition(args):
         return {"knowledge_kind": "definition", "query": args["query"]}

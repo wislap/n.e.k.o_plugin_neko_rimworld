@@ -7,9 +7,11 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld import NekoRimworldPlugin
-from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.audit import MAX_AUDIT_DEPTH, audit_safe
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSpec
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSpec
 from plugin.plugins.neko_rimworld.game import protocol as wire
 from plugin.plugins.neko_rimworld.game.observation import Observation
 

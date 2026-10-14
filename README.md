@@ -28,9 +28,9 @@ Ordinary JSON retains sample, actor/user/stage/scope, unknown and partial states
 
 Keep model endpoint/name/key, deadlines, output length, temperature and pairing configuration in `config.example.toml`. The model is user-configured; the experiment model is not hard-coded.
 
-Remove `NEKO_CONTEXT_PRUNING`, `NEKO_ACTIVITY`, `NEKO_DEF_NAME_RECOVERY` and `NEKO_PUBLIC_REFERENCES`. Matching former baseline values produce migration notices only; contrary/invalid variants are rejected, not silently mapped. `NEKO_EVIDENCE_COMPACT` and production `NEKO_PUBLIC_INPUT_TOKEN_LIMIT` are retired. Bench retains explicitly declared per-case input budgets outside production.
+Remove `NEKO_CONTEXT_PRUNING`, `NEKO_ACTIVITY`, `NEKO_DEF_NAME_RECOVERY`, `NEKO_PUBLIC_REFERENCES`, `NEKO_SEMANTIC_SURFACE`, `NEKO_EVIDENCE_COMPACT` and `NEKO_PUBLIC_INPUT_TOKEN_LIMIT`. Any present retired environment key is rejected, including an empty value or a former baseline value. Bench rejects nonempty `execution_flags` declarations; historical variants require their frozen source and runner. Bench retains explicitly declared per-case input budgets outside production.
 
-Remove `review_before_delivery`. A stored false value is tolerated only for migration; true is rejected. Formal content review remains solely `bench.py evaluate review`, outside the consultation runtime.
+Remove `review_before_delivery`, `allow_text_completion` and `prepared_calls` from the agent configuration. Any present retired key is rejected, including false, null or empty values and configurations without a model. Formal content review remains solely `bench.py evaluate review`, outside the consultation runtime.
 
 `NEKO_RIMWORLD_KNOWLEDGE_DIR` and `NEKO_RIMWORLD_MECHANISMS_DIR` remain optional path overrides. Definition recovery requires a ready complete index and refuses ambiguous matches; native lookup determines existence.
 

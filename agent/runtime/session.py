@@ -10,11 +10,11 @@ from typing import TYPE_CHECKING, Any
 from ..context.model_context import CONTEXT_TOOLS, make_pruner, validate_deployment
 from ..delivery.handoff import SubmissionDraft
 from .audit import AgentAuditLedger
-from .contracts import AssistantTurn
+from ...message_contracts import AssistantTurn
 
 if TYPE_CHECKING:
     from .execution_environment import ExecutionSurface
-    from .tool_contracts import ToolSpec
+    from ...tool_contracts import ToolSpec
 
 
 @dataclass(slots=True)

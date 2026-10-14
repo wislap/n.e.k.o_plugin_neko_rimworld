@@ -9,7 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from ...mechanisms.store import MechanismStore
-from ..runtime.tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
+from ...tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
 from .wiki_tools import WIKI_GUIDANCE, knowledge_directory
 
 GUIDANCE = (

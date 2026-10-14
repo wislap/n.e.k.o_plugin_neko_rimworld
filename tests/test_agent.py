@@ -7,23 +7,13 @@ from typing import Any
 import httpx
 import pytest
 
-from plugin.plugins.neko_rimworld.agent import (
-    AgentAuditCapacityError,
-    AgentAuditLedger,
-    AgentAuditRegistry,
-    AgentModelSettings,
-    AgentRunState,
-    AgentRuntime,
-    AssistantTurn,
-    ModelClientError,
-    OpenAICompatibleModelClient,
-    ToolCall,
-    build_agent_model_settings,
-    parse_agent_model_settings,
-)
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditCapacityError, AgentAuditLedger, AgentAuditRegistry, AgentRunState
+from plugin.plugins.neko_rimworld.agent.model.model_client import AgentModelSettings, ModelClientError, OpenAICompatibleModelClient, build_agent_model_settings, parse_agent_model_settings
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.model import model_requests
 from plugin.plugins.neko_rimworld.agent.runtime.audit import MAX_EVENTS_PER_RUN
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolSpec
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSpec
 from plugin.plugins.neko_rimworld.game.observation import Observation
 
 

@@ -27,7 +27,7 @@ import copy
 from typing import Any
 
 from ..delivery.research_surface import ReadOnlyResearchSurface, ResearchGuidance
-from ..runtime.tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolSpec
+from ...tool_contracts import WORLD_OBSERVATION_VERSIONS, ToolExecutionError, ToolSpec
 from .activity import make_activity_tool
 from .object_tools import ObjectReader, extend_look_schema, observed_id_reference, state_contract
 from .query_surface import Surface, SurfaceError

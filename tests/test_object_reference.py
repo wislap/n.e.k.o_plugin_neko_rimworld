@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.world.activity import SemanticActivityDataSource
 from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader, observed_id_reference
 from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError

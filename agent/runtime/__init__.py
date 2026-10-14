@@ -1,1 +1,1 @@
-"""Agent run orchestration: loop, session, tool registry, contracts, audit and prompts."""
+"""Agent run orchestration: loop, session, tool registry, audit and prompts."""

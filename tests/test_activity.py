@@ -4,8 +4,9 @@ import json
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError, ToolRegistry
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
 from plugin.plugins.neko_rimworld.agent.world.object_tools import ObjectReader
 

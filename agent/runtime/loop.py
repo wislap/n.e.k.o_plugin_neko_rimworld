@@ -16,11 +16,12 @@ from ..delivery.handoff import (
 from ..model.model_client import AgentModelSettings, ModelClient, OpenAICompatibleModelClient
 from ..model.model_requests import MAX_MODEL_ATTEMPTS, _canonical_hash, request_model
 from .audit import AgentAuditCapacityError, AgentAuditLedger, AgentAuditRegistry, AgentRunState
-from .contracts import PreparedToolCall
+from ...message_contracts import PreparedToolCall
 from .execution_environment import ExecutionEnvironment
 from .prompt import build_finalization_prompt, build_runtime_advisory, build_system_prompt
 from .session import AgentRunSession
-from .tools import ToolExecutionError, ToolRegistry, ToolSetup, ToolSpec
+from ...tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
+from .tools import ToolRegistry
 
 
 class LoggerLike(Protocol):

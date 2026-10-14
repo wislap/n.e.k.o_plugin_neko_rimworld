@@ -5,8 +5,9 @@ import pytest
 
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner, prune
 from plugin.plugins.neko_rimworld.agent.context.model_context import make_pruner
-from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSpec
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
+from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 
 
 def work_reading():
@@ -465,7 +466,8 @@ def test_length_only_repair_does_not_replay_world_or_detail_and_never_hides_clai
 
 @pytest.mark.asyncio
 async def test_runtime_length_repair_uses_one_small_request_and_preserves_full_report():
-    from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime
+    from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+    from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
     from plugin.plugins.neko_rimworld.tests.test_agent import FakeLogger, settings, turn
 
     full = "SAVED DETAIL " * 400

@@ -498,7 +498,7 @@ def make_submission_tool(
     draft: SubmissionDraft, observations, on_update=None, *, references_supported=True, claims_supported=True
 ):
     """One production terminal implementation for the runtime and fixed-observation studies."""
-    from ..runtime.tool_contracts import ToolExecutionError, ToolSpec
+    from ...tool_contracts import ToolExecutionError, ToolSpec
 
     async def submit(arguments):
         arguments = dict(arguments)

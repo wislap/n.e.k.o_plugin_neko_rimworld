@@ -1,7 +1,7 @@
 import copy
 
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
-from plugin.plugins.neko_rimworld.agent.runtime.contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 

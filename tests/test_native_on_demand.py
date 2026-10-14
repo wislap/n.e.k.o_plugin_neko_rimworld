@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.tools import WORLD_OBSERVATION_VERSIONS
+from plugin.plugins.neko_rimworld.tool_contracts import WORLD_OBSERVATION_VERSIONS
 from plugin.plugins.neko_rimworld.agent.world.object_tools import state_contract
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 

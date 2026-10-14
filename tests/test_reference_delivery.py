@@ -16,7 +16,9 @@ from types import ModuleType, SimpleNamespace
 import pytest
 from utils.result_parser import parse_plugin_result
 
-from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     HandoffValidationError,
     SubmissionDraft,
@@ -26,7 +28,7 @@ from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     make_submission_tool,
     validate_submission,
 )
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolSetup
+from plugin.plugins.neko_rimworld.tool_contracts import ToolSetup
 from plugin.plugins.neko_rimworld.game.observation import Observation
 
 from .test_agent import FakeLogger, ScriptedModel, query_tool, settings, submitted_turn, turn

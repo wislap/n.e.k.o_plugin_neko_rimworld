@@ -7,8 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.game.observation import Observation
 from plugin.plugins.neko_rimworld.game.protocol import decode_envelope
 from plugin.plugins.neko_rimworld.game.query_tools import CatalogTools, make_game_tools
@@ -95,11 +97,10 @@ async def test_fact_references_are_opt_in_not_the_shipped_default():
 
 
 @pytest.mark.asyncio
-async def test_live_reference_mode_remains_disabled_even_when_advertised(monkeypatch):
+async def test_live_reference_mode_remains_disabled_even_when_advertised():
     advertised = _public_source(references={"version": "observed_values.v1"})
-    monkeypatch.setenv("NEKO_PUBLIC_REFERENCES", "1")
     assert make_game_tools(advertised, _noop_query).references_supported is False
-    # 旧 Mod 没声明能力时，即使显式选择也不能发明引用。
+    # 引用公告不改变当前纯文本提交契约。
     assert make_game_tools(_public_source(), _noop_query).references_supported is False
     assert make_game_tools(advertised, _noop_query).references_supported is False
 

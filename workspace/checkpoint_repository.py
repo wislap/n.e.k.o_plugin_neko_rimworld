@@ -4,7 +4,7 @@ import hashlib
 import json
 import uuid
 
-from ..agent.context.serialization import canonical as encode
+from ..serialization import canonical as encode
 
 
 class CheckpointRepository:

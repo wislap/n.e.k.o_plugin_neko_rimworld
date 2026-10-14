@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 
 

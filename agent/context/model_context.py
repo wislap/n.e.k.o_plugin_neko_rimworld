@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import os
-import warnings
 
-from .serialization import canonical as canonical
-from .serialization import digest as digest
+from ...serialization import canonical
 
 MAX_SOURCE_CHARS = 4 * 1024 * 1024
 CONTEXT_TOOLS = frozenset(
@@ -21,27 +19,22 @@ CONTEXT_TOOLS = frozenset(
         "evaluate_activity",
     }
 )
-RETIRED_DEFAULTS = {
-    "NEKO_CONTEXT_PRUNING": True,
-    "NEKO_ACTIVITY": True,
-    "NEKO_DEF_NAME_RECOVERY": True,
-    "NEKO_PUBLIC_REFERENCES": False,
-}
+RETIRED_ENVIRONMENT_KEYS = (
+    "NEKO_CONTEXT_PRUNING",
+    "NEKO_ACTIVITY",
+    "NEKO_DEF_NAME_RECOVERY",
+    "NEKO_PUBLIC_REFERENCES",
+    "NEKO_EVIDENCE_COMPACT",
+    "NEKO_PUBLIC_INPUT_TOKEN_LIMIT",
+    "NEKO_SEMANTIC_SURFACE",
+)
 
 
 def validate_deployment():
-    """Reject old variants; matching old values only receive migration warnings."""
-    for name, expected in RETIRED_DEFAULTS.items():
-        value = os.environ.get(name, "").strip().lower()
-        if not value:
-            continue
-        matching = {"1", "true", "yes", "on"} if expected else {"0", "false", "no", "off"}
-        if value not in matching:
-            raise ValueError(f"{name} is retired; historical variants require frozen source.")
-        warnings.warn(f"{name} is retired and redundant; remove it from the environment.", DeprecationWarning, stacklevel=2)
-    for name in ("NEKO_EVIDENCE_COMPACT", "NEKO_PUBLIC_INPUT_TOKEN_LIMIT"):
-        if os.environ.get(name, "").strip():
-            raise ValueError(f"{name} is retired; use frozen experiments or bench-owned budgets.")
+    """Reject retired configuration keys regardless of their stored values."""
+    for name in RETIRED_ENVIRONMENT_KEYS:
+        if name in os.environ:
+            raise ValueError(f"{name} is retired; remove it from the environment. Historical variants require frozen source.")
 
 
 def make_pruner():

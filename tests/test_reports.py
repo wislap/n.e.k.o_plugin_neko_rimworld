@@ -5,7 +5,10 @@ import json
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ModelClientError, ToolCall
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.agent.model.model_client import ModelClientError
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     SubmissionDraft,
     SubmissionPatchError,
@@ -30,7 +33,7 @@ def record(index=1, **extra):
 
 @pytest.mark.asyncio
 async def test_internal_report_tool_preserves_historical_evidence_without_current_observations():
-    from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
+    from plugin.plugins.neko_rimworld.message_contracts import ToolCall
     from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
     from plugin.plugins.neko_rimworld.workspace.history_tools import make_history_tool
 
@@ -74,7 +77,7 @@ async def test_internal_report_tool_preserves_historical_evidence_without_curren
 
 @pytest.mark.asyncio
 async def test_explicit_report_reference_preserves_cross_work_and_unbound_ui_followups():
-    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
     from plugin.plugins.neko_rimworld.workspace.history_tools import make_history_tool
 
     store = ReportStore()

@@ -1,4 +1,4 @@
-"""Canonical public JSON and digests shared by evidence views."""
+"""Canonical JSON encoding and text digests for persisted and model-facing data."""
 
 import hashlib
 import json

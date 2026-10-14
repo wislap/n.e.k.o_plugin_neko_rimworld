@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from ...game.observation import Observation
+from .game.observation import Observation
 
 MAX_TOOL_RESULT_CHARS = 131_072
 

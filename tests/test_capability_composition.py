@@ -6,14 +6,16 @@ from dataclasses import replace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRunSession, AgentRuntime
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.agent.model.model_client import ModelClientError
 from plugin.plugins.neko_rimworld.agent.runtime import loop
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
-from plugin.plugins.neko_rimworld.agent.runtime.contracts import ToolCall
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.execution_environment import compose_tools
 from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
-from plugin.plugins.neko_rimworld.agent.runtime.tool_contracts import ToolSpec
+from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.game.observation import Observation
@@ -120,7 +122,7 @@ async def test_default_game_surface_reads_and_workspace_ability_coexist():
 
 
 @pytest.mark.asyncio
-async def test_environment_change_does_not_rewrite_prepared_default_surface(monkeypatch):
+async def test_admitted_session_keeps_its_surface_but_new_session_rejects_retired_environment(monkeypatch):
     monkeypatch.delenv("NEKO_CONTEXT_PRUNING", raising=False)
     session = AgentRunSession.create(
         ledger=AgentAuditLedger("Keep the policy"), question="Keep the policy", system_prompt=build_system_prompt(4)
@@ -154,6 +156,8 @@ async def test_environment_change_does_not_rewrite_prepared_default_surface(monk
     assert result["status"] == "ok" and session.context_pruner is not None
     assert model.requests[0]["tools"] == model.requests[1]["tools"]
     assert model.requests[1]["messages"][0]["content"] == model.requests[0]["messages"][0]["content"] + "\n" + session.context_pruner.guide
+    with pytest.raises(ValueError, match="NEKO_CONTEXT_PRUNING is retired"):
+        AgentRunSession.create(ledger=AgentAuditLedger("new"), question="new", system_prompt="system")
 
 
 def test_colliding_capabilities_are_not_silently_replaced():

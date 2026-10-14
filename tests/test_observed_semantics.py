@@ -3,7 +3,7 @@ import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import _with_field_semantics, semantic_interaction_factory
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 

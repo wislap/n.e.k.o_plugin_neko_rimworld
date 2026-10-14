@@ -18,21 +18,14 @@ from plugin.sdk.plugin import (
     ui,
 )
 
-from .agent import (
-    AgentAuditRegistry,
-    AgentConfigurationError,
-    AgentModelSettings,
-    AgentRuntime,
-    ToolExecutionError,
-    attach_agent_handoff,
-    build_agent_model_settings,
-    parse_agent_model_settings,
-    semantic_interaction_factory,
-)
-from .agent.delivery.handoff import count_handoff_tokens
+from .agent.runtime.audit import AgentAuditRegistry
+from .agent.model.model_client import AgentConfigurationError, AgentModelSettings, build_agent_model_settings, parse_agent_model_settings
+from .agent.runtime.loop import AgentRuntime
+from .agent.delivery.handoff import attach_agent_handoff, count_handoff_tokens
+from .agent.world.semantic_tools import semantic_interaction_factory
 from .agent.reference.mechanism_tools import compose_implementation_knowledge
 from .agent.reference.wiki_tools import compose_wiki_tools, knowledge_directory
-from .agent.runtime.tools import ToolSetup
+from .tool_contracts import ToolExecutionError, ToolSetup
 from .game.bridge import (
     BridgeBusyError,
     BridgeError,

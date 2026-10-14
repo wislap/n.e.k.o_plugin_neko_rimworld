@@ -102,7 +102,7 @@ def test_claims_can_be_switched_off_for_a_control_arm():
 
 @pytest.mark.asyncio
 async def test_submission_tool_surfaces_the_rejection_to_the_model():
-    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 
     draft = SubmissionDraft()
     tool = make_submission_tool(draft, [observation_without_identity()])

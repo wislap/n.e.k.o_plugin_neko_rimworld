@@ -5,8 +5,9 @@ from __future__ import annotations
 import copy
 import re
 
-from ..context.model_context import MAX_SOURCE_CHARS, canonical, model_size
-from ..runtime.tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSIONS
+from ..context.model_context import MAX_SOURCE_CHARS, model_size
+from ...serialization import canonical
+from ...tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSIONS
 from .query_surface import SurfaceError
 from .semantic_surface import (
     ASPECTS,

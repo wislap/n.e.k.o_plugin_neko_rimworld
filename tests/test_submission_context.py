@@ -36,7 +36,9 @@ def test_only_current_superseded_drafts_are_removed_and_saved_detail_survives():
 
 @pytest.mark.asyncio
 async def test_runtime_repair_uses_same_calls_and_keeps_saved_report():
-    from plugin.plugins.neko_rimworld.agent import AgentAuditRegistry, AgentRuntime, ToolCall
+    from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+    from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+    from plugin.plugins.neko_rimworld.message_contracts import ToolCall
     from plugin.plugins.neko_rimworld.tests.test_agent import FakeLogger, settings, turn
 
     detail='本次未取得派系字段，保留未知。'

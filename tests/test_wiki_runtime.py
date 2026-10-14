@@ -8,10 +8,13 @@ from dataclasses import replace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent import AgentAuditLedger, AgentAuditRegistry, AgentRuntime, ToolCall
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WIKI_GUIDANCE
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry, ToolSetup, ToolSpec
+from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
+from plugin.plugins.neko_rimworld.tool_contracts import ToolSetup, ToolSpec
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.reports import ReportStore
 

@@ -41,7 +41,7 @@ def test_ranking_does_not_mix_units():
 
 
 def test_multi_target_handler_validates_first_and_returns_program_ranks():
-    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
     from plugin.plugins.neko_rimworld.game.observation import Observation
     from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 
@@ -88,7 +88,7 @@ def test_multi_target_handler_validates_first_and_returns_program_ranks():
 
 
 def test_world_change_aborts_batch_before_third_read_or_ranking():
-    from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolExecutionError
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
     from plugin.plugins.neko_rimworld.game.observation import Observation
     from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 

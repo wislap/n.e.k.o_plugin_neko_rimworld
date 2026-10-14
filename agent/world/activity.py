@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from ..context.model_context import MAX_SOURCE_CHARS, model_size
-from ..runtime.tool_contracts import MAX_TOOL_RESULT_CHARS, ToolExecutionError, ToolSpec
+from ...tool_contracts import MAX_TOOL_RESULT_CHARS, ToolExecutionError, ToolSpec
 
 MAX_ACTORS, MAX_DESTINATIONS, MAX_PAIRS = 4, 8, 16
 MAX_NATIVE_READS = MAX_PAIRS * 3 + MAX_ACTORS

@@ -13,7 +13,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from ..runtime.contracts import AssistantTurn, ToolCall
+from ...message_contracts import AssistantTurn, ToolCall
 from .streaming import SSEDecoder, StreamAssembler, StreamProtocolError
 
 DEFAULT_MODEL_TIMEOUT_SECONDS = 60.0
@@ -199,6 +199,9 @@ def parse_agent_model_settings(config: object) -> tuple[AgentModelSettings, list
     plugin_config = plugin_section if isinstance(plugin_section, Mapping) else {}
     agent_section = plugin_config.get("agent")
     agent = agent_section if isinstance(agent_section, Mapping) else {}
+    for name in ("review_before_delivery", "allow_text_completion", "prepared_calls"):
+        if name in agent:
+            return AgentModelSettings(), [f"{name} is retired; remove it from the agent configuration."]
     if not agent:
         return AgentModelSettings(), []
     base_value = agent.get("base_url", "")
@@ -207,8 +210,6 @@ def parse_agent_model_settings(config: object) -> tuple[AgentModelSettings, list
     if all(isinstance(value, str) and not value.strip() for value in (base_value, model_value, key_value)):
         return AgentModelSettings(), []
     try:
-        if agent.get("review_before_delivery") not in (None, False):
-            raise AgentConfigurationError("review_before_delivery is retired; use bench evaluation with frozen source.")
         return (
             build_agent_model_settings(
                 base_url=base_value,
