@@ -297,10 +297,10 @@ async def test_wiki_is_the_only_extra_passthrough_and_never_an_observation(tmp_p
     from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
     from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 
-    from .test_wiki_tools import write_snapshot
+    from .test_wiki_tools import store_from_directory, write_snapshot
 
     write_snapshot(tmp_path)
-    wiki = make_wiki_tool(WikiStore(tmp_path))
+    wiki = make_wiki_tool(store_from_directory(tmp_path))
     forbidden = ToolSpec("unapproved", "not exposed", {}, _noop_query)
     setup = setup_for()
     setup = replace(setup, tools=(*setup.tools, wiki, forbidden))

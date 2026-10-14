@@ -4,7 +4,7 @@ import json
 
 from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore
 
-from .test_wiki_tools import entry, write_snapshot
+from .test_wiki_tools import entry, store_from_directory, write_snapshot
 
 RECIPE = "Verse.RecipeDef/Make_Wort"
 
@@ -41,7 +41,7 @@ def store(tmp_path):
             entry("DrugCookingSpeed", "酿酒速度", type="RimWorld.StatDef", key="RimWorld.StatDef/DrugCookingSpeed"),
         ],
     )
-    return WikiStore(tmp_path)
+    return store_from_directory(tmp_path)
 
 
 def test_exact_path_returns_siblings_and_requested_null(tmp_path):
@@ -97,7 +97,7 @@ def test_discovery_keeps_item_and_recipe_candidates(tmp_path):
 def test_small_entry_is_not_limited_to_eight_facts(tmp_path):
     facts = [{"name": f"field{i}", "value": str(i)} for i in range(20)]
     write_snapshot(tmp_path, [entry(facts=facts, related=[])])
-    e = WikiStore(tmp_path).query("Verse.ThingDef/Steel")["entries"][0]
+    e = store_from_directory(tmp_path).query("Verse.ThingDef/Steel")["entries"][0]
     assert e["facts"] == facts and e["read_complete"]
 
 
@@ -105,7 +105,7 @@ def test_long_block_is_not_cut_into_misleading_fragments(tmp_path):
     rec = recipe()
     rec["facts"] = [{"name": f"products[0].field{i}", "value": "说明" * 400} for i in range(20)]
     write_snapshot(tmp_path, [rec])
-    r = WikiStore(tmp_path).query(RECIPE + " products[0]")
+    r = store_from_directory(tmp_path).query(RECIPE + " products[0]")
     e = r["entries"][0]
     assert not e["read_complete"] and e["not_read"]
     assert not e["source_truncated"]
@@ -131,7 +131,7 @@ def test_large_parent_group_falls_back_to_explicit_leaf_fields(tmp_path):
         "Plant_Rice", "水稻", type="Verse.ThingDef", key="Verse.ThingDef/Plant_Rice", facts=facts, related=[]
     )
     write_snapshot(tmp_path, [source])
-    result = WikiStore(tmp_path).query("Verse.ThingDef/Plant_Rice plant.growDays plant.harvestYield")
+    result = store_from_directory(tmp_path).query("Verse.ThingDef/Plant_Rice plant.growDays plant.harvestYield")
     detail = result["entries"][0]
     assert {row["name"] for row in detail["facts"]} == {"plant.growDays", "plant.harvestYield"}
     assert {row["value"] for row in detail["facts"]} == {"3", "6"}
@@ -157,7 +157,7 @@ def test_explicit_leaves_survive_other_groups_and_parent_requests(tmp_path):
         "settings.value plant plant.growDays plant.harvestYield plant.optional plant.absent",
         "plant.optional plant.harvestYield plant.growDays plant settings.value plant.absent",
     ]:
-        result = WikiStore(tmp_path).query("Verse.ThingDef/Steel " + suffix)
+        result = store_from_directory(tmp_path).query("Verse.ThingDef/Steel " + suffix)
         detail = result["entries"][0]
         values = {f["name"]: f["value"] for f in detail["facts"]}
         assert values["plant.growDays"] == "3" and values["plant.harvestYield"] == "6"
@@ -179,7 +179,7 @@ def test_small_requested_groups_precede_large_groups_regardless_of_query_order(t
     ]
     write_snapshot(tmp_path, [entry(facts=facts, related=[])])
     for suffix in ["large products stats", "stats large products"]:
-        detail = WikiStore(tmp_path).query("Verse.ThingDef/Steel " + suffix)["entries"][0]
+        detail = store_from_directory(tmp_path).query("Verse.ThingDef/Steel " + suffix)["entries"][0]
         values = {f["name"]: f["value"] for f in detail["facts"]}
         assert values["products[0].count"] == "5"
         assert values["products[0].thingDef"] == "Verse.ThingDef/Wort"
@@ -190,7 +190,7 @@ def test_small_requested_groups_precede_large_groups_regardless_of_query_order(t
 def test_oversized_exact_leaf_is_omitted_without_hiding_other_requests(tmp_path):
     facts = [{"name": "data.huge", "value": "x" * 10000}, {"name": "data.small", "value": "6"}]
     write_snapshot(tmp_path, [entry(facts=facts, related=[])])
-    result = WikiStore(tmp_path).query("Verse.ThingDef/Steel data.huge data.small")
+    result = store_from_directory(tmp_path).query("Verse.ThingDef/Steel data.huge data.small")
     detail = result["entries"][0]
     assert detail["facts"] == [facts[1]]
     assert detail["not_read"] == ["data.huge"] and not detail["read_complete"]
@@ -201,7 +201,7 @@ def test_oversized_indexed_record_preserves_exact_leaf_and_reference_label(tmp_p
     rec = recipe()
     rec["facts"].append({"name": "products[0].largeCustomField", "value": "x" * 12000})
     write_snapshot(tmp_path, [rec, entry("Wort", "麦芽汁")])
-    result = WikiStore(tmp_path).query(RECIPE + " products[0].thingDef products[0].count recipeUsers")
+    result = store_from_directory(tmp_path).query(RECIPE + " products[0].thingDef products[0].count recipeUsers")
     detail = result["entries"][0]
     values = {f["name"]: f for f in detail["facts"]}
     assert values["products[0].thingDef"]["label"] == "麦芽汁"

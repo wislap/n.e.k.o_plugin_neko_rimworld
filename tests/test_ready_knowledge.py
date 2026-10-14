@@ -69,7 +69,7 @@ def test_first_attach_and_query_reads_only_selected_record(tmp_path, monkeypatch
         return Reader(stream) if path.name == ready["data_file"] else stream
 
     monkeypatch.setattr(Path, "open", open_file)
-    library = KnowledgeLibrary(tmp_path, allow_legacy_import=False)
+    library = KnowledgeLibrary(tmp_path)
     assert library.open_view() is not None and not reads
     result = WikiStore(library.open_view()).query("钢铁")
     assert result["entries"][0]["def_name"] == "Steel"
@@ -97,7 +97,7 @@ def test_invalid_directory_is_not_replaced_with_slow_legacy_import(tmp_path, mut
 
 def test_changed_payload_is_rejected_and_old_view_is_pinned(tmp_path):
     first = publish(tmp_path)
-    library = KnowledgeLibrary(tmp_path, allow_legacy_import=False)
+    library = KnowledgeLibrary(tmp_path)
     old = library.open_view()
     publish(tmp_path, "Gold", "黄金", "2")
     assert library.refresh()
@@ -113,14 +113,14 @@ def test_record_hash_is_checked_not_only_directory_metadata(tmp_path):
     ready = publish(tmp_path)
     ready["entries"][0]["sha256"] = "0" * 64
     (tmp_path / "ready.json").write_text(json.dumps(ready))
-    view = KnowledgeLibrary(tmp_path, allow_legacy_import=False).open_view()
+    view = KnowledgeLibrary(tmp_path).open_view()
     with pytest.raises(ValueError, match="checksum"):
         view.read_entry("Verse.ThingDef/Steel")
 
 
-def test_production_never_runs_legacy_import(tmp_path):
-    write_snapshot(tmp_path)
-    library = KnowledgeLibrary(tmp_path, allow_legacy_import=False)
+def test_production_rejects_legacy_payload_without_ready_directory(tmp_path):
+    (tmp_path / "current.json").write_text("{}", encoding="utf-8")
+    library = KnowledgeLibrary(tmp_path)
     assert not library.refresh() and library.open_view() is None
     assert not (tmp_path / ".index").exists()
     publish(tmp_path)

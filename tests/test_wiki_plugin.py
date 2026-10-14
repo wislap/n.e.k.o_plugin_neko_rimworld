@@ -22,7 +22,7 @@ from .test_wiki_tools import write_snapshot
 
 @pytest.fixture
 def library(tmp_path):
-    value = KnowledgeLibrary(tmp_path, tmp_path / "index")
+    value = KnowledgeLibrary(tmp_path)
     yield value
     value.close()
 
@@ -75,7 +75,7 @@ async def test_invalid_knowledge_does_not_advertise_wiki(tmp_path, library):
     plugin._catalog_tools = SimpleNamespace(load=load)
     plugin._knowledge_directory = tmp_path
     plugin._knowledge = library
-    (tmp_path / "current.json").write_text("broken", encoding="utf-8")
+    (tmp_path / "ready.json").write_text("broken", encoding="utf-8")
     setup = await plugin._load_agent_tools()
     assert setup.tools == () and "wiki" not in setup.context
 

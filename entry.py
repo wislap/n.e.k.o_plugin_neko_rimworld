@@ -176,7 +176,7 @@ class NekoRimworldPlugin(NekoPluginBase):
         self._catalog_tools = CatalogTools(lambda: self._bridge, self._agent_query_tool)
         self._knowledge_directory = knowledge_directory()
         self._knowledge = KnowledgeLibrary(
-            self._knowledge_directory, self.data_path("knowledge-index"), allow_legacy_import=False
+            self._knowledge_directory
         )
         self._agent_runtime = AgentRuntime(
             tools_provider=self._load_agent_tools,
@@ -191,7 +191,7 @@ class NekoRimworldPlugin(NekoPluginBase):
     async def startup(self, **_: object):
         if getattr(self._knowledge, "closed", False):
             self._knowledge = KnowledgeLibrary(
-                self._knowledge_directory, self.data_path("knowledge-index"), allow_legacy_import=False
+                self._knowledge_directory
             )
         self._knowledge.request_refresh()
         async with self._reconfigure_lock:

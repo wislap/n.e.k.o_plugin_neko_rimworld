@@ -32,7 +32,7 @@ Remove `NEKO_CONTEXT_PRUNING`, `NEKO_ACTIVITY`, `NEKO_DEF_NAME_RECOVERY`, `NEKO_
 
 Remove `review_before_delivery`, `allow_text_completion` and `prepared_calls` from the agent configuration. Any present retired key is rejected, including false, null or empty values and configurations without a model. Formal content review remains solely `bench.py evaluate review`, outside the consultation runtime.
 
-`NEKO_RIMWORLD_KNOWLEDGE_DIR` and `NEKO_RIMWORLD_MECHANISMS_DIR` remain optional path overrides. Definition recovery requires a ready complete index and refuses ambiguous matches; native lookup determines existence.
+`NEKO_RIMWORLD_KNOWLEDGE_DIR` and `NEKO_RIMWORLD_MECHANISMS_DIR` remain optional path overrides. Definition recovery requires a ready complete index and refuses ambiguous matches; native lookup determines existence. Definition knowledge accepts only the publisher's `ready.json` plus immutable `snapshot-*.json` payload. Full-file `current.json` imports, Def SQLite cache restoration, `cache_directory`, `allow_legacy_import` and path-based `WikiStore` construction are removed. A missing, replaced or invalid ready directory makes new consultations unavailable until refresh succeeds; already pinned immutable views remain separate. The version-bound mechanism source index (`source:`) and workspace SQLite storage remain current capabilities.
 
 ## Pair the game bridge
 

@@ -1,7 +1,7 @@
 """Local Def knowledge, deliberately separate from live observations.
 
 Each consultation pins a ready directory generation; only selected records
-are read into memory. SQLite is retained for explicit legacy/offline imports.
+are read into memory. There is no payload importer on the consultation path.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from ...knowledge import KnowledgeLibrary, KnowledgeView
+from ...knowledge import IndexedKnowledgeView, KnowledgeLibrary
 from ...tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
 from .wiki_records import byte_size, paths, render_entry
 
@@ -118,25 +118,17 @@ def _text(value: Any, limit: int = 256) -> str:
 
 
 class WikiStore:
-    """Per-consultation view, with no complete snapshot in memory.
+    """Per-consultation handle to one ready immutable generation."""
 
-    Path construction is retained for explicit offline import/tests. Production
-    passes an already-ready KnowledgeView and never calls refresh in a run.
-    """
-
-    def __init__(self, source: Path | KnowledgeView):
-        self._library = KnowledgeLibrary(source) if isinstance(source, Path) else None
-        self._view = source if isinstance(source, KnowledgeView) else None
-        self._loaded = self._view is not None
+    def __init__(self, source: IndexedKnowledgeView | None):
+        if source is not None and not isinstance(source, IndexedKnowledgeView):
+            raise TypeError("WikiStore requires an IndexedKnowledgeView, not a path or import source.")
+        self._view = source
         self._index = None
-        self._reason = "snapshot_unavailable"
+        self._reason = "knowledge_index_not_ready"
         self._labels = {}
 
     def load(self) -> bool:
-        if not self._loaded:
-            self._loaded = True
-            if self._library is not None and self._library.refresh():
-                self._view = self._library.open_view()
         return self._view is not None
 
     def read_entry(self, key: str) -> dict | None:

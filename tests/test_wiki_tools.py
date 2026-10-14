@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld import knowledge as knowledge_module
+from .knowledge_fixtures import publish
 from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.reference import wiki_tools
 from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore, knowledge_directory, make_wiki_tool
@@ -41,10 +42,11 @@ def write_snapshot(directory: Path, entries=None, **changes):
         "entries": [entry()] if entries is None else entries,
         **changes,
     }
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / "current.json"
-    path.write_text(json.dumps(snapshot, ensure_ascii=False), encoding="utf-8")
-    return path
+    return publish(directory, snapshot)
+
+
+def store_from_directory(directory):
+    return WikiStore(knowledge_module.KnowledgeLibrary(directory).open_view())
 
 
 def test_directory_contract(monkeypatch, tmp_path):
@@ -65,7 +67,7 @@ def test_directory_contract(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_one_minimal_tool_returns_mapping_not_observation(tmp_path):
     write_snapshot(tmp_path)
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     assert store.load()
     tool = make_wiki_tool(store)
     assert tool.name == "wiki"
@@ -95,7 +97,7 @@ async def test_one_minimal_tool_returns_mapping_not_observation(tmp_path):
 )
 async def test_argument_validation(tmp_path, arguments):
     with pytest.raises(ToolExecutionError):
-        await make_wiki_tool(WikiStore(tmp_path)).handler(arguments)
+        await make_wiki_tool(store_from_directory(tmp_path)).handler(arguments)
 
 
 def test_exact_matches_rank_before_fuzzy_and_ambiguity_is_stable(tmp_path):
@@ -108,7 +110,7 @@ def test_exact_matches_rank_before_fuzzy_and_ambiguity_is_stable(tmp_path):
             entry("A", "steel plate"),
         ],
     )
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     assert store.query("vErSe.ThingDef/sTEEL")["entries"][0]["def_name"] == "Steel"
     result = store.query("STEEL")
     assert result["status"] == "ambiguous"
@@ -125,42 +127,40 @@ def test_exact_matches_rank_before_fuzzy_and_ambiguity_is_stable(tmp_path):
 )
 def test_partial_snapshot_and_entries_are_not_reported_as_complete(tmp_path, changes):
     write_snapshot(tmp_path, **changes)
-    result = WikiStore(tmp_path).query("Steel")
+    result = store_from_directory(tmp_path).query("Steel")
     assert result["status"] == "partial" and result["resolution"] == "found"
 
 
 def test_incomplete_not_found_is_not_an_absence_claim(tmp_path):
     write_snapshot(tmp_path, complete=False)
-    result = WikiStore(tmp_path).query("not there")
+    result = store_from_directory(tmp_path).query("not there")
     assert result["status"] == "partial" and result["resolution"] == "not_found"
 
 
 def test_store_pins_snapshot_until_next_run(tmp_path):
     path = write_snapshot(tmp_path)
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     before = store.query("Steel")
-    replacement = tmp_path / "next"
-    write_snapshot(replacement, [entry("Gold", "gold")])
-    (replacement / "current.json").replace(path)
+    write_snapshot(tmp_path, [entry("Gold", "gold")])
     assert store.query("Steel") == before
-    fresh = WikiStore(tmp_path)
+    fresh = store_from_directory(tmp_path)
     assert fresh.query("Steel")["status"] == "not_found"
     assert fresh.query("Gold")["snapshot"]["sha256"] != before["snapshot"]["sha256"]
 
 
 @pytest.mark.parametrize("content", ["broken", "[]", '{"format":"future"}', "\ufeff{}"])
 def test_corrupt_snapshots_are_controlled_unavailable(tmp_path, content):
-    (tmp_path / "current.json").write_text(content, encoding="utf-8")
-    store = WikiStore(tmp_path)
+    (tmp_path / "ready.json").write_text(content, encoding="utf-8")
+    store = store_from_directory(tmp_path)
     assert store.load() is False
     assert store.query("Steel")["status"] == "unavailable"
 
 
 def test_missing_and_oversized_snapshot(tmp_path, monkeypatch):
-    assert WikiStore(tmp_path).query("Steel")["status"] == "unavailable"
+    assert store_from_directory(tmp_path).query("Steel")["status"] == "unavailable"
     write_snapshot(tmp_path)
     monkeypatch.setattr(knowledge_module, "MAX_SNAPSHOT_BYTES", 10)
-    assert not WikiStore(tmp_path).load()
+    assert not store_from_directory(tmp_path).load()
 
 
 def test_changed_in_place_file_is_rejected(tmp_path, monkeypatch):
@@ -173,7 +173,7 @@ def test_changed_in_place_file_is_rejected(tmp_path, monkeypatch):
         return (*actual(value), len(calls))
 
     monkeypatch.setattr(knowledge_module, "signature", changing)
-    assert not WikiStore(tmp_path).load()
+    assert not store_from_directory(tmp_path).load()
 
 
 @pytest.mark.parametrize("text", ["长" * 2000, "\x00" * 2000, "a" * 2000])
@@ -185,7 +185,7 @@ def test_result_and_entry_details_are_bounded(tmp_path, text):
         [entry(str(i), "steel", description=text, facts=facts, related=related) for i in range(5)],
         mods=[{"package_id": text, "name": text}] * 100,
     )
-    result = WikiStore(tmp_path).query("steel")
+    result = store_from_directory(tmp_path).query("steel")
     assert len(json.dumps(result, ensure_ascii=False).encode("utf-8")) <= 8192
     assert result["status"] == "ambiguous"
     assert 1 <= len(result["entries"]) <= 3
@@ -197,7 +197,8 @@ def test_result_and_entry_details_are_bounded(tmp_path, text):
 )
 def test_optional_diagnostics_are_validated(tmp_path, diagnostics):
     write_snapshot(tmp_path, [entry(diagnostics=diagnostics)])
-    assert WikiStore(tmp_path).query("Steel")["status"] == "unavailable"
+    with pytest.raises(ValueError, match="invalid definition"):
+        store_from_directory(tmp_path).query("Steel")
 
 
 @pytest.mark.parametrize(
@@ -211,12 +212,16 @@ def test_optional_diagnostics_are_validated(tmp_path, diagnostics):
 )
 def test_extended_v1_contract_rejects_wrong_types(tmp_path, changes):
     write_snapshot(tmp_path, **changes)
-    assert not WikiStore(tmp_path).load()
+    if "entries" in changes:
+        with pytest.raises(ValueError, match="invalid definition"):
+            store_from_directory(tmp_path).query("Steel")
+    else:
+        assert not store_from_directory(tmp_path).load()
 
 
-def test_old_v1_works_without_optional_metadata(tmp_path):
+def test_ready_payload_works_without_optional_metadata(tmp_path):
     write_snapshot(tmp_path)
-    result = WikiStore(tmp_path).query("Steel")
+    result = store_from_directory(tmp_path).query("Steel")
     assert result["status"] == "found"
     assert result["snapshot"]["format"] == "neko.defs.v1"
     assert result["snapshot"]["provenance_complete"] is True
@@ -228,13 +233,13 @@ def test_old_v1_works_without_optional_metadata(tmp_path):
 @pytest.mark.parametrize("query,status", [("Steel", "found"), ("missing", "not_found")])
 def test_provenance_warnings_do_not_make_complete_definitions_partial(tmp_path, query, status):
     write_snapshot(tmp_path, warnings=["unknown package"], provenance_complete=False)
-    result = WikiStore(tmp_path).query(query)
+    result = store_from_directory(tmp_path).query(query)
     assert result["status"] == status and "resolution" not in result
     assert result["snapshot"]["complete"] is True
     assert result["snapshot"]["provenance_complete"] is False
     assert result["warnings"] == ["unknown package"]
     write_snapshot(tmp_path, warnings=["unknown package"], issues=["type load failed"])
-    result = WikiStore(tmp_path).query(query)
+    result = store_from_directory(tmp_path).query(query)
     assert result["status"] == "partial" and result["resolution"] == status
 
 
@@ -243,7 +248,7 @@ def test_incomplete_diagnostics_are_prioritized_and_do_not_mutate_raw_snapshot(t
     failure = {"path": "degreeDatas[2].label", "kind": "incomplete", "reason": "field read failed"}
     notes.append(failure)
     write_snapshot(tmp_path, [entry(diagnostics=notes)])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     result = store.query("Steel")
     assert result["status"] == "partial" and result["resolution"] == "found"
     detail = result["entries"][0]
@@ -256,7 +261,7 @@ def test_incomplete_diagnostics_are_prioritized_and_do_not_mutate_raw_snapshot(t
 def test_exclusion_diagnostics_are_not_collection_failures(tmp_path):
     notes = [{"path": f"field{i}", "kind": "excluded", "reason": "runtime state"} for i in range(10)]
     write_snapshot(tmp_path, [entry(diagnostics=notes)])
-    result = WikiStore(tmp_path).query("Steel")
+    result = store_from_directory(tmp_path).query("Steel")
     assert result["status"] == "found"
     assert result["entries"][0]["diagnostics_truncated"]
     assert not result["entries"][0]["truncated"]
@@ -267,7 +272,7 @@ def test_exclusion_diagnostics_are_not_collection_failures(tmp_path):
 async def test_exact_keys_round_trip_through_tool_schema_and_handler(tmp_path, length):
     key = "Verse.ThingDef/" + "K" * (length - len("Verse.ThingDef/"))
     write_snapshot(tmp_path, [entry(key.split("/", 1)[1])])
-    tool = make_wiki_tool(WikiStore(tmp_path))
+    tool = make_wiki_tool(store_from_directory(tmp_path))
     assert len(key) <= tool.parameters["properties"]["query"]["maxLength"]
     registry = ToolRegistry()
     registry.register(tool)
@@ -283,7 +288,7 @@ async def test_exact_keys_round_trip_through_tool_schema_and_handler(tmp_path, l
 def test_unicode_and_whitespace_keys_are_not_normalized(tmp_path, name):
     source = entry(name)
     write_snapshot(tmp_path, [source])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     result = store.query(source["key"])
     assert result["entries"][0]["key"] == source["key"]
     assert store.query(result["entries"][0]["key"])["match_count"] == 1
@@ -292,7 +297,7 @@ def test_unicode_and_whitespace_keys_are_not_normalized(tmp_path, name):
 def test_unaddressable_key_is_explicit_and_never_clipped(tmp_path):
     source = entry("K" * 4097, related=[{"key": "K" * 4097, "label": "too long"}])
     write_snapshot(tmp_path, [source])
-    result = WikiStore(tmp_path).query("steel")
+    result = store_from_directory(tmp_path).query("steel")
     detail = result["entries"][0]
     assert result["status"] == "found" and detail["response_truncated"]
     assert detail["key"] is None and detail["key_unavailable"] == "exceeds_query_limit"
@@ -304,7 +309,7 @@ def test_long_related_key_round_trips_without_clipping(tmp_path):
     target = entry("Target" + "K" * 1000, "target")
     source = entry(related=[{"key": target["key"], "label": "target"}])
     write_snapshot(tmp_path, [source, target])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     key = store.query("Steel")["entries"][0]["related"][0]["key"]
     assert key == target["key"]
     assert store.query(key)["entries"][0]["key"] == key
@@ -327,7 +332,7 @@ def test_collected_names_and_descriptions_are_searchable(tmp_path, def_type, pat
     facts.extend([label_fact, description_fact])
     source = entry("Unnamed", "", type=def_type, key=def_type + "/Unnamed", description="", facts=facts)
     write_snapshot(tmp_path, [source, entry("Distractor", "elsewhere", description=label)])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     result = store.query(label.swapcase())
     assert result["match_count"] == 1
     assert result["entries"][0]["key"] == source["key"]
@@ -341,7 +346,7 @@ def test_collected_names_and_descriptions_are_searchable(tmp_path, def_type, pat
 def test_root_description_keyword_tokens_and_arbitrary_facts(tmp_path):
     custom = {"name": "modField.notKnownToPlugin", "value": "opaque custom value"}
     write_snapshot(tmp_path, [entry(description="Improves work speed and comfort", facts=[custom])])
-    result = WikiStore(tmp_path).query("comfort speed")
+    result = store_from_directory(tmp_path).query("comfort speed")
     assert result["status"] == "found"
     assert result["entries"][0]["facts"] == [custom]
     assert "keyword lookup" in wiki_tools.WIKI_GUIDANCE
@@ -358,7 +363,7 @@ def test_diagnostics_warnings_and_keys_share_eight_kib_budget(tmp_path, text):
     write_snapshot(
         tmp_path, entries, warnings=[text] * 20, issues=[text] * 20, mods=[{"package_id": text, "name": text}] * 20
     )
-    result = WikiStore(tmp_path).query("same")
+    result = store_from_directory(tmp_path).query("same")
     assert len(json.dumps(result, ensure_ascii=False).encode("utf-8")) <= 8192
     assert result["status"] == "partial" and result["resolution"] == "ambiguous"
     assert result["entries"]
@@ -375,7 +380,8 @@ def test_diagnostics_warnings_and_keys_share_eight_kib_budget(tmp_path, text):
 @pytest.mark.parametrize("fact_type", [None, 1, False, [], {}])
 def test_optional_fact_type_must_be_string(tmp_path, fact_type):
     write_snapshot(tmp_path, [entry(facts=[{"name": "custom", "value": "75", "type": fact_type}])])
-    assert WikiStore(tmp_path).query("Steel")["status"] == "unavailable"
+    with pytest.raises(ValueError, match="invalid definition"):
+        store_from_directory(tmp_path).query("Steel")
 
 
 def test_typed_facts_preserve_null_and_scalar_distinctions(tmp_path):
@@ -387,7 +393,7 @@ def test_typed_facts_preserve_null_and_scalar_distinctions(tmp_path):
         {"name": "legacy", "value": "old value"},
     ]
     write_snapshot(tmp_path, [entry(facts=facts)])
-    result = WikiStore(tmp_path).query("Steel")
+    result = store_from_directory(tmp_path).query("Steel")
     assert result["status"] == "found"
     returned = {row["name"]: row for row in result["entries"][0]["facts"]}
     assert returned == {row["name"]: row for row in facts}
@@ -407,7 +413,7 @@ def test_summary_prioritizes_valued_properties_over_nulls_and_metadata(tmp_path)
     valued[1] = {"name": "disabled", "value": "False", "type": "System.Boolean"}
     source = entry(facts=facts + valued)
     write_snapshot(tmp_path, [source])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     result = store.query("Steel")
     # A small record now retains every field, including null and metadata.
     returned = result["entries"][0]
@@ -421,7 +427,7 @@ def test_summary_prioritizes_valued_properties_over_nulls_and_metadata(tmp_path)
 def test_fact_type_is_bounded_and_truncation_is_explicit(tmp_path, type_text):
     facts = [{"name": "property", "value": "value", "type": type_text}] * 20
     write_snapshot(tmp_path, [entry(str(i), "same", facts=facts) for i in range(3)])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     result = store.query("same")
     assert len(json.dumps(result, ensure_ascii=False).encode("utf-8")) <= 8192
     assert result["status"] == "ambiguous"
@@ -436,7 +442,7 @@ def test_fact_type_is_bounded_and_truncation_is_explicit(tmp_path, type_text):
 def test_complete_source_stays_distinguishable_from_small_tool_summary(tmp_path):
     facts = [{"name": f"property{i}", "value": str(i), "type": "System.Int32"} for i in range(100)]
     write_snapshot(tmp_path, [entry(facts=facts)], complete=True)
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     result = store.query("Steel")
     assert result["snapshot"]["complete"] is True
     assert result["entries"][0]["source_truncated"] is False
@@ -456,7 +462,7 @@ def test_large_provenance_warnings_alone_never_lower_status(tmp_path):
         warnings=["W" * 10000] * 100,
         provenance_complete=False,
     )
-    result = WikiStore(tmp_path).query("same")
+    result = store_from_directory(tmp_path).query("same")
     assert result["status"] == "ambiguous"
     assert result["warnings_truncated"]
     assert len(json.dumps(result, ensure_ascii=False).encode("utf-8")) <= 8192
@@ -487,14 +493,14 @@ def test_field_terms_do_not_outrank_explicit_object_name(tmp_path):
             ),
         ],
     )
-    result = WikiStore(tmp_path).query("水稻 growDays harvestYield")
+    result = store_from_directory(tmp_path).query("水稻 growDays harvestYield")
     assert result["entries"][0]["key"] == "Verse.ThingDef/Plant_Rice"
     assert result["entries"][0]["match"] == "name_in_query"
 
 
 def test_chinese_sentence_query_finds_the_labelled_entry(tmp_path):
     write_snapshot(tmp_path, [entry("Steel", "钢铁"), entry("SteelWall", "钢铁墙")])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     # Regression: `\w+` made the whole sentence one token, so no real question
     # could ever reach the collected Chinese label.
     result = store.query("钢铁的堆叠上限是多少")
@@ -504,7 +510,7 @@ def test_chinese_sentence_query_finds_the_labelled_entry(tmp_path):
 
 def test_a_latin_name_must_be_a_whole_query_word(tmp_path):
     write_snapshot(tmp_path, [entry("StatFactor", "stat factor"), entry("Kind", "kind")])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     assert store.query("Verse.ThingDef/Kind statFactors")["entries"][0]["def_name"] == "Kind"
     # Regression: `StatFactor` sits inside the longer word `statFactors`. Treating
     # that as the name used to outrank the intended definition.
@@ -519,7 +525,7 @@ def test_field_names_list_reusable_valued_tokens(tmp_path):
     ]
     facts += [{"name": f"filler{index}", "value": "x", "type": "System.String"} for index in range(10)]
     write_snapshot(tmp_path, [entry("Steel", "钢铁", facts=facts)])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     detail = store.query("钢铁")["entries"][0]
     # Small records include their complete fields; no lossy token directory.
     assert detail["read_complete"] and detail["field_names"] == []
@@ -531,7 +537,7 @@ def test_field_names_list_reusable_valued_tokens(tmp_path):
 
 def test_a_question_with_no_collected_name_is_not_guessed(tmp_path):
     write_snapshot(tmp_path, [entry("Steel", "钢铁")])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     # Regression: description fragments used to fabricate an entry for any prose
     # sentence, which reads to the model as a confident definition answer.
     assert store.query("完全无关的一句话")["status"] == "not_found"
@@ -540,7 +546,7 @@ def test_a_question_with_no_collected_name_is_not_guessed(tmp_path):
 
 def test_entries_report_how_they_matched(tmp_path):
     write_snapshot(tmp_path, [entry("Steel", "钢铁")])
-    store = WikiStore(tmp_path)
+    store = store_from_directory(tmp_path)
     assert store.query("verse.thingdef/steel")["entries"][0]["match"] == "exact_key"
     assert store.query("钢铁")["entries"][0]["match"] == "exact_name"
     assert store.query("钢铁的堆叠上限是多少")["entries"][0]["match"] == "name_in_query"

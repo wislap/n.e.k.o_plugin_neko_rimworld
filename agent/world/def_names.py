@@ -23,7 +23,6 @@ Missing or unusable indexes retain the native exact lookup.
 from __future__ import annotations
 
 import re
-import sqlite3
 import unicodedata
 
 MAX_CANDIDATES = 8
@@ -106,7 +105,7 @@ class DefNameResolver:
         """
         try:
             return cls.from_knowledge_view(view)
-        except (AttributeError, KeyError, TypeError, ValueError, OSError, sqlite3.Error):
+        except (AttributeError, KeyError, TypeError, ValueError, OSError):
             return None
 
     def normalize(self, term):
