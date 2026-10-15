@@ -10,7 +10,6 @@ export type WorkList = { workspaces: WorkSummary[]; total: number; next_offset: 
 export type WorkDetails = {
   workspace_id: string; workspace: WorkSummary; turns: ExchangeSummary[]; total: number; next_offset: number | null
   active?: AgentRun | null
-  checkpoint?: { checkpoint_id: string; data: { work_note: string; open_questions: string[] }; verified_lesson: false } | null
 }
 export type ConsultationResult = {
   status: string; answer?: string; summary?: string; agent_text?: string; caveats?: string[]

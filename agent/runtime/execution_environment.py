@@ -20,20 +20,11 @@ class ExecutionEnvironment:
         self.setup = setup
         self.session = session
         session.interaction = semantic_interaction_factory(setup, session, update)
-        self.set_prompt(session.interaction.prompt(session.preferred_cycles))
 
     def registry(self):
         session = self.session
         registry = ToolRegistry(context_pruner=session.context_pruner)
-        work = () if session.interaction.finalizing else (*self.setup.capabilities, *session.capabilities)
+        work = () if session.interaction.finalizing else session.capabilities
         for spec in compose_tools(session.interaction.tools(), work):
             registry.register(spec)
         return registry
-
-    def set_prompt(self, prompt):
-        if self.session.workspace_id is not None:
-            prompt = prompt.replace(
-                "No long-term memory, game mutation or autonomous action.",
-                "The caller retains a persistent colony workspace. No game mutation or autonomous action.",
-            )
-        self.session.messages[0]["content"] = prompt

@@ -133,7 +133,7 @@ def test_named_values_preserve_nulls_duplicate_definitions_and_coordinates():
 
 
 def test_advisory_does_not_invalidate_existing_conversation_prefix():
-    session = AgentRunSession.create(ledger=AgentAuditLedger("q"), system_prompt="stable policy", question="q")
+    session = AgentRunSession.create(ledger=AgentAuditLedger("q"), question="q")
     session.append_assistant(
         AssistantTurn(
             "r", "test", "tool_calls", "", (ToolCall("r", "look", "{}"),), reasoning_content="private continuation"

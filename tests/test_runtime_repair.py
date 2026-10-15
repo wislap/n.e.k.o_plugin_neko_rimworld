@@ -47,7 +47,7 @@ class Script:
 async def test_progress_text_is_not_a_successful_submission():
     model = Script([AssistantTurn("offline", "offline", "stop", "Next I will inspect the route risks."), submit()])
     registry = AgentAuditRegistry()
-    runtime = AgentRuntime(tools_provider=semantic_tool_provider([]), audit_registry=registry, logger=LOG, model_factory=lambda _: model)
+    runtime = AgentRuntime(tools_provider=semantic_tool_provider(), audit_registry=registry, logger=LOG, model_factory=lambda _: model)
     result = await runtime.run("Compare routes.", settings())
     assert model.calls == 2 and result["status"] == "ok"
     assert result["submission_mode"] == "submit_response" and result["agent_text"] == "Verified report."
@@ -71,12 +71,12 @@ async def test_world_changed_stops_the_batch_and_prevents_next_model_call():
     calls = tuple(ToolCall(str(i), n, "{}") for i, n in enumerate(["changed", "later"]))
     model = Script([AssistantTurn("offline", "offline", "tool_calls", "", calls), submit("Stale claim.")])
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([ToolSpec("changed", "test", {}, changed), ToolSpec("later", "test", {}, forbidden)]),
+        tools_provider=semantic_tool_provider(),
         audit_registry=AgentAuditRegistry(),
         logger=LOG,
         model_factory=lambda _: model,
     )
-    result = await runtime.run("Current world?", settings())
+    result = await runtime.run("Current world?", settings(), capabilities=tuple([ToolSpec("changed", "test", {}, changed), ToolSpec("later", "test", {}, forbidden)]))
     assert reads == ["changed"] and model.calls == 1
     assert result["status"] == "degraded" and result["audit"]["error_code"] == "world_changed"
     assert "stale" in result["answer"]
@@ -139,12 +139,12 @@ async def test_provider_continuation_roundtrip_is_private_in_audit():
 
     registry = AgentAuditRegistry()
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([ToolSpec("read_value", "test", {}, read)]),
+        tools_provider=semantic_tool_provider(),
         audit_registry=registry,
         logger=LOG,
         model_factory=lambda s: OpenAICompatibleModelClient(s, transport=httpx.MockTransport(respond)),
     )
-    result = await runtime.run("Read value.", settings())
+    result = await runtime.run("Read value.", settings(), capabilities=tuple([ToolSpec("read_value", "test", {}, read)]))
     assert result["status"] == "ok" and len(requests) == 2
     assert marker not in json.dumps(registry.snapshot(), ensure_ascii=False)
     public = private_protocol_redacted(requests)

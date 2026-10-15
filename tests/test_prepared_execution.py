@@ -14,7 +14,6 @@ from plugin.plugins.neko_rimworld.agent.model.model_client import build_agent_mo
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
 from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 LOG = SimpleNamespace(info=lambda *a: None, warning=lambda *a: None, error=lambda *a: None)
@@ -47,7 +46,6 @@ def prepare(question, context=()):
     return AgentRunSession.create(
         ledger=AgentAuditLedger(question),
         question=question,
-        system_prompt=build_system_prompt(config.preferred_cycles),
         context_messages=context,
     )
 
@@ -59,7 +57,7 @@ async def test_caller_context_is_detached_and_does_not_replace_current_question(
     history["content"] = "Changed outside the execution."
     model = Script([submit("The requested comparison remains conditional.")])
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
+        tools_provider=semantic_tool_provider(), audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
     )
     result = await runtime.execute(session, settings())
     assert result["status"] == "ok" and session.result is result
@@ -75,10 +73,10 @@ async def test_single_question_and_prepared_execution_have_identical_dispatch(mo
     direct = Script([submit("Conditional recommendation.")])
     prepared = Script([submit("Conditional recommendation.")])
     original = AgentRuntime(
-        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: direct, logger=LOG
+        tools_provider=semantic_tool_provider(), audit_registry=AgentAuditRegistry(), model_factory=lambda _: direct, logger=LOG
     )
     shared = AgentRuntime(
-        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: prepared, logger=LOG
+        tools_provider=semantic_tool_provider(), audit_registry=AgentAuditRegistry(), model_factory=lambda _: prepared, logger=LOG
     )
     first = await original.run("Compare routes.", settings())
     second = await shared.execute(prepare("Compare routes."), settings())
@@ -92,7 +90,7 @@ async def test_completed_execution_cannot_be_replayed_as_new_work():
     session = prepare("Read once.")
     model = Script([submit("Read completed.")])
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
+        tools_provider=semantic_tool_provider(), audit_registry=AgentAuditRegistry(), model_factory=lambda _: model, logger=LOG
     )
     await runtime.execute(session, settings())
     with pytest.raises(ValueError, match="fresh"):
@@ -124,7 +122,7 @@ async def test_cancelled_execution_exposes_its_result_without_an_audit_projectio
 
     session = prepare("Wait for a result.")
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), model_factory=lambda _: Waiting(), logger=LOG
+        tools_provider=semantic_tool_provider(), audit_registry=AgentAuditRegistry(), model_factory=lambda _: Waiting(), logger=LOG
     )
     task = asyncio.create_task(runtime.execute(session, settings()))
     await asyncio.wait_for(started.wait(), 2)

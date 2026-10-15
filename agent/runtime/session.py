@@ -8,8 +8,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from ..context.model_context import CONTEXT_TOOLS, make_pruner, validate_deployment
+from ..context.context_pruning import ContextPruner
 from ..delivery.handoff import SubmissionDraft
 from .audit import AgentAuditLedger
+from .prompt import build_system_prompt
 from ...message_contracts import AssistantTurn
 
 if TYPE_CHECKING:
@@ -21,7 +23,6 @@ if TYPE_CHECKING:
 class AgentRunSession:
     ledger: AgentAuditLedger
     messages: list[dict[str, Any]]
-    preferred_cycles: int = 4
     question: str = ""
     workspace_id: str | None = None
     colony_id: str | None = None
@@ -38,13 +39,15 @@ class AgentRunSession:
     finalization_started: bool = False
     invalidated_error: str | None = None
     delivery_issue: str | None = None
-    context_pruner: Any = field(default=None, repr=False)
+    context_pruner: ContextPruner = field(default_factory=make_pruner, repr=False)
     evidence_views: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
         validate_deployment()
-        if self.context_pruner is None:
-            self.context_pruner = make_pruner()
+        # Context projection is a session invariant, not an optional mode.
+        # Keep a caller-supplied current pruner (including subclasses) intact.
+        if not isinstance(self.context_pruner, ContextPruner):
+            raise TypeError("context_pruner must be a current ContextPruner")
 
     @property
     def fallback_answer(self) -> str:
@@ -64,7 +67,6 @@ class AgentRunSession:
         cls,
         *,
         ledger: AgentAuditLedger,
-        system_prompt: str,
         question: str,
         context_messages: tuple[dict[str, Any], ...] = (),
         workspace_id: str | None = None,
@@ -78,7 +80,7 @@ class AgentRunSession:
             colony_id=colony_id,
             capabilities=capabilities,
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": build_system_prompt(persistent_work=workspace_id is not None)},
                 *copy.deepcopy(context_messages),
                 {"role": "user", "content": question},
             ],
@@ -89,7 +91,7 @@ class AgentRunSession:
             *self.submission_repair_history(),
             {"role": "system", "content": advisory},
         ]
-        if self.context_pruner is not None and self.evidence_views:
+        if self.evidence_views:
             # Only this code-authored format guide becomes an instruction. Game
             # descriptions/shared values remain in their original tool role.
             messages[0] = {**messages[0], "content": messages[0]["content"] + "\n" + self.context_pruner.guide}
@@ -206,7 +208,7 @@ class AgentRunSession:
         if result.model_content is not None:
             self.evidence_views.append({"call_id": result.call_id, "tool": result.name, **result.model_view_metrics})
             return result.as_message()
-        if self.context_pruner is None or result.name not in CONTEXT_TOOLS or result.terminal:
+        if result.name not in CONTEXT_TOOLS or result.terminal:
             return result.as_message()
         view = self.context_pruner.compile(result.value, arguments=result.arguments)
         self.evidence_views.append({"call_id": result.call_id, "tool": result.name, **view.metrics()})

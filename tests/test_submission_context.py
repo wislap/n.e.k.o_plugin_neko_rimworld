@@ -19,7 +19,7 @@ def failed(identifier, patch):
 
 def test_only_current_superseded_drafts_are_removed_and_saved_detail_survives():
     old = failed('historical', {'answer':'Historical proposal.'})
-    session = AgentRunSession.create(ledger=AgentAuditLedger('q'),system_prompt='policy',question='q',context_messages=tuple(old))
+    session = AgentRunSession.create(ledger=AgentAuditLedger('q'), question='q',context_messages=tuple(old))
     source = {'role':'tool','tool_call_id':'observation','content':'Original evidence with load epoch and actors.'}
     session.messages += [source, *failed('first', {'answer':'Old draft','detail':'SAVED DETAIL'}),
                          *failed('latest', {'answer':'Latest draft'})]
@@ -58,6 +58,6 @@ async def test_runtime_repair_uses_same_calls_and_keeps_saved_report():
             assert json.loads(carrier['content'])['saved_draft']['detail']==detail
             return turn('',ToolCall('final','submit_response',json.dumps({'answer':'本次没有取得派系字段，仅能给条件建议。'})))
     model=Model()
-    runtime=AgentRuntime(tools_provider=semantic_tool_provider([]),audit_registry=AgentAuditRegistry(),logger=FakeLogger(),model_factory=lambda _:model)
+    runtime=AgentRuntime(tools_provider=semantic_tool_provider(),audit_registry=AgentAuditRegistry(),logger=FakeLogger(),model_factory=lambda _:model)
     result=await runtime.run('q',settings())
     assert result['status']=='ok' and model.calls==3 and detail in result['answer']

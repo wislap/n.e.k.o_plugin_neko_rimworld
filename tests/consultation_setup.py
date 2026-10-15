@@ -1,13 +1,12 @@
 """Synthetic current query directory for isolated consultation runtime checks."""
 
-from dataclasses import replace
 import json
 from pathlib import Path
 
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
 
-def consultation_setup(capabilities=()):
+def consultation_setup():
     async def unused(arguments):
         raise AssertionError("This isolated check must not perform a native query")
 
@@ -32,11 +31,11 @@ def consultation_setup(capabilities=()):
     }
     actual=json.loads((Path(__file__).parent/"fixtures/current_query_catalog.json").read_text(encoding="utf-8"))
     directory["world_observation"]=actual["world_observation"]
-    return replace(make_game_tools(directory, unused), capabilities=tuple(capabilities))
+    return make_game_tools(directory, unused)
 
 
-def semantic_tool_provider(capabilities=()):
-    setup = consultation_setup(capabilities)
+def semantic_tool_provider():
+    setup = consultation_setup()
 
     async def provide():
         return setup

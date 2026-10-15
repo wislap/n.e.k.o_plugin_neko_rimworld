@@ -72,7 +72,6 @@ class WorkspaceService:
                     "turn_id": turn_id,
                     "state": "waiting" if saved else "save_unconfirmed",
                     "history_saved": saved,
-                    "checkpoint": output["checkpoint"],
                 }
                 return result
         finally:

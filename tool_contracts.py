@@ -48,15 +48,11 @@ class ToolSpec:
 @dataclass(frozen=True, slots=True)
 class ToolSetup:
     tools: tuple[ToolSpec, ...]
-    context: str = ""
     directory: dict[str, Any] | None = None
-    context_blocks: tuple[tuple[str, str], ...] = ()
     #: Ready immutable Def-knowledge view for this consultation, attached by
     #: compose_wiki_tools. Consumers (wiki tool, Def-name recovery) share one
     #: frozen snapshot; None keeps every lookup on the native exact path.
     knowledge_view: Any = None
-    #: Caller-owned capabilities composed after the game vocabulary adapter.
-    capabilities: tuple[ToolSpec, ...] = ()
 
 
 PUBLIC_QUERY_VERSION = "public_query.v2"

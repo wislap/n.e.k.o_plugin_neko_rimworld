@@ -62,7 +62,6 @@ class AgentRuntime:
     ) -> dict[str, Any]:
         session = AgentRunSession.create(
             ledger=AgentAuditLedger(question),
-            system_prompt=build_system_prompt(settings.preferred_cycles),
             question=question,
             capabilities=capabilities,
         )
@@ -302,7 +301,6 @@ class AgentRuntime:
     ) -> dict[str, Any]:
         model = self._model_factory(settings)
         setup = await self._tools_provider()
-        session.preferred_cycles = settings.preferred_cycles
 
         def submission_updated(snapshot, event, details):
             ledger.set_draft(snapshot)
@@ -337,12 +335,13 @@ class AgentRuntime:
                     "research_closed", {"remaining_seconds": remaining, "research_deadline": research_deadline}
                 )
                 session.interaction.finalizing = True
+                session.messages[0]["content"] = build_system_prompt(
+                    finalizing=True, persistent_work=session.workspace_id is not None
+                )
             tools = environment.registry()
-            environment.set_prompt(session.interaction.prompt(settings.preferred_cycles))
             ledger.record("interaction_state", session.interaction.snapshot())
             advisory = build_runtime_advisory(
                 cycle=cycle,
-                preferred_cycles=settings.preferred_cycles,
                 elapsed_seconds=elapsed,
                 remaining_seconds=remaining,
                 model_calls=session.model_calls,

@@ -5,6 +5,8 @@ import json
 import sqlite3
 from contextlib import contextmanager
 
+from .store import WorkspaceStore
+
 
 class WorkspaceViews:
     def __init__(self, path):
@@ -19,6 +21,7 @@ class WorkspaceViews:
         db.row_factory = sqlite3.Row
         try:
             db.execute("BEGIN")
+            WorkspaceStore._validate_schema(db)
             yield db
         finally:
             db.close()
@@ -92,12 +95,7 @@ class WorkspaceViews:
                         "has_more": offset + limit < len(events),
                     },
                 }
-            tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            delivery = (
-                db.execute("SELECT payload FROM workspace_deliveries WHERE turn_id=?", (turn_id,)).fetchone()
-                if "workspace_deliveries" in tables
-                else None
-            )
+            delivery = db.execute("SELECT payload FROM workspace_deliveries WHERE turn_id=?", (turn_id,)).fetchone()
             return {
                 "workspace": work,
                 "workspace_id": workspace_id,
@@ -145,22 +143,10 @@ class WorkspaceViews:
             (workspace_id, limit, offset),
         ).fetchall()
         total = db.execute("SELECT count(*) FROM turns WHERE workspace_id=?", (workspace_id,)).fetchone()[0]
-        tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        checkpoint = None
-        if "checkpoints" in tables:
-            row = db.execute(
-                "SELECT id,data,data_sha256 FROM checkpoints WHERE workspace_id=? ORDER BY through_sequence DESC,sequence DESC LIMIT 1",
-                (workspace_id,),
-            ).fetchone()
-            if row:
-                if hashlib.sha256(row["data"].encode()).hexdigest() != row["data_sha256"]:
-                    raise ValueError("Saved working note failed its hash check")
-                checkpoint = {"checkpoint_id": row["id"], "data": json.loads(row["data"]), "verified_lesson": False}
         return {
             "workspace": work,
             "workspace_id": workspace_id,
             "turns": [dict(r) for r in rows],
-            "checkpoint": checkpoint,
             "total": total,
             "offset": offset,
             "next_offset": offset + limit if offset + limit < total else None,

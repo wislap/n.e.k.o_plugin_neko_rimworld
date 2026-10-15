@@ -31,7 +31,7 @@ def library(tmp_path):
 @pytest.mark.parametrize("mode", ["offline", "public", "native"])
 async def test_provider_composes_wiki_without_losing_original_setup(tmp_path, mode, library):
     original = {
-        "offline": ToolSetup((), "offline"),
+        "offline": ToolSetup(()),
         "public": make_game_tools(public_source(), _noop_query),
         "native": setup_for(),
     }[mode]
@@ -45,17 +45,15 @@ async def test_provider_composes_wiki_without_losing_original_setup(tmp_path, mo
     plugin._knowledge_directory = tmp_path
     plugin._knowledge = library
     missing = await plugin._load_agent_tools()
-    assert missing.tools == original.tools and missing.context == original.context
-    assert missing.capabilities == ()
+    assert missing.tools == original.tools
     write_snapshot(tmp_path)
     assert plugin._knowledge.refresh()
     setup = await plugin._load_agent_tools()
     assert setup.tools[:-1] == original.tools
     assert setup.tools[-1].name == "wiki"
     assert setup.directory == original.directory
-    assert setup.context.startswith(original.context)
-    assert "wiki(query)" in setup.context
-    assert setup.context_blocks[-1][0] == "wiki"
+    assert "source:keywords" in setup.tools[-1].description
+    assert "Knowledge is not current-instance evidence" in setup.tools[-1].description
     first = await setup.tools[-1].handler({"query": "Steel"})
     assert first["status"] == "found"
     write_snapshot(tmp_path, entries=[])
@@ -68,7 +66,7 @@ async def test_provider_composes_wiki_without_losing_original_setup(tmp_path, mo
 @pytest.mark.asyncio
 async def test_invalid_knowledge_does_not_advertise_wiki(tmp_path, library):
     async def load():
-        return ToolSetup((), "offline")
+        return ToolSetup(())
 
     plugin = object.__new__(NekoRimworldPlugin)
     plugin._reports = ReportStore()
@@ -77,12 +75,12 @@ async def test_invalid_knowledge_does_not_advertise_wiki(tmp_path, library):
     plugin._knowledge = library
     (tmp_path / "ready.json").write_text("broken", encoding="utf-8")
     setup = await plugin._load_agent_tools()
-    assert setup.tools == () and "wiki" not in setup.context
+    assert setup.tools == ()
 
 
 @pytest.mark.parametrize("prepared", [False, True])
 def test_provider_returns_while_background_refresh_is_blocked(tmp_path, monkeypatch, library, prepared):
-    original = ToolSetup((), "offline")
+    original = ToolSetup(())
     write_snapshot(tmp_path)
     if prepared:
         assert library.refresh()
@@ -118,8 +116,7 @@ def test_provider_returns_while_background_refresh_is_blocked(tmp_path, monkeypa
                 result = asyncio.run(setup.tools[-1].handler({"query": "Steel"}))
                 assert result["status"] == "found"
             else:
-                assert setup.tools == original.tools and setup.context == original.context
-                assert setup.capabilities == ()
+                assert setup.tools == original.tools
         finally:
             library.close()
             release.set()

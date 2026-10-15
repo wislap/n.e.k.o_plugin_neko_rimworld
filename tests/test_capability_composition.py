@@ -14,7 +14,6 @@ from plugin.plugins.neko_rimworld.agent.runtime import loop
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
 from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.execution_environment import compose_tools
-from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
@@ -88,10 +87,8 @@ async def test_default_game_surface_reads_and_workspace_ability_coexist():
         history_reads.append(args)
         return {"historical": True, "current_observation": False, "note": "Earlier investigation"}
 
-    setup = replace(
-        make_game_tools(public_source(), native),
-        capabilities=(ToolSpec("workspace_history", "Read historical work", {"type": "object"}, history),),
-    )
+    setup = make_game_tools(public_source(), native)
+    capabilities = (ToolSpec("workspace_history", "Read historical work", {"type": "object"}, history),)
 
     async def provide():
         return setup
@@ -111,7 +108,7 @@ async def test_default_game_surface_reads_and_workspace_ability_coexist():
         model_factory=lambda _: model,
 
     )
-    result = await runtime.run("Read current quantities and reopen previous work.", settings())
+    result = await runtime.run("Read current quantities and reopen previous work.", settings(), capabilities=capabilities)
     assert result["status"] == "ok" and len(reads) == len(history_reads) == 1
     assert len(result["observations"]) == 1
     for request in model.requests:
@@ -125,8 +122,7 @@ async def test_default_game_surface_reads_and_workspace_ability_coexist():
 async def test_admitted_session_keeps_its_surface_but_new_session_rejects_retired_environment(monkeypatch):
     monkeypatch.delenv("NEKO_CONTEXT_PRUNING", raising=False)
     session = AgentRunSession.create(
-        ledger=AgentAuditLedger("Keep the policy"), question="Keep the policy", system_prompt=build_system_prompt(4)
-    )
+        ledger=AgentAuditLedger("Keep the policy"), question="Keep the policy")
 
     async def native(args):
         return native_observation(args)
@@ -157,7 +153,7 @@ async def test_admitted_session_keeps_its_surface_but_new_session_rejects_retire
     assert model.requests[0]["tools"] == model.requests[1]["tools"]
     assert model.requests[1]["messages"][0]["content"] == model.requests[0]["messages"][0]["content"] + "\n" + session.context_pruner.guide
     with pytest.raises(ValueError, match="NEKO_CONTEXT_PRUNING is retired"):
-        AgentRunSession.create(ledger=AgentAuditLedger("new"), question="new", system_prompt="system")
+        AgentRunSession.create(ledger=AgentAuditLedger("new"), question="new")
 
 
 def test_colliding_capabilities_are_not_silently_replaced():
@@ -197,3 +193,18 @@ async def test_current_semantic_dispatch_respects_the_model_attempt_limit(monkey
     assert result["status"] == "degraded" and len(model.requests) == 1
     names = {tool["function"]["name"] for tool in model.requests[0]["tools"]}
     assert {"look", "count", "submit_response"} <= names and "query" not in names
+
+
+def test_duplicate_caller_tool_is_rejected_by_the_actual_session_registry():
+    from plugin.plugins.neko_rimworld.agent.runtime.execution_environment import ExecutionEnvironment
+
+    async def handler(args):
+        raise AssertionError("Duplicate admission must not dispatch any tool")
+
+    setup = make_game_tools(public_source(), handler)
+    session = AgentRunSession.create(
+        ledger=AgentAuditLedger("duplicate"), question="duplicate", capabilities=(ToolSpec("look", "Caller collision", {}, handler),),
+    )
+    environment = ExecutionEnvironment(setup, session, lambda _: None)
+    with pytest.raises(ValueError, match="distinct"):
+        environment.registry()

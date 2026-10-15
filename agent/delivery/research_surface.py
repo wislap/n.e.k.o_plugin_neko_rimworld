@@ -13,15 +13,6 @@ class ReadOnlyResearchSurface:
         self.update = update
         self.finalizing = False
 
-    def prompt(self, preferred_cycles):
-        from ..context.context_tools import query_guide, task_prompt
-
-        prompt = task_prompt(
-            preferred_cycles, finalizing=self.finalizing
-        )
-        if not self.finalizing:
-            prompt += "\n\n" + query_guide()
-        return prompt
 
     def submission(self, *, answer_only=False):
         return make_submission_tool(

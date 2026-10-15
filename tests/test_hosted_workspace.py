@@ -13,7 +13,7 @@ from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import count_handoff_tokens
 from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.tool_contracts import ToolSetup, ToolSpec
+from plugin.plugins.neko_rimworld.tool_contracts import ToolSetup
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.game.bridge import BridgeServer
 from plugin.plugins.neko_rimworld.game.protocol import SessionDescriptor
@@ -75,10 +75,8 @@ def configure(plugin, directory, models, provider=empty_tools):
         async def unused_query(_):
             raise AssertionError("Persistence fixture must not issue an unasked game query")
 
-        from dataclasses import replace
-
-        semantic = make_game_tools(public_source(), unused_query)
-        return replace(semantic, capabilities=(*setup.capabilities, *setup.tools))
+        assert not setup.tools, "Caller capabilities must belong to the prepared session"
+        return make_game_tools(public_source(), unused_query)
 
     plugin._agent_runtime = AgentRuntime(
 
@@ -264,7 +262,7 @@ async def test_native_surface_saves_answers_and_evidence_without_model_notes(plu
     configure(plugin, tmp_path, [first, second], tools)
     a = (await plugin.rimworld_consult(question="Investigate current quantities", _ctx=host_context())).value
     b = (await plugin.rimworld_consult(question="What remains unresolved?", _ctx=host_context())).value
-    assert a["workspace"]["checkpoint"] is None
+    assert set(a["workspace"]) == {"workspace_id", "turn_id", "state", "history_saved"}
     assert len(reads) == 1 and len(first.requests) == 2 and len(second.requests) == 1
     assert "Recheck the destination" in history(second.requests[0])["entries"][0]["answer"]
     assert b["observations"] == []
@@ -371,10 +369,10 @@ async def test_history_write_recovery_keeps_the_completed_exchange_without_rerun
         return type(native_observation(args))(value)
 
     async def tools():
-        return ToolSetup((ToolSpec("read_native", "Fixture read", {}, native),))
+        return make_game_tools(public_source(), native)
 
     first = Script(
-        [call("read_native"), call("submit_response", answer="Original answer.", detail="Original full findings.")]
+        [call("count", object={"kind": "things"}, metric="units"), call("submit_response", answer="Original answer.", detail="Original full findings.")]
     )
     second = Script([call("submit_response", answer="Continued after storage recovery.")])
     configure(plugin, tmp_path, [first, second], tools)
@@ -405,22 +403,6 @@ async def test_history_write_recovery_keeps_the_completed_exchange_without_rerun
     assert plugin._workspace_service.agent._pending_history == {}
 
 
-@pytest.mark.asyncio
-async def test_checkpoint_storage_outage_is_not_on_the_consultation_path(plugin, tmp_path, monkeypatch):
-    first = Script([call("submit_response", answer="Valid answer.")])
-    second = Script([call("submit_response", answer="New work still proceeds.")])
-    configure(plugin, tmp_path, [first, second])
-
-    def fail(*args, **kwargs):
-        raise AssertionError("Consultation must not write optional notes")
-
-    monkeypatch.setattr(WorkspaceStore, "save_checkpoint", fail)
-    a = await plugin.rimworld_consult(question="First work", _ctx=host_context())
-    b = await plugin.rimworld_consult(question="Next work", _ctx=host_context())
-    assert a.is_ok() and b.is_ok()
-    assert len(first.requests) == len(second.requests) == 1
-    assert a.value["workspace"]["checkpoint"] is None
-    assert plugin._workspace_service.agent._pending_history == {}
 
 
 @pytest.mark.asyncio
@@ -634,37 +616,6 @@ async def test_long_work_uses_bounded_views_and_retrieves_the_original_exchange(
     assert "Original full detail." in recovered["result"]["answer"]
 
 
-@pytest.mark.asyncio
-async def test_large_checkpoint_remains_retrievable_when_the_attached_view_cannot_fit(plugin, tmp_path):
-    note = "n" * 4000
-    questions = [str(i) + "q" * 499 for i in range(8)]
-    first = Script([call("submit_response", answer="Original exchange saved.")])
-    second = Script(
-        [
-            call("workspace_history", action="checkpoint"),
-            call("submit_response", answer="The original working note remains available."),
-        ]
-    )
-    configure(plugin, tmp_path, [first, second])
-    plugin._workspace_service = WorkspaceService(tmp_path / "workspaces/work.sqlite", plugin._agent_runtime)
-    workspace = await plugin._workspace_service.storage.call("open_work", "neko", "colony-A")
-    await plugin._workspace_service.storage.call("set_focus", workspace, "neko", "f" * 4000)
-    original = (await plugin.rimworld_consult(question="Preserve the investigation", _ctx=host_context())).value
-    # Existing caller/legacy notes remain readable; the model no longer writes them.
-    await plugin._workspace_service.storage.call(
-        "save_checkpoint", workspace, "neko", original["workspace"]["turn_id"],
-        {"work_note": note, "open_questions": questions, "anchors": []},
-    )
-    await plugin.rimworld_consult(question="Continue from the note", _ctx=host_context())
-    view = history(second.requests[0])
-    assert view["checkpoint"]["view"] == "index_only" and view["checkpoint"]["full_note_retained"]
-    assert view["focus"] == "f" * 4000
-    recovered = next(
-        json.loads(m["content"])["data"]["checkpoint"]
-        for m in second.requests[1]["messages"]
-        if m.get("name") == "workspace_history"
-    )
-    assert recovered["data"]["work_note"] == note and recovered["data"]["open_questions"] == questions
 
 
 def test_starting_new_work_is_atomic_when_route_storage_fails(tmp_path):
@@ -685,8 +636,7 @@ def test_starting_new_work_is_atomic_when_route_storage_fails(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("semantic", [False, True])
-async def test_colony_switch_during_a_read_cannot_enter_the_old_work_as_current_facts(plugin, tmp_path, semantic):
+async def test_colony_switch_during_a_read_cannot_enter_the_old_work_as_current_facts(plugin, tmp_path):
     async def native(args):
         plugin._bridge.session = SessionDescriptor("colony-B", "load-2", 2, 1)
         value = native_observation(args).to_dict()
@@ -694,11 +644,9 @@ async def test_colony_switch_during_a_read_cannot_enter_the_old_work_as_current_
         return type(native_observation(args))(value)
 
     async def tools():
-        if semantic:
-            return make_game_tools(public_source(), native)
-        return ToolSetup((ToolSpec("read_native", "Fixture game read", {}, native),))
+        return make_game_tools(public_source(), native)
 
-    model = Script([call("count", object={"kind": "things"}, metric="units") if semantic else call("read_native")])
+    model = Script([call("count", object={"kind": "things"}, metric="units")])
     configure(plugin, tmp_path, [model], tools)
     result = (await plugin.rimworld_consult(question="Read the current colony", _ctx=host_context())).value
     assert result["status"] == "degraded" and result["observations"] == []
@@ -709,3 +657,25 @@ async def test_colony_switch_during_a_read_cannot_enter_the_old_work_as_current_
         "read", result["workspace"]["workspace_id"], "neko", result["workspace"]["turn_id"]
     )
     assert record["evidence"] == []
+
+
+@pytest.mark.asyncio
+async def test_finalization_keeps_attached_history_but_revokes_history_tool(plugin, tmp_path, monkeypatch):
+    from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
+
+    first = Script([call("submit_response", answer="Earlier scoped finding.")])
+    model = Script([
+        call("workspace_history", action="list"),
+        call("submit_response", answer="Finish using the retained scoped history."),
+    ])
+    configure(plugin, tmp_path, [first, model])
+    await plugin.rimworld_consult(question="Original work", _ctx=host_context("alpha"))
+    monkeypatch.setattr(AgentAuditLedger, "elapsed_seconds", property(lambda _: 9.0))
+    result = (await plugin.rimworld_consult(question="Finish this work", _ctx=host_context("alpha"))).value
+    assert result["status"] == "ok"
+    assert len(model.requests) == 2
+    for request in model.requests:
+        assert {t["function"]["name"] for t in request["tools"]} == {"submit_response"}
+        assert history(request)["entries"][0]["question"] == "Original work"
+    refusal = next(json.loads(m["content"]) for m in model.requests[1]["messages"] if m.get("name") == "workspace_history")
+    assert refusal["ok"] is False and refusal["error"]["code"] == "unknown_tool"

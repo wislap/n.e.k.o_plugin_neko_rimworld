@@ -8,6 +8,8 @@ covered by the surface's own tests.
 
 from __future__ import annotations
 
+from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
+
 import json
 from pathlib import Path
 
@@ -21,7 +23,6 @@ from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, Tool
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import (
     SemanticInteraction,
     semantic_interaction_factory,
-    semantic_surface_available,
 )
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 
@@ -35,7 +36,7 @@ def catalog():
     return json.loads((FIXTURES / "current_query_catalog.json").read_text(encoding="utf-8-sig"))
 
 
-def public_source(*, directory=True, spatial=False):
+def public_source(*, directory=True):
     """A public_query catalog, with or without the directory the Surface needs."""
     source = catalog()
     parameters = {
@@ -77,8 +78,6 @@ def public_source(*, directory=True, spatial=False):
             field_notes={},
         )
     source["public_query"] = public
-    if not spatial:
-        source.pop("spatial_query", None)
     return source
 
 
@@ -103,7 +102,7 @@ def _update(*_args, **_kwargs):
 
 
 def test_semantic_surface_is_the_shipped_default():
-    assert semantic_surface_available(setup_for()) is True
+    assert isinstance(semantic_interaction_factory(setup_for(), Session(), _update), SemanticInteraction)
 
 
 
@@ -111,11 +110,11 @@ def test_semantic_surface_is_the_shipped_default():
 def test_the_mod_directory_leaves_the_prompt_but_the_enums_stay():
     """The reason this interface exists: the whole field catalogue stops being sent."""
     setup = setup_for()
-    assert CATALOGUE_MARKER in setup.context, "the query interface needs the catalogue"
+    assert setup.directory["rules"] == CATALOGUE_MARKER
 
     adapter = semantic_interaction_factory(setup, Session(), _update)
     assert isinstance(adapter, SemanticInteraction)
-    prompt = adapter.prompt(4)
+    prompt = build_system_prompt()
 
     assert CATALOGUE_MARKER not in prompt
     assert '"field_index"' not in prompt
@@ -131,7 +130,7 @@ def test_semantic_surface_replaces_the_query_vocabulary():
 
 
 def test_native_activity_is_default_and_replaces_overlapping_path_tools():
-    source = public_source(spatial=True)
+    source = public_source()
     adapter = semantic_interaction_factory(make_game_tools(source, _noop_query), Session(), _update)
     names = [tool.name for tool in adapter.tools()]
     assert "evaluate_activity" in names
@@ -146,17 +145,17 @@ def test_native_activity_is_default_and_replaces_overlapping_path_tools():
 
 def test_a_mod_without_the_directory_is_rejected():
     setup = setup_for(directory=False)
-    assert semantic_surface_available(setup) is False
-    with pytest.raises(ToolExecutionError, match="[Cc]urrent|cannot be compiled"):
+    with pytest.raises(ToolExecutionError, match="[Cc]urrent|cannot be compiled") as rejected:
         semantic_interaction_factory(setup, None, None)
+    assert rejected.value.code == "semantic_surface_unavailable" and not rejected.value.recoverable
 
 
 def test_a_setup_without_a_query_tool_is_rejected():
     """The adapter may only read through the Mod's query handler."""
-    setup = ToolSetup(tools=(), directory=public_source()["public_query"], context="")
-    assert semantic_surface_available(setup) is False
-    with pytest.raises(ToolExecutionError, match="[Cc]urrent|cannot be compiled"):
+    setup = ToolSetup(tools=(), directory=public_source()["public_query"])
+    with pytest.raises(ToolExecutionError, match="[Cc]urrent|cannot be compiled") as rejected:
         semantic_interaction_factory(setup, None, None)
+    assert rejected.value.code == "semantic_surface_unavailable" and not rejected.value.recoverable
 
 
 def test_a_directory_that_cannot_compile_is_refused_before_the_prompt_promises_it():
@@ -164,9 +163,9 @@ def test_a_directory_that_cannot_compile_is_refused_before_the_prompt_promises_i
     del source["public_query"]["field_index"]
     setup = make_game_tools(source, _noop_query)
     assert setup.directory is not None and "field_index" not in setup.directory
-    assert semantic_surface_available(setup) is False
-    with pytest.raises(ToolExecutionError, match="[Cc]urrent|cannot be compiled"):
+    with pytest.raises(ToolExecutionError, match="[Cc]urrent|cannot be compiled") as rejected:
         semantic_interaction_factory(setup, None, None)
+    assert rejected.value.code == "semantic_surface_unavailable" and not rejected.value.recoverable
 
 
 
@@ -235,7 +234,7 @@ async def test_wiki_is_the_only_extra_passthrough_and_never_an_observation(tmp_p
 
 def test_missing_wiki_does_not_advertise_knowledge():
     adapter = semantic_interaction_factory(setup_for(), Session(), _update)
-    assert "wiki(query)" not in adapter.prompt(4)
+    assert "wiki(query)" not in build_system_prompt()
 
 
 def report():

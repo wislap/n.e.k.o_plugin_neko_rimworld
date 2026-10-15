@@ -169,7 +169,7 @@ def runtime_for(model, store):
         return store.save(value)
 
     return AgentRuntime(
-        tools_provider=semantic_tool_provider([query_tool(unused)]),
+        tools_provider=semantic_tool_provider(),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,
@@ -265,13 +265,13 @@ async def test_report_storage_failure_keeps_complete_result():
 
     model = ScriptedModel([submitted_turn("Complete answer")])
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([query_tool(unused)]),
+        tools_provider=semantic_tool_provider(),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,
         report_sink=fail_save,
     )
-    result = await runtime.run("Research", settings())
+    result = await runtime.run("Research", settings(), capabilities=tuple([query_tool(unused)]))
     assert result["status"] == "ok"
     assert result["answer"] == result["summary"] == "Complete answer"
     assert result["report"]["saved"] is False

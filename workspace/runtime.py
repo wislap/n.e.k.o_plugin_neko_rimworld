@@ -6,7 +6,6 @@ import sqlite3
 
 from ..agent.runtime.audit import AgentAuditLedger
 from ..agent.runtime.audit import private_protocol_redacted as public_protocol
-from ..agent.runtime.prompt import build_system_prompt
 from ..agent.runtime.session import AgentRunSession
 from ..reports import plain
 from .context import history_message
@@ -41,23 +40,10 @@ class WorkspaceAgent:
         return public_protocol(pending[2]) if pending is not None and pending[1] == turn_id else None
 
     async def execute(self, workspace_id, owner, turn_id, settings, *, colony_id=None):
-        checkpoint = await self.storage.call("context_checkpoint", workspace_id, owner, before_turn=turn_id)
-        history = await self.storage.call(
-            "history",
-            workspace_id,
-            owner,
-            before_turn=turn_id,
-            after_sequence=checkpoint["through_sequence"] if checkpoint else 0,
-        )
-        if checkpoint is not None:
-            history["checkpoint"] = checkpoint
-            history["anchor_records"] = [
-                await self.storage.call("read", workspace_id, owner, a["turn_id"], observation_id=a["observation_id"])
-                for a in checkpoint["data"]["anchors"]
-            ]
+        history = await self.storage.call("history", workspace_id, owner, before_turn=turn_id)
         context = history_message(history, max_chars=self.history_chars)
         question = (await self.storage.call("turn", workspace_id, owner, turn_id))["question"]
-        has_history = bool(history["entries"] or history.get("has_more") or checkpoint)
+        has_history = bool(history["entries"] or history.get("has_more"))
         explicit_report = re.search(r"(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])", question)
         capabilities = (make_history_tool(
             storage=self.storage, workspace_id=workspace_id, owner=owner, turn_id=turn_id,
@@ -67,7 +53,6 @@ class WorkspaceAgent:
         session = AgentRunSession.create(
             ledger=AgentAuditLedger(question, workspace_id=workspace_id, turn_id=turn_id),
             question=question,
-            system_prompt=build_system_prompt(settings.preferred_cycles),
             context_messages=(context,) if context is not None else (),
             workspace_id=workspace_id,
             colony_id=colony_id,
@@ -102,7 +87,6 @@ class WorkspaceAgent:
                 "result": result,
                 "audit": trace,
                 "history_saved": False,
-                "checkpoint": None,
             }
         self._pending_history.pop(workspace_id, None)
         return {
@@ -110,6 +94,5 @@ class WorkspaceAgent:
             "turn_id": turn_id,
             "result": result,
             "audit": trace,
-            "checkpoint": None,
             "history_saved": True,
         }

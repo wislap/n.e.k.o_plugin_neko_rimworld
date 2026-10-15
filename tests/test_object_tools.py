@@ -3,10 +3,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.world.native_state import NativeStateReader, WorkReadings, summarize_work_assignments
 from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
+from plugin.plugins.neko_rimworld.agent.world.native_state import NativeStateReader
+from plugin.plugins.neko_rimworld.agent.world.object_identity import canonical_object_identity
 from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import route_object
+from plugin.plugins.neko_rimworld.agent.world.work_assignments import WorkReadings, summarize_work_assignments
 
 
 def test_assignment_counts_keep_both_cooks_and_do_not_change_native_tables():
@@ -381,8 +383,8 @@ async def test_canonical_location_unifies_direct_and_population_without_mutating
     for result in [direct, grouped, identity]:
         obj = result["facts"][0]["object"]
         assert obj["location"]["position"] == expected
-        assert obj["status"]["position"]["map"] == "Map_0"
-        assert obj["status"]["position"]["map_id"] == "Map_0"
+        assert not {"position", "held_position", "map", "status"} & obj.keys()
+        assert obj["map_id"] == "Map_0"
     assert native == original
     assert grouped["facts"][0]["object"]["location"]["held_position"] is None  # never invented
 
@@ -395,10 +397,11 @@ def test_canonical_location_never_substitutes_holder_position_for_own():
         "map_held": {"id": "Map_0"},
         "held_position": {"map": "Map_0", "x": 3, "z": 4},
     }
-    result = NativeStateReader._canonical_identity(raw)
+    result = canonical_object_identity(raw)
     assert result["location"]["position"] is None
     assert result["location"]["held_position"] == {"kind": "cell", "map": "Map_0", "x": 3, "z": 4}
-    assert result["position"] == raw["position"]
+    assert "position" not in result and "held_position" not in result
+    assert raw["position"] == {"x": -1000, "z": -1000}
 
 
 @pytest.mark.asyncio

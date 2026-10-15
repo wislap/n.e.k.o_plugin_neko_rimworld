@@ -7,7 +7,7 @@ from dataclasses import replace
 import pytest
 
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory,semantic_surface_available
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
 from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
@@ -64,13 +64,34 @@ async def test_old_or_incomplete_connection_has_zero_model_or_native_dispatch(ch
     result=await runtime.run("检查当前读接口",settings())
     assert result["status"]!="ok" and calls==[]
     assert result["audit"]["model_calls"]==0
-    assert result["audit"]["error_code"] in {"semantic_surface_unavailable","invalid_catalog"}
+    expected = "invalid_catalog" if change == "state_missing" else "semantic_surface_unavailable"
+    assert result["audit"]["error_code"] == expected
+
+
+@pytest.mark.parametrize("change", ["public_v1", "world_v22", "world_missing", "state_missing", "bad_properties"])
+def test_factory_rejects_stale_or_incomplete_prepared_setup_without_native_dispatch(change):
+    setup = make_game_tools(current(), forbidden)
+    directory = copy.deepcopy(setup.directory)
+    if change == "public_v1":
+        directory["public_query_version"] = "public_query.v1"
+    elif change == "world_v22":
+        directory["world_observation"]["version"] = "world_observation.v2.2"
+    elif change == "world_missing":
+        directory.pop("world_observation")
+    else:
+        tools = directory["world_observation"]["tools"]
+        if change == "state_missing":
+            directory["world_observation"]["tools"] = [tool for tool in tools if tool["name"] != "inspect_state"]
+        else:
+            next(tool for tool in tools if tool["name"] == "inspect_state")["parameters"]["properties"] = None
+    with pytest.raises(ToolExecutionError) as rejected:
+        semantic_interaction_factory(replace(setup, directory=directory), object(), None)
+    assert rejected.value.code == "semantic_surface_unavailable" and not rejected.value.recoverable
 
 
 def test_actual_current_contract_exposes_all_current_reading_families():
     setup=make_game_tools(current(),forbidden)
-    assert semantic_surface_available(setup)
-    # Constructor admission must be identical to runtime factory admission.
+    # Test the actual admission path; no separate boolean approximation.
     interaction=semantic_interaction_factory(setup,type("Session",(),{})(),lambda *args:None)
     names={tool.name for tool in interaction.read_tools()}
     assert {"look","count","survey_space","evaluate_activity"}<=names

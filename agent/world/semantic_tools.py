@@ -56,14 +56,6 @@ def _compile_supported_surface(setup):
     return surface
 
 
-def semantic_surface_available(setup: Any) -> bool:
-    try:
-        _compile_supported_surface(setup)
-    except ToolExecutionError:
-        return False
-    return True
-
-
 class SemanticInteraction(ReadOnlyResearchSurface):
     """Expose look/count and project native results as ordinary JSON."""
 
@@ -218,5 +210,4 @@ def semantic_interaction_factory(setup: Any, session: Any, update: Any):
 __all__ = [
     "SemanticInteraction",
     "semantic_interaction_factory",
-    "semantic_surface_available",
 ]

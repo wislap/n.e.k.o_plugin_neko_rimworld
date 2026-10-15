@@ -7,16 +7,15 @@ import time
 from typing import Any
 
 from ...game.observation import Observation
-from ..context.model_context import CONTEXT_TOOLS, MAX_SOURCE_CHARS, model_size
 from ...message_contracts import PreparedToolCall, ToolCall, ToolResult
 from ...tool_contracts import MAX_TOOL_RESULT_CHARS, ToolExecutionError, ToolSpec
+from ..context.model_context import CONTEXT_TOOLS, MAX_SOURCE_CHARS, make_pruner
 
 
 class ToolRegistry:
-    def __init__(self, *, context_pruner=None, context_enabled=None) -> None:
+    def __init__(self, *, context_pruner=None) -> None:
         self._tools: dict[str, ToolSpec] = {}
-        self._context_pruner = context_pruner
-        self._context_enabled = True if context_enabled is None else context_enabled
+        self._context_pruner = make_pruner() if context_pruner is None else context_pruner
 
     def register(self, spec: ToolSpec) -> None:
         if type(spec.max_result_chars) is not int or not 1 <= spec.max_result_chars <= 32 * MAX_TOOL_RESULT_CHARS:
@@ -35,11 +34,9 @@ class ToolRegistry:
 
     def schemas(self) -> list[dict[str, Any]]:
         schemas = [self._tools[name].schema() for name in sorted(self._tools)]
-        if self._context_enabled:
-            from ..context.context_tools import model_tools
+        from ..context.context_tools import model_tools
 
-            return model_tools(schemas)
-        return schemas
+        return model_tools(schemas)
 
     def prepare(self, call: ToolCall) -> PreparedToolCall | ToolResult:
         spec = self._tools.get(call.name)
@@ -106,7 +103,7 @@ class ToolRegistry:
             }
             if observation is not None:
                 payload = observation["response"]["payload"]
-                if observation.get("request", {}).get("operation") in {"query", "spatial_query"}:
+                if observation.get("request", {}).get("operation") == "query":
                     # Preserve full provenance in the audit observation; the model needs only the
                     # operation's data and issues. Keeping the full envelope here made specialized
                     # semantic tools accidentally expose transport/session noise to the model.
@@ -155,7 +152,7 @@ class ToolRegistry:
             )
 
         encoded = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
-        compact = self._context_enabled and spec.name in CONTEXT_TOOLS and not spec.terminal
+        compact = spec.name in CONTEXT_TOOLS and not spec.terminal
         over_source = (
             len(encoded) > max(spec.max_result_chars, MAX_SOURCE_CHARS)
             if compact
@@ -164,20 +161,14 @@ class ToolRegistry:
         view = None
         over_view = False
         if compact and not over_source:
-            if self._context_pruner is not None:
-                try:
-                    view = self._context_pruner.compile(
-                        value, max_view_chars=spec.max_result_chars, arguments=prepared.arguments
-                    )
-                except ValueError as error:
-                    if str(error) != "evidence_view_limit":
-                        raise
-                    over_view = True
-            else:
-                over_view = (
-                    model_size(value, arguments=prepared.arguments, context_enabled=True)
-                    > spec.max_result_chars
+            try:
+                view = self._context_pruner.compile(
+                    value, max_view_chars=spec.max_result_chars, arguments=prepared.arguments
                 )
+            except ValueError as error:
+                if str(error) != "evidence_view_limit":
+                    raise
+                over_view = True
         if over_source or over_view:
             return ToolResult(
                 call_id=prepared.call.call_id,

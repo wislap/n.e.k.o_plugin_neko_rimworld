@@ -1,25 +1,28 @@
 """The public look contract and request-scoped selection/read composition."""
 
 from __future__ import annotations
+
 import copy
-from .query_surface import SurfaceError
+
 from ...schema_serialization import schema_contract
 from .native_state import (
-    NativeStateReader,
     PHYSICAL,
     STATE_ASPECTS,
     STATE_FACETS,
+    NativeStateReader,
     observed_id_reference,
     state_contract,
 )
+from .object_identity import normalize_object_identities
+from .query_surface import SurfaceError
 from .semantic_surface import (
     ASPECTS,
     KINDS,
+    _object_schema,
     normalize_object,
     supported_aspects,
     validate_aspects,
     validate_detail,
-    _object_schema,
 )
 
 
@@ -227,7 +230,7 @@ async def read_look(interaction, args):
         raise SurfaceError("actor/user context requires a state aspect")
     if not cell and not state and stats is None and not any(k in args for k in ("actor", "user")):
         return NativeStateReader._fit_page(
-            NativeStateReader._normalize_identities(
+            normalize_object_identities(
                 await interaction.query_readings.look({**args, "aspects": aspects})
             ),
             args,

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 
-from ...serialization import canonical
-
 MAX_SOURCE_CHARS = 4 * 1024 * 1024
 CONTEXT_TOOLS = frozenset(
     {
@@ -42,7 +40,6 @@ def make_pruner():
     return ContextPruner()
 
 
-def model_size(value, *, arguments=None, context_enabled=None):
+def model_size(value, *, arguments=None):
     """Standalone size, independent of earlier messages and note suppression."""
-    selected = True if context_enabled is None else context_enabled
-    return make_pruner().compile(value, arguments=arguments).view_chars if selected else len(canonical(value))
+    return make_pruner().compile(value, arguments=arguments).view_chars

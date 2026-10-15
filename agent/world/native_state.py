@@ -5,124 +5,20 @@ from __future__ import annotations
 import copy
 import re
 
-from ..context.model_context import MAX_SOURCE_CHARS, model_size
+from ...game.catalog_contract import has_retired_capability_alias
 from ...serialization import canonical
 from ...tool_contracts import MAX_TOOL_RESULT_CHARS, WORLD_OBSERVATION_VERSION
-from ...game.catalog_contract import has_retired_capability_alias
+from ..context.model_context import MAX_SOURCE_CHARS, model_size
+from .object_identity import normalize_object_identities
 from .query_surface import SurfaceError
 from .semantic_surface import (
     PAWN_KINDS,
     THING_KINDS,
 )
+from .work_assignments import WorkReadings
 from .world_order import order_world_fields
 
 PHYSICAL = (*PAWN_KINDS, *THING_KINDS)
-
-
-def observed_work(fact):
-    values = fact.get("facts", {})
-    if isinstance(values.get("work"), dict):
-        return values["work"]
-    state = values.get("state", {})
-    if not isinstance(state, dict):
-        return {}
-    return state.get("work", state.get("facets", {}).get("work", {}))
-
-
-def summarize_work_assignments(facts, coverage):
-    """Count existing assignment rows, never infer runnable jobs or missing zeros."""
-    actors=set();unknown=set();by_type={};complete=True;activities={};precedence=[]
-    for fact in facts:
-        ident=fact.get("object",{}).get("id")
-        if not isinstance(ident,str):complete=False;continue
-        if ident in actors:complete=False
-        actors.add(ident)
-        work=observed_work(fact)
-        table=work.get("work_types",[]) if isinstance(work,dict) else []
-        if not isinstance(table,list):table=[]
-        job=work.get("current_job") if isinstance(work,dict) else None
-        activities[ident]=job.get("definition") if isinstance(job,dict) else None
-        assigned=[row for row in table if isinstance(row,dict) and type(row.get("priority")) is int and row["priority"]>0]
-        order_known=all(type(row.get("natural_priority")) in (int,float) for row in assigned)
-        precedence.append({"actor_id":ident,"current_job":activities[ident],
-            "normal_assigned_type_order":[{"definition":row.get("definition"),"priority":row["priority"],"natural_priority":row["natural_priority"]}
-                for row in sorted(assigned,key=lambda row:(row["priority"],-row["natural_priority"],row.get("definition","")))] if order_known else None,
-            "order_known":order_known})
-        if not isinstance(work,dict) or work.get("status")!="observed" or work.get("work_types_complete") is not True:
-            complete=False;unknown.add(ident)
-        for row in table:
-            if not isinstance(row,dict):complete=False;unknown.add(ident);continue
-            definition=row.get("definition")
-            if not isinstance(definition,str):complete=False;unknown.add(ident);continue
-            entry=by_type.setdefault(definition,{"assigned":set(),"disabled":set(),"unassigned":set()})
-            priority=row.get("priority")
-            if type(priority) is int and priority>0:entry["assigned"].add(ident)
-            elif priority==0 and type(priority) is int:entry["unassigned"].add(ident)
-            elif type(priority) is not int:complete=False;unknown.add(ident)
-            if row.get("disabled") is True:entry["disabled"].add(ident)
-    exact=bool(actors) and complete and coverage.get("listing")=="complete" and coverage.get("matched")==len(actors)
-    return {
-        "scope":"Objects actually read for this look selection, before display-size cropping; not automatically the whole colony.",
-        "actor_ids":sorted(actors),"unknown_or_incomplete_work_actor_ids":sorted(unknown),
-        "complete_for_selection":exact,
-        "actor_readings":precedence,
-        "types":[{"definition":name,"assigned_count":len(value["assigned"]) if exact else None,
-            "assigned_lower_bound":len(value["assigned"]),"assigned_actor_ids":sorted(value["assigned"]),
-            "unassigned_count":len(value["unassigned"]) if exact else None,"unassigned_actor_ids":sorted(value["unassigned"]),
-            "wandering_assigned_actor_ids":sorted(a for a in value["assigned"] if activities.get(a)=="GotoWander"),
-            "disabled_actor_ids":sorted(value["disabled"])} for name,value in sorted(by_type.items())],
-        "meaning":"Derived from original native work tables retained in facts. Assigned means observed priority > 0; wandering is the observed GotoWander job, not proof of action eligibility. Normal assigned-type order uses lower assigned priority first, then higher natural_priority, not array position; actual available Jobs and emergency work still matter. Null counts mean incomplete coverage. Assignment does not explain why a pawn is idle."
-    }
-
-class WorkReadings:
-    """An observation-backed work table across pages of one unchanged sample."""
-
-    def __init__(self):
-        self.key = None
-        self.facts = {}
-        self.positions = set()
-        self.sources = []
-
-    def summarize(self, reading):
-        sample = reading.get("sample", {})
-        tick = sample.get("game_tick")
-        state_samples = reading.get("state_observations", [])
-        stable = bool(state_samples) and type(tick) is int and all(
-            source.get("sample", {}).get("load_epoch") == sample.get("load_epoch")
-            and source.get("sample", {}).get("started_tick") == tick
-            and source.get("sample", {}).get("finished_tick") == tick
-            and not source.get("changed_during_read")
-            for source in state_samples
-        )
-        key = canonical({"scope": reading.get("scope", {}), "load_epoch": sample.get("load_epoch"), "tick": tick}) if stable and sample.get("load_epoch") else None
-        if key is None:
-            self.__init__()
-            return summarize_work_assignments(reading["facts"], reading["coverage"])
-        if key != self.key:
-            self.__init__()
-            self.key = key
-        for fact in reading["facts"]:
-            ident = fact.get("object", {}).get("id")
-            if isinstance(ident, str):
-                # Keep work only; earlier native observations retain its provenance.
-                self.facts[ident] = {"object": {"id": ident}, "facts": {"work": copy.deepcopy(observed_work(fact))}}
-        page = reading.get("page", {})
-        offset = page.get("offset", 0)
-        if type(offset) is int and offset >= 0:
-            self.positions.update(range(offset, offset + len(reading["facts"])))
-        source = {"selection_sample": copy.deepcopy(sample), "page": copy.deepcopy(page),
-                  "state_observation_ids": [s.get("observation_id") for s in state_samples]}
-        if source not in self.sources:
-            self.sources.append(source)
-        coverage = copy.deepcopy(reading["coverage"])
-        matched = coverage.get("matched")
-        covered = type(matched) is int and len(self.facts) == matched and self.positions == set(range(matched))
-        coverage["listing"] = "complete" if covered else "partial"
-        result = summarize_work_assignments(list(self.facts.values()), coverage)
-        result["scope"] = "Union of work tables read in this consultation for the same selection, load epoch and unchanged game tick; not an atomic snapshot."
-        result["source_pages"] = copy.deepcopy(self.sources)
-        result["sample"] = {"load_epoch": sample["load_epoch"], "game_tick": tick, "atomic": False}
-        return result
 
 
 STATE_ASPECTS = ("state", "health", "skills", "gear", "work")
@@ -382,62 +278,14 @@ class NativeStateReader:
         )
         if obj["kind"] in PAWN_KINDS and ("work" in aspects or "state" in aspects):
             base["work_assignments"] = self.work_readings.summarize(base)
-        return self._fit_page(self._normalize_identities(base), args)
-
-    @staticmethod
-    def _canonical_identity(value):
-        """Add one stable location shape while retaining every legacy field.
-
-        A held position never substitutes for an unavailable own position.
-        The enclosing map can complete an own-position cell only when the
-        returned identity explicitly says the Thing is spawned.
-        """
-        identity = copy.deepcopy(value)
-        if not isinstance(identity, dict) or not identity.get("id"):
-            return identity
-        status = identity.get("status") if isinstance(identity.get("status"), dict) else {}
-        raw = status.get("position") if isinstance(status.get("position"), dict) else identity.get("position")
-
-        def cell(position, *, own=False):
-            if not isinstance(position, dict) or any(type(position.get(k)) is not int for k in ("x", "z")):
-                return None
-            map_id = position.get("map", position.get("map_id"))
-            if not map_id and own and identity.get("spawned") is True:
-                map_id = identity.get("map_id") or (identity.get("map_held") or {}).get("id") or identity.get("map")
-            if not isinstance(map_id, str) or not map_id:
-                return None
-            return {"kind": "cell", "map": map_id, "x": position["x"], "z": position["z"]}
-
-        own = cell(raw, own=True)
-        if identity.get("spawned") is False:
-            own = None
-        held = cell(identity.get("held_position"))
-        identity["location"] = {"position": own, "held_position": held}
-        # Keep both map spellings for clients already using either path.
-        if own is not None:
-            if isinstance(identity.get("position"), dict):
-                identity["position"] = {**identity["position"], **own, "map_id": own["map"]}
-            if isinstance(status.get("position"), dict):
-                identity["status"] = {**status, "position": {**status["position"], **own, "map_id": own["map"]}}
-        return identity
-
-    @classmethod
-    def _normalize_identities(cls, result):
-        result = copy.deepcopy(result)
-        for row in result.get("facts", []):
-            if isinstance(row.get("object"), dict):
-                row["object"] = cls._canonical_identity(row["object"])
-            identity = row.get("facts", {}).get("identity")
-            if isinstance(identity, dict) and isinstance(identity.get("object"), dict):
-                identity["object"] = cls._canonical_identity(identity["object"])
-        return result
+        return self._fit_page(normalize_object_identities(base), args)
 
     @staticmethod
     def _fit_page(base, arguments=None):
         facts = base.get("facts", [])
         original = len(facts)
         while (len(canonical(base)) > MAX_SOURCE_CHARS) or model_size(
-            base, arguments=arguments, context_enabled=True
+            base, arguments=arguments
         ) > MAX_TOOL_RESULT_CHARS - 4096:
             if len(facts) <= 1:
                 raise SurfaceError("Object facts exceed output bound; select fewer aspects or smaller detail")
@@ -468,7 +316,6 @@ class NativeStateReader:
         if native.get("kind") == "pawn":
             identity["is_prisoner_of_colony"] = membership.get("is_prisoner")
             identity["is_slave_of_colony"] = membership.get("is_slave")
-            identity["status"] = {"position": copy.deepcopy(native.get("position"))}
         else:
             identity["label"] = native.get("name")
         return identity

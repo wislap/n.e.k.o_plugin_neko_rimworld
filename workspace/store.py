@@ -6,10 +6,11 @@ import hashlib
 import json
 import sqlite3
 import uuid
+from contextlib import closing
 from pathlib import Path
 
-from .checkpoint_repository import CheckpointRepository, encode
-from .checkpoints import checkpoint_note, pointer
+from ..serialization import canonical as encode
+from .history import pointer
 
 
 class WorkspaceStore:
@@ -19,12 +20,7 @@ class WorkspaceStore:
     pretend it completed or automatically retry a possibly dispatched request.
     """
 
-    def __init__(self, path: Path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
-        self.db.row_factory = sqlite3.Row
-        self.db.execute("PRAGMA foreign_keys=ON")
-        self.db.executescript("""
+    SCHEMA = """
             CREATE TABLE IF NOT EXISTS workspaces (
                 id TEXT PRIMARY KEY, owner TEXT NOT NULL, focus TEXT NOT NULL,
                 work_state TEXT NOT NULL DEFAULT 'working'
@@ -57,14 +53,58 @@ class WorkspaceStore:
             CREATE TABLE IF NOT EXISTS workspace_deliveries (
                 turn_id TEXT PRIMARY KEY REFERENCES turns(id), payload TEXT NOT NULL
             );
-        """)
-        # Foundation databases remain readable. Upgrade only an active runtime
-        # database or a copied fixture; archived evidence is never opened here.
-        columns = {row["name"] for row in self.db.execute("PRAGMA table_info(workspaces)")}
-        if "work_state" not in columns:
-            with self.db:
-                self.db.execute("ALTER TABLE workspaces ADD COLUMN work_state TEXT NOT NULL DEFAULT 'working'")
-        self.checkpoints = CheckpointRepository(self.db)
+            CREATE TRIGGER IF NOT EXISTS sealed_turn
+                BEFORE UPDATE ON turns WHEN OLD.status NOT IN ('pending','running')
+                BEGIN SELECT RAISE(ABORT,'Terminal turn is immutable'); END;
+            CREATE TRIGGER IF NOT EXISTS sealed_observation
+                BEFORE UPDATE ON observations
+                BEGIN SELECT RAISE(ABORT,'Original observation is immutable'); END;
+        """
+
+    def __init__(self, path: Path):
+        if path.exists():
+            # Admission cannot write, repair or migrate an unsupported database.
+            with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as existing:
+                existing.row_factory = sqlite3.Row
+                self._validate_schema(existing)
+            self.db = sqlite3.connect(path.resolve().as_uri() + "?mode=rw", uri=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.db = sqlite3.connect(path)
+            self.db.executescript(self.SCHEMA)
+        self.db.row_factory = sqlite3.Row
+        try:
+            self._validate_schema(self.db)
+            self.db.execute("PRAGMA foreign_keys=ON")
+        except Exception:
+            self.db.close()
+            raise
+
+    @classmethod
+    def _validate_schema(cls, db):
+        """Require owned current structures; do not migrate or repair a database."""
+        required = {
+            "workspaces": {"id", "owner", "focus", "work_state"},
+            "turns": {"sequence", "id", "workspace_id", "question", "status", "result", "audit"},
+            "observations": {"turn_id", "observation_id", "payload", "sha256"},
+            "active_work": {"owner", "colony_id", "workspace_id"},
+            "workspace_deliveries": {"turn_id", "payload"},
+
+        }
+        try:
+            for table, columns in required.items():
+                present = {row["name"] for row in db.execute(f'PRAGMA table_info("{table}")')}
+                if not columns <= present:
+                    raise ValueError(f"Unsupported workspace schema: {table} requires current columns")
+            structures = {(row["type"], row["name"]) for row in db.execute("SELECT type,name FROM sqlite_master")}
+            if not {
+                ("index", "active_turn"), ("index", "workspace_turn_sequence"),
+                ("trigger", "sealed_turn"),
+                ("trigger", "sealed_observation"),
+            } <= structures:
+                raise ValueError("Unsupported workspace schema: current indices and immutability triggers are required")
+        except sqlite3.DatabaseError as error:
+            raise ValueError("Unsupported workspace database: current SQLite schema is required") from error
 
     def close(self):
         self.db.close()
@@ -293,56 +333,8 @@ class WorkspaceStore:
             offset=offset,
         )
 
-    def save_checkpoint(self, workspace_id, owner, through_turn, note, *, author="caller", checkpoint_id=None):
-        """Commit an append-only working note at a settled conversation boundary."""
-        note = checkpoint_note(note, current_turn=through_turn)
-        if author not in {"caller", "agent"}:
-            raise ValueError("Use caller or agent as the note author")
-        turn = self.turn(workspace_id, owner, through_turn)
-        with self.db:
-            if checkpoint_id is not None:
-                exists = self.db.execute("SELECT workspace_id FROM checkpoints WHERE id=?", (checkpoint_id,)).fetchone()
-                if exists is not None:
-                    if exists["workspace_id"] != workspace_id:
-                        raise ValueError("Checkpoint identity belongs to another workspace")
-                    saved = self.checkpoints.read(workspace_id, checkpoint_id=checkpoint_id)
-                    if saved["data"]["through_turn"] != through_turn or saved["data"]["author"] != author or any(
-                        saved["data"].get(key) != value for key, value in note.items()
-                    ):
-                        raise ValueError("Checkpoint retry differs from its original note")
-                    return saved
-            unfinished = self.db.execute(
-                "SELECT 1 FROM turns WHERE workspace_id=? AND sequence<=? AND status IN ('pending','running')",
-                (workspace_id, turn["sequence"]),
-            ).fetchone()
-            if unfinished:
-                raise ValueError("Unfinished input must not be covered by a checkpoint")
-            for anchor in note["anchors"]:
-                source = self.turn(workspace_id, owner, anchor["turn_id"])
-                if source["sequence"] > turn["sequence"]:
-                    raise ValueError("An anchor must belong to the checkpoint's covered history")
-                self.read(workspace_id, owner, anchor["turn_id"], observation_id=anchor["observation_id"])
-            data = {
-                **note,
-                "focus_at_checkpoint": self.focus(workspace_id, owner),
-                "through_turn": through_turn,
-                "author": author,
-                "verified_lesson": False,
-                "historical": True,
-                "current_observation": False,
-            }
-            saved = self.checkpoints.save(workspace_id, turn["sequence"], data, checkpoint_id=checkpoint_id)
-        return saved
 
-    def checkpoint(self, workspace_id, owner, *, before_turn=None, checkpoint_id=None):
-        self._authorize(workspace_id, owner)
-        before = self.turn(workspace_id, owner, before_turn)["sequence"] if before_turn else 2**63 - 1
-        return self.checkpoints.read(workspace_id, before=before, checkpoint_id=checkpoint_id)
 
-    def context_checkpoint(self, workspace_id, owner, *, before_turn):
-        self._authorize(workspace_id, owner)
-        before = self.turn(workspace_id, owner, before_turn)["sequence"]
-        return self.checkpoints.read(workspace_id, before=before, verify=False)
 
     def audit(self, workspace_id, owner, turn_id):
         """Public execution trace for offline evaluation, not a memory tool."""

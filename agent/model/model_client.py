@@ -18,7 +18,6 @@ from .streaming import SSEDecoder, StreamAssembler, StreamProtocolError
 
 DEFAULT_MODEL_TIMEOUT_SECONDS = 60.0
 DEFAULT_RUN_BUDGET_SECONDS = 90.0
-DEFAULT_PREFERRED_CYCLES = 4
 DEFAULT_MAX_OUTPUT_TOKENS = 32768
 DEFAULT_TEMPERATURE = 0.2
 MAX_MODEL_RESPONSE_BYTES = 8 * 1024 * 1024
@@ -48,7 +47,6 @@ class AgentModelSettings:
     api_key: str = field(default="", repr=False)
     request_timeout_seconds: float = DEFAULT_MODEL_TIMEOUT_SECONDS
     run_budget_seconds: float = DEFAULT_RUN_BUDGET_SECONDS
-    preferred_cycles: int = DEFAULT_PREFERRED_CYCLES
     max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS
     temperature: float = DEFAULT_TEMPERATURE
     connect_timeout_seconds: float = 10.0
@@ -79,7 +77,6 @@ class AgentModelSettings:
             "api_key_configured": self.api_key_configured,
             "request_timeout_seconds": self.request_timeout_seconds,
             "run_budget_seconds": self.run_budget_seconds,
-            "preferred_cycles": self.preferred_cycles,
             "max_output_tokens": self.max_output_tokens,
             "temperature": self.temperature,
             "connect_timeout_seconds": self.connect_timeout_seconds,
@@ -117,7 +114,6 @@ def build_agent_model_settings(
     api_key: object = "",
     request_timeout_seconds: object = DEFAULT_MODEL_TIMEOUT_SECONDS,
     run_budget_seconds: object = DEFAULT_RUN_BUDGET_SECONDS,
-    preferred_cycles: object = DEFAULT_PREFERRED_CYCLES,
     max_output_tokens: object = DEFAULT_MAX_OUTPUT_TOKENS,
     temperature: object = DEFAULT_TEMPERATURE,
     connect_timeout_seconds: object = 10.0,
@@ -150,11 +146,6 @@ def build_agent_model_settings(
     if not 10.0 <= run_budget <= 90.0:
         raise AgentConfigurationError("Agent run budget must be between 10 and 90 seconds.")
 
-    if isinstance(preferred_cycles, bool) or not isinstance(preferred_cycles, int):
-        raise AgentConfigurationError("Preferred cycles must be an integer.")
-    if not 2 <= preferred_cycles <= 12:
-        raise AgentConfigurationError("Preferred cycles must be between 2 and 12.")
-
     if isinstance(max_output_tokens, bool) or not isinstance(max_output_tokens, int):
         raise AgentConfigurationError("Agent output token limit must be an integer.")
     if not 64 <= max_output_tokens <= 131072:
@@ -185,7 +176,6 @@ def build_agent_model_settings(
         api_key=normalized_key,
         request_timeout_seconds=request_timeout,
         run_budget_seconds=run_budget,
-        preferred_cycles=preferred_cycles,
         max_output_tokens=max_output_tokens,
         temperature=normalized_temperature,
         stream_include_usage=stream_include_usage,
@@ -199,7 +189,7 @@ def parse_agent_model_settings(config: object) -> tuple[AgentModelSettings, list
     plugin_config = plugin_section if isinstance(plugin_section, Mapping) else {}
     agent_section = plugin_config.get("agent")
     agent = agent_section if isinstance(agent_section, Mapping) else {}
-    for name in ("review_before_delivery", "allow_text_completion", "prepared_calls"):
+    for name in ("review_before_delivery", "allow_text_completion", "prepared_calls", "preferred_cycles"):
         if name in agent:
             return AgentModelSettings(), [f"{name} is retired; remove it from the agent configuration."]
     if not agent:
@@ -217,7 +207,6 @@ def parse_agent_model_settings(config: object) -> tuple[AgentModelSettings, list
                 api_key=key_value,
                 request_timeout_seconds=agent.get("request_timeout_seconds", DEFAULT_MODEL_TIMEOUT_SECONDS),
                 run_budget_seconds=agent.get("run_budget_seconds", DEFAULT_RUN_BUDGET_SECONDS),
-                preferred_cycles=agent.get("preferred_cycles", DEFAULT_PREFERRED_CYCLES),
                 max_output_tokens=agent.get("max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
                 temperature=agent.get("temperature", DEFAULT_TEMPERATURE),
                 connect_timeout_seconds=agent.get("connect_timeout_seconds", 10.0),

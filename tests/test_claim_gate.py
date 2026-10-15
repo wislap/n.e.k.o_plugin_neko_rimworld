@@ -60,7 +60,7 @@ def test_resubmitting_a_supported_claim_succeeds_and_lifts_the_block():
 
 
 def test_corrected_claim_then_length_error_uses_small_repair_without_bypassing_checks():
-    session = AgentRunSession.create(ledger=_ledger(), system_prompt="s", question="q")
+    session = AgentRunSession.create(ledger=_ledger(), question="q")
     session.observations.append(observation_without_identity())
     session.messages.append({"role": "tool", "content": "LARGE ORIGINAL EVIDENCE"})
     with pytest.raises(SubmissionPatchError) as rejected:
@@ -81,7 +81,7 @@ def test_corrected_claim_then_length_error_uses_small_repair_without_bypassing_c
 
 def test_fallback_never_re_emits_a_refused_sentence():
     """实测缺陷：检查原本跑在文本赋值之后，被拒的句子会经降级路径原样交付。"""
-    session = AgentRunSession.create(ledger=_ledger(), system_prompt="s", question="q")
+    session = AgentRunSession.create(ledger=_ledger(), question="q")
     session.observations.append(observation_without_identity())
     with pytest.raises(SubmissionPatchError):
         session.submission.apply({"answer": "他是我们的殖民者。"}, observations=session.observations)

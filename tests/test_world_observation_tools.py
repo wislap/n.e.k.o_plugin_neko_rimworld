@@ -1,3 +1,4 @@
+from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 import asyncio
 import copy
 
@@ -74,7 +75,7 @@ def test_capability_registration_dispatch_and_raw_evidence():
         assert len(raw["pawn"]["conditions"]) == 1
     assert [r["operation"] for r in requests] == list(NAMES)
     assert len(session.observations) == 3 and source == before
-    assert "evaluate_activity" in adapter.prompt(4)
+    assert "evaluate_activity" in build_system_prompt()
     adapter.finalizing = True
     assert [t.name for t in adapter.tools()] == ["submit_response"]
 

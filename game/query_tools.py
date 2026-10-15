@@ -36,46 +36,12 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
     async def read(arguments):
         return await query({"operation": "query", "arguments": copy.deepcopy(arguments)})
 
-    async def describe(arguments):
-        result = await query({"operation": "describe_query", "arguments": copy.deepcopy(arguments)})
-        if not isinstance(result, Observation):
-            raise ToolExecutionError("invalid_schema", "Expected schema metadata.")
-        payload = result.value["response"]["payload"]
-        if payload.get("status") != "ok":
-            raise ToolExecutionError(
-                payload.get("error_code") or "schema_unavailable", payload.get("message") or "Metadata unavailable."
-            )
-        data = payload.get("data", {})
-        if data.get("metadata_only") is not True or data.get("schema_id") != catalog["schema_id"]:
-            raise ToolExecutionError("schema_changed", "Query directory changed; start a fresh consultation.")
-        return copy.deepcopy(data)
-
     directory = {
         key: public[key]
         for key in ("roots", "rules", "common_fields", "field_index", "field_notes", "value_domains", "examples")
         if key in public
     }
     directory["public_query_version"] = public["version"]
-    spatial_tools = ()
-    capability = catalog.get("spatial_query")
-    if (
-        isinstance(capability, dict)
-        and capability.get("version") == "spatial_query.v1"
-        and isinstance(capability.get("parameters"), dict)
-    ):
-        directory["spatial_query"] = copy.deepcopy(capability)
-
-        async def spatial(arguments):
-            return await query({"operation": "spatial_query", "arguments": copy.deepcopy(arguments)})
-
-        spatial_tools = (
-            ToolSpec(
-                "spatial_query",
-                capability.get("description", "Native reachability"),
-                copy.deepcopy(capability["parameters"]),
-                spatial,
-            ),
-        )
     world_tools = []
     world = catalog.get("world_observation")
     if isinstance(world, dict) and world.get("version") == WORLD_OBSERVATION_VERSION:
@@ -115,21 +81,6 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
         directory["native_behavior"] = copy.deepcopy(behavior)
     if isinstance(catalog.get("game_implementation"), dict):
         directory["game_implementation"] = copy.deepcopy(catalog["game_implementation"])
-    context_blocks = (
-        (
-            "catalog",
-            "Game query directory ("
-            + catalog["schema_id"]
-            + "):\n"
-            + json.dumps(directory, ensure_ascii=False, separators=(",", ":")),
-        ),
-        ("reminder_completion", "\nAnswer once the requested facts are known; read more only for an unresolved fact."),
-        (
-            "reminder_domain",
-            " Native capability flags and category trees are not interchangeable. Never use CountAsResource/readout membership as a default filter for all possessions.",
-        ),
-        ("reminder_scope", " Report the actual requested scope and preserve unknown versus zero."),
-    )
     return ToolSetup(
         tools=(
             ToolSpec(
@@ -138,25 +89,9 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
                 copy.deepcopy(public["parameters"]),
                 read,
             ),
-            ToolSpec(
-                "describe_query",
-                "Read canonical fields, native semantics, arguments and supported operations when needed information is missing from the directory. An indexed field name alone does not establish its meaning or allowed values. Metadata only; skip this call when the needed syntax and semantics are already known.",
-                {
-                    "type": "object",
-                    "properties": {
-                        "types": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 8}
-                    },
-                    "required": ["types"],
-                    "additionalProperties": False,
-                },
-                describe,
-            ),
         )
-        + spatial_tools
         + tuple(world_tools),
-        context="".join(text for _, text in context_blocks),
         directory=copy.deepcopy(directory),
-        context_blocks=context_blocks,
     )
 
 
@@ -177,9 +112,7 @@ class CatalogTools:
             if bridge is None or epoch is None:
                 self._key = None
                 self._catalog = None
-                return ToolSetup(
-                    (), "Game query tools are unavailable: no authenticated game connection. Do not invent live state."
-                )
+                return ToolSetup(())
             key = (bridge, epoch)
             if key != self._key:
                 self._catalog = None
@@ -206,10 +139,8 @@ class CatalogTools:
                     self._validate(catalog)
                     self._catalog = copy.deepcopy(catalog)
                     self._key = key
-                except ToolExecutionError as error:
-                    return ToolSetup(
-                        (), "Game query tools are unavailable: " + str(error) + " Do not invent live state."
-                    )
+                except ToolExecutionError:
+                    return ToolSetup(())
             assert self._catalog is not None
 
             # Bind tools to this connection. A reconnect requires a new run/schema, not silent reuse.

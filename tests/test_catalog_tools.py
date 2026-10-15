@@ -25,10 +25,10 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def test_nonreference_prompt_separates_short_conclusion_from_complete_facts():
     from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 
-    prompt = build_system_prompt(4)
-    assert "Finish explicitly with submit_response" in prompt
-    assert "detail holds the remaining requested findings and evidence" in prompt
-    assert "180 tokens" in prompt and "12000 characters" in prompt
+    prompt = build_system_prompt()
+    assert "Finish through submit_response" in prompt
+    assert "detail contains only the remaining findings" in prompt
+    assert "maximum 180" in prompt and "12000 characters" in prompt
     assert "Pure factual answers can contain only reference parts" not in prompt
 
 
@@ -59,13 +59,13 @@ async def test_public_query_replaces_legacy_tools_without_changing_observations(
         return Observation.from_response(arguments["operation"], arguments["arguments"], response())
 
     setup = make_game_tools(source, query)
-    assert [t.name for t in setup.tools] == ["query", "describe_query", "spatial_query", "survey_space", "inspect_route", "inspect_state"]
+    assert [t.name for t in setup.tools] == ["query", "survey_space", "inspect_route", "inspect_state"]
     arguments = {"requests": [{"from": "things", "aggregate": {"units": {"op": "sum", "field": "stack_count"}}}]}
     observed = await setup.tools[0].handler(arguments)
     assert calls == [{"operation": "query", "arguments": arguments}]
     assert observed.value["response"] == response().to_dict()
-    assert "type Pawn {" not in setup.context
-    assert '"field_notes"' in setup.context and "not a causal explanation" in setup.context
+    assert setup.directory["field_notes"] == source["public_query"]["field_notes"]
+    assert "Use coverage before interpreting missing values" in setup.tools[0].description
 
 
 def _public_source(**public):
@@ -113,7 +113,7 @@ async def test_catalog_cache_singleflight_reconnect_and_bound_tools():
     provider = CatalogTools(lambda: bridge, query)
     a, b = await asyncio.gather(provider.load(), provider.load())
     assert len(requests) == 1
-    assert a.context == b.context
+    assert a.directory == b.directory
     bridge.connection_key = "8" * 32
     with pytest.raises(ToolExecutionError, match="connection changed"):
         await a.tools[0].handler({"requests": []})
@@ -121,7 +121,7 @@ async def test_catalog_cache_singleflight_reconnect_and_bound_tools():
     assert len(requests) == 2
     bridge.connection_key = None
     offline = await provider.load()
-    assert not offline.tools and "unavailable" in offline.context
+    assert not offline.tools and offline.directory is None
 
 
 @pytest.mark.asyncio
@@ -134,17 +134,22 @@ async def test_catalog_failure_does_not_publish_stale_descriptions():
 
     provider = CatalogTools(lambda: Bridge(), query)
     setup = await provider.load()
-    assert not setup.tools and "No game loaded" in setup.context
+    assert not setup.tools and setup.directory is None
 
 
 
 
 @pytest.mark.asyncio
 async def test_terminal_batch_cannot_submit_before_observation_is_seen():
-    async def query(args):
-        return Observation.from_response(args["operation"], args["arguments"], response())
+    from .test_capability_composition import native_observation
 
-    setup = make_game_tools(_public_source(), query)
+    async def query(args):
+        return native_observation(args["arguments"])
+
+    setup = make_game_tools(catalog(), query)
+
+    async def provide():
+        return setup
 
     class Model:
         count = 0
@@ -158,22 +163,25 @@ async def test_terminal_batch_cannot_submit_before_observation_is_seen():
                     "tool_calls",
                     "",
                     (
-                        ToolCall("q", "query", '{"document":"{game{paused}}"}'),
+                        ToolCall("q", "count", '{"object":{"kind":"things"},"metric":"records"}'),
                         submission_call("Premature", "Premature"),
                     ),
                 )
             results = [json.loads(m["content"]) for m in messages if m["role"] == "tool"]
             assert results[-1]["error"]["code"] == "terminal_tool_must_be_alone"
+            observed = next(json.loads(m["content"]) for m in messages if m.get("name") == "count")
+            assert observed["ok"] and "data" in observed
             return AssistantTurn("r", "m", "tool_calls", "", (submission_call("Observed", "Observed"),))
 
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider(list(setup.tools[:2])),
+        tools_provider=provide,
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: Model(),
     )
     result = await runtime.run("Inspect", settings())
     assert result["answer"] == "Observed" and result["audit"]["model_calls"] == 2
+    assert len(result["observations"]) == 1
 
 
 
@@ -195,4 +203,4 @@ def test_public_catalog_does_not_require_retired_template_contracts():
     for key in ("schema", "query_rules", "template_parameters", "query_parameters", "type_index", "query_roots"):
         source.pop(key, None)
     CatalogTools._validate(source)
-    assert [tool.name for tool in make_game_tools(source, _noop_query).tools] == ["query", "describe_query", "spatial_query", "survey_space", "inspect_route", "inspect_state"]
+    assert [tool.name for tool in make_game_tools(source, _noop_query).tools] == ["query", "survey_space", "inspect_route", "inspect_state"]

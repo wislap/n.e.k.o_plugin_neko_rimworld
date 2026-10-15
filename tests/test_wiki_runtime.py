@@ -13,10 +13,9 @@ import pytest
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.message_contracts import ToolCall
-from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WIKI_GUIDANCE
+from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import wiki_spec
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
-from plugin.plugins.neko_rimworld.tool_contracts import ToolSetup, ToolSpec
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.reports import ReportStore
 
@@ -63,17 +62,7 @@ def wiki_tool(data, after_read=None):
             after_read()
         return copy.deepcopy(data)
 
-    return ToolSpec(
-        "wiki",
-        WIKI_GUIDANCE,
-        {
-            "type": "object",
-            "properties": {"query": {"type": "string"}},
-            "required": ["query"],
-            "additionalProperties": False,
-        },
-        read,
-    )
+    return wiki_spec(read)
 
 
 @pytest.fixture(params=["semantic"])
@@ -206,7 +195,7 @@ async def test_wiki_does_not_license_identity_or_ownership(runtime_factory, clai
 
 @pytest.mark.asyncio
 async def test_session_retains_first_sixteen_knowledge_results_and_counts_omissions():
-    session = AgentRunSession.create(ledger=AgentAuditLedger("definitions"), system_prompt="test", question="test")
+    session = AgentRunSession.create(ledger=AgentAuditLedger("definitions"), question="test")
     registry = ToolRegistry()
     registry.register(wiki_tool(definition()))
     for index in range(19):
@@ -237,12 +226,12 @@ async def test_audit_capacity_on_wiki_completion_keeps_knowledge(monkeypatch):
     monkeypatch.setattr(audit, "MAX_EVENTS_PER_RUN", 9)
     model = ScriptedModel([turn("", ToolCall("wiki-1", "wiki", '{"query":"Steel"}'))])
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([wiki_tool(definition())]),
+        tools_provider=semantic_tool_provider(),
         audit_registry=AgentAuditRegistry(),
         logger=FakeLogger(),
         model_factory=lambda _: model,
     )
-    result = await runtime.run("查询 Steel。", settings())
+    result = await runtime.run("查询 Steel。", settings(), capabilities=(wiki_tool(definition()),))
 
     assert result["status"] == "degraded"
     assert result["audit"]["error_code"] == "audit_capacity_reached"

@@ -24,6 +24,10 @@ With the required current public-query and native-world contracts, the model see
 
 Ordinary JSON retains sample, actor/user/stage/scope, unknown and partial states. Same-read identities and equal parent fields may inherit; environment_shared has local overrides and preserves path/corridor separation. Full native observations remain in the audit. The diagnostics include escape route is not supported.
 
+Every supported game read uses the same context projection; `context_enabled` is no longer an accepted internal argument. Work-table summaries and their same-sample pagination have an independent owner, so context projection does not import the native state reader.
+
+Look identities expose cells only through `location.position` and `location.held_position`. Activity object/source identities use the same projection when position facts are present. Unknown locations stay explicit in look; own and held cells keep their separate maps. Root/status position copies and cell `map_id` aliases are removed from the model-facing identity. Selection `map_id`, native `map_held`, all original observations and request scopes retain their distinct meanings.
+
 ## Configuration and migration
 
 Keep model endpoint/name/key, deadlines, output length, temperature and pairing configuration in `config.example.toml`. The model is user-configured; the experiment model is not hard-coded.
@@ -83,9 +87,9 @@ returns a structured `degraded` result instead of stopping the plugin.
 
 ## Work, delivery and audit
 
-Valid caller/colony identity binds persistent work; missing identity or retained work falls back to a standalone consultation. Turns for the same role and colony serialize. History is attached as historical evidence; workspace_history is published only for existing history/checkpoints or an explicit report ID. Reports and exchanges save automatically. No autonomous observation or learning is implied.
+Valid caller/colony identity binds persistent work; missing identity or retained work falls back to a standalone consultation. Turns for the same role and colony serialize. History is attached as historical evidence; workspace_history is published only for existing history or an explicit report ID. Reports and exchanges save automatically. No autonomous observation or learning is implied.
 
-A failed submission retains valid draft fields. Pure short-answer length repair sends answer only and preserves detail; other invalid claims keep research evidence. Research closes near the deadline and only submission remains. preferred_cycles is guidance, not a hard model-call limit. Existing deadlines and tool/result size bounds remain.
+A failed submission retains valid draft fields. Pure short-answer length repair sends answer only and preserves detail; other invalid claims keep research evidence. Research closes near the deadline and only submission remains. Existing deadlines and tool/result size bounds remain.
 
 Live text answer is limited to180 tokens and answer+detail to12000 characters. Full reports, raw evidence, failures, usage and incomplete status remain visible. Saved reports use their retained full_text; retrieval does not run a reference renderer or the old submission protocol.
 
@@ -99,3 +103,13 @@ Retired experiments are under `rimworld-bench-archive/code-20261013/`. Source ve
 Production reads have one current native-state path. Historical no-state connections, the old public `inspect_space` interface and its ranking implementation are removed; activity comparisons retain the current native route/state readers and actor/user/stage scope bindings. Manual overview probes batch game/map facts in one public query. Existing historical data and frozen runners remain unchanged and require their original sealed implementation.
 
 Query-backed selection, mood/profile, resources and population measures are separate from native physical state/Pawn facts. Each public tool is built by its business owner before generic schema serialization; context processing does not rewrite tool semantics. The mixed look adapter and obsolete query Pawn-fact planners are removed. Current catalogs advertising the retired `production` selection alias are rejected even if they retain the supported version numbers; use a matching rebuilt Mod with `bill_giver`. The physical `state.production` facet remains supported. This source cleanup does not certify or promote a new content-quality baseline, and does not deploy the game DLL.
+
+Current tool setup carries only the negotiated tool handlers, query directory and pinned knowledge view. There is no catalog/wiki/mechanism prompt assembly in setup; actual tool descriptions remain the model-facing guidance. Caller-owned work capabilities enter only through `AgentRunSession.capabilities`; they are absent during finalization, and duplicate game/work tool names are rejected. Caller history and native actor/user context keep their original roles.
+
+Workspace storage owns ordinary exchanges, original observations and delivery records. Current schemas and immutable terminal records are required; unsupported schemas fail without migration or reset. Working-note persistence and its history truncation, source digests, tool action and panel have been retired. Existing database files are never rewritten for this removal. Historical implementations remain sealed outside the current tree.
+
+Session context projection is mandatory. A caller-supplied current `ContextPruner` is retained; `None` and invalid supplied instances reject. Semantic admission uses the actual interaction factory exclusively; the test-only boolean availability API is removed.
+
+The current consultation prompt is authored only in `agent/runtime/prompt.py`. Session creation binds its research policy and work identity once; finalization changes only the phase policy. Prepared callers supply the question, ordinary context and work identity, with no alternate system-prompt option. Query discovery and the overlapping standalone spatial backend are retired; activity and native world reads retain their existing roles.
+
+`preferred_cycles` has been retired: it did not control research or model calls. Configurations and settings writes containing that key are rejected; remove it explicitly. Research remains bounded by the existing deadlines, finalization reserve and tool/result limits. No cycle-count cutoff replaces it.

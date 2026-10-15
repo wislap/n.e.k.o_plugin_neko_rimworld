@@ -21,10 +21,6 @@ def make_history_tool(*, storage=None, workspace_id=None, owner=None, turn_id=No
                     result.update(await storage.call("history", workspace_id, owner, before_turn=turn_id, offset=offset, limit=limit))
                 if report_store is not None and workspace_id is not None:
                     result.update(await asyncio.to_thread(report_store.list, offset, limit, workspace_id=workspace_id))
-            elif action == "checkpoint":
-                if storage is None:
-                    raise ValueError("No bound work checkpoint is available")
-                result = {"checkpoint": await storage.call("checkpoint", workspace_id, owner, before_turn=turn_id, checkpoint_id=args.get("checkpoint_id"))}
             elif action == "read":
                 if args.get("report_id"):
                     if args.get("turn_id") or args.get("paths"):
@@ -60,18 +56,18 @@ def make_history_tool(*, storage=None, workspace_id=None, owner=None, turn_id=No
                         raise ValueError("Only earlier turns are available as history")
                     result = await storage.call("read", workspace_id, owner, args["turn_id"], observation_id=args.get("observation_id"), paths=args.get("paths"))
             else:
-                raise ValueError("Use list, read or checkpoint")
+                raise ValueError("Use list or read")
         except (ReportError, OSError, KeyError, ValueError) as error:
             raise ToolExecutionError("workspace_history_invalid", str(error)) from error
         return {**result, "historical": True, "current_observation": False}
 
     return ToolSpec(
         "workspace_history",
-        "Historical work/reports, not current game facts. list discovers records in this work; read accepts turn_id or report_id and optional observation_id/report index; checkpoint reads an existing note. Another work's report requires its exact ID in the question. Exchanges save automatically.",
+        "Historical work/reports, not current game facts. list discovers records in this work; read accepts turn_id or report_id and optional observation_id/report index. Another work's report requires its exact ID in the question. Exchanges save automatically.",
         {"type": "object", "properties": {
-            "action": {"type": "string", "enum": ["list", "read", "checkpoint"]},
+            "action": {"type": "string", "enum": ["list", "read"]},
             "turn_id": {"type": "string"}, "report_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
-            "observation_id": {"type": "string"}, "checkpoint_id": {"type": "string"},
+            "observation_id": {"type": "string"},
             "index": {"type": "integer", "minimum": 0},
             "paths": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 16},
             "offset": {"type": "integer", "minimum": 0, "maximum": 1000},

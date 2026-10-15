@@ -349,7 +349,7 @@ def test_root_description_keyword_tokens_and_arbitrary_facts(tmp_path):
     result = store_from_directory(tmp_path).query("comfort speed")
     assert result["status"] == "found"
     assert result["entries"][0]["facts"] == [custom]
-    assert "keyword lookup" in wiki_tools.WIKI_GUIDANCE
+    assert "Lookup local definitions by keywords/key" in wiki_tools.wiki_spec(None).description
 
 
 @pytest.mark.parametrize("text", ["长" * 4096, "\x00" * 4096, "X" * 4096])

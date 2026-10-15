@@ -58,7 +58,7 @@ owns drafts and handoff; `agent/reference` owns knowledge lookup.
 `game/` owns transport and native directory negotiation; `workspace/` owns durable
 work; `ui/` owns the Hosted panel. Shared serialization, tool contracts and model
 message contracts have unique modules outside Agent. Importing game tools or
-checkpoint persistence does not initialize the model/runtime/world packages.
+workspace history persistence does not initialize the model/runtime/world packages.
 
 ## Verification and preserved evidence
 

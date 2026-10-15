@@ -150,7 +150,11 @@ def test_evidence_is_exact_and_hash_checked(tmp_path):
     assert view["observation"] == source and view["historical"] and not view["current_observation"]
     # Corrupt a disposable fixture, never an archived experiment or real work.
     with sqlite3.connect(path) as db:
+        trigger = db.execute("SELECT sql FROM sqlite_master WHERE name='sealed_observation'").fetchone()[0]
         db.execute("DROP TRIGGER sealed_observation")
         db.execute("UPDATE observations SET payload='{}'")
+        # Keep the supported schema so this test exercises evidence integrity,
+        # rather than the separate missing-trigger admission failure.
+        db.execute(trigger)
     with pytest.raises(ValueError, match="hash check"):
         WorkspaceViews(path).read("observation", workspace_id=wid, turn_id=tid, observation_id="source")

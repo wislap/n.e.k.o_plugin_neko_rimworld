@@ -106,12 +106,12 @@ async def test_arbitrary_tool_and_multiple_observations_survive_model_and_audit(
             return AssistantTurn("r", "m", "tool_calls", "", (ToolCall("submit", "submit_response", json.dumps({"answer": "The requested observation is available."})),))
 
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([ToolSpec("future_reader", "test", {"type": "object"}, handler)]),
+        tools_provider=semantic_tool_provider(),
         audit_registry=registry,
         logger=FakeLogger(),
         model_factory=lambda _: Model(),
     )
-    result = await runtime.run("Inspect the requested data", settings())
+    result = await runtime.run("Inspect the requested data", settings(), capabilities=tuple([ToolSpec("future_reader", "test", {"type": "object"}, handler)]))
     assert result["status"] == "ok"
     assert len(result["observations"]) == 2
     assert result["observations"][0]["response"]["load_epoch"] != result["observations"][1]["response"]["load_epoch"]

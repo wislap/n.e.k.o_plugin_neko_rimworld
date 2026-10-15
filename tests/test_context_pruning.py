@@ -1,5 +1,4 @@
 
-from .consultation_setup import semantic_tool_provider
 import copy
 import json
 
@@ -7,13 +6,15 @@ import pytest
 
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner, prune
 from plugin.plugins.neko_rimworld.agent.context.model_context import make_pruner
-from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
+
+from .consultation_setup import semantic_tool_provider
 
 
 def work_reading():
-    from plugin.plugins.neko_rimworld.agent.world.native_state import summarize_work_assignments
+    from plugin.plugins.neko_rimworld.agent.world.work_assignments import summarize_work_assignments
 
     facts = [{"object": {"id": "Doctor"}, "state_sample": {"tick": 8, "observation_id": "work-read"},
               "facts": {"work": {"status": "observed", "work_types_complete": True,
@@ -99,7 +100,8 @@ async def test_threat_projection_keeps_payload_scope_and_audit_without_extra_rea
     registry = ToolRegistry()
     registry.register(ToolSpec("inspect_threats", "Threat facts", {}, read))
     unchanged = await registry.execute(registry.prepare(ToolCall("two", "inspect_threats", "{}")))
-    assert unchanged.model_content is None and unchanged.value["data"] == raw
+    assert unchanged.model_content == result.model_content
+    assert unchanged.value["data"] == raw and unchanged.observation == raw
 
 
 def test_unknown_native_envelope_fields_are_not_silently_lost():
@@ -250,12 +252,11 @@ def test_sample_aliases_and_known_format_prose_only_are_removed():
 
 
 def test_pruned_work_input_retains_zero_priority_rule_in_its_model_policy():
-    from plugin.plugins.neko_rimworld.agent.context.context_tools import task_prompt
     from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
     from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
     session = AgentRunSession.create(ledger=AgentAuditLedger("q"),
-        system_prompt=task_prompt(4), question="Compare Doctor work priorities.")
+        question="Compare Doctor work priorities.")
     value = work_reading()
     value["data"]["facts"][0]["facts"]["work"]["work_types"][0]["priority"] = 0
     value["data"].pop("work_assignments")
@@ -452,7 +453,7 @@ def test_length_only_repair_does_not_replay_world_or_detail_and_never_hides_clai
     from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
     from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
-    session = AgentRunSession.create(ledger=AgentAuditLedger("question"), system_prompt="policy", question="question")
+    session = AgentRunSession.create(ledger=AgentAuditLedger("question"), question="question")
     session.messages.append({"role": "tool", "content": "LARGE WORLD DATA"})
     session.submission.answer = "A conditional answer; B remains unknown."
     session.submission.detail = "SAVED FULL REPORT"
@@ -495,7 +496,7 @@ async def test_runtime_length_repair_uses_one_small_request_and_preserves_full_r
 
     model = Model()
     runtime = AgentRuntime(
-        tools_provider=semantic_tool_provider([]), audit_registry=AgentAuditRegistry(), logger=FakeLogger(), model_factory=lambda _: model
+        tools_provider=semantic_tool_provider(), audit_registry=AgentAuditRegistry(), logger=FakeLogger(), model_factory=lambda _: model
     )
     result = await runtime.run("Answer with detail.", settings())
     assert result["status"] == "ok" and model.calls == 2

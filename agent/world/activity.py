@@ -14,8 +14,9 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from ...schema_serialization import schema_contract
-from ..context.model_context import MAX_SOURCE_CHARS, model_size
 from ...tool_contracts import MAX_TOOL_RESULT_CHARS, ToolExecutionError, ToolSpec
+from ..context.model_context import MAX_SOURCE_CHARS, model_size
+from .object_identity import canonical_object_identity
 
 MAX_ACTORS, MAX_DESTINATIONS, MAX_PAIRS = 4, 8, 16
 MAX_NATIVE_READS = MAX_PAIRS * 3 + MAX_ACTORS
@@ -415,16 +416,18 @@ def _compact_identity(value):
         "id",
         "kind",
         "name",
-        "map",
         "map_id",
-        "position",
-        "held_position",
+        "location",
         "spawned",
         "is_free_colonist",
         "is_prisoner_of_colony",
         "is_slave_of_colony",
     )
+    has_location = any(key in value for key in ("location", "position", "held_position", "spawned"))
+    value = canonical_object_identity(value)
     result = {key: copy.deepcopy(value[key]) for key in keys if key in value}
+    if not has_location:
+        result.pop("location", None)
     if "definition" in value:
         result["definition"] = copy.deepcopy(value["definition"])
     return result
@@ -699,7 +702,7 @@ async def evaluate_activity(arguments, source: ActivityDataSource):
         # every completed read and mark only the next work as not computed.
         sized = {"tool": "evaluate_activity", "data": result}
         if (len(_key(result)) > MAX_SOURCE_CHARS) or model_size(
-            sized, arguments=arguments, context_enabled=True
+            sized, arguments=arguments
         ) > MAX_TOOL_RESULT_CHARS - 8_000:
             reads[read_id] = dict(
                 status="partial",

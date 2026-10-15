@@ -701,6 +701,8 @@ class NekoRimworldPlugin(NekoPluginBase):
                     code="ui_only",
                 )
             )
+        if "preferred_cycles" in _ or (isinstance(budgets, dict) and "preferred_cycles" in budgets):
+            return Err(SdkError("preferred_cycles is retired; remove it from the agent configuration.", code="invalid_agent_settings"))
         if not isinstance(base_url, str) or not isinstance(model, str) or not isinstance(api_key, str):
             return Err(SdkError("Agent settings must be text values.", code="invalid_agent_settings"))
         allowed_budgets = {
@@ -724,7 +726,6 @@ class NekoRimworldPlugin(NekoPluginBase):
                 api_key=effective_key,
                 request_timeout_seconds=selected_budgets["request_timeout_seconds"],
                 run_budget_seconds=selected_budgets["run_budget_seconds"],
-                preferred_cycles=self._agent_settings.preferred_cycles,
                 max_output_tokens=selected_budgets["max_output_tokens"],
                 temperature=self._agent_settings.temperature,
                 connect_timeout_seconds=selected_budgets["connect_timeout_seconds"],
@@ -746,7 +747,6 @@ class NekoRimworldPlugin(NekoPluginBase):
                             "api_key": next_settings.api_key,
                             "request_timeout_seconds": next_settings.request_timeout_seconds,
                             "run_budget_seconds": next_settings.run_budget_seconds,
-                            "preferred_cycles": next_settings.preferred_cycles,
                             "max_output_tokens": next_settings.max_output_tokens,
                             "temperature": next_settings.temperature,
                             "connect_timeout_seconds": next_settings.connect_timeout_seconds,

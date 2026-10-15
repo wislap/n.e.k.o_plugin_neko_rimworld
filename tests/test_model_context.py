@@ -20,7 +20,7 @@ def no_retired_environment(monkeypatch):
 
 
 def test_default_session_has_json_projection_without_environment():
-    session = AgentRunSession.create(ledger=AgentAuditLedger("question"), system_prompt="system", question="question")
+    session = AgentRunSession.create(ledger=AgentAuditLedger("question"), question="question")
     assert session.context_pruner is not None
     assert not hasattr(session, "policy") and not hasattr(session, "input_budget")
 
@@ -33,10 +33,10 @@ def test_every_retired_environment_key_is_rejected_by_presence(monkeypatch, name
         validate_deployment()
     # A default session, with no model configuration at all, must also fail.
     with pytest.raises(ValueError, match=name + " is retired"):
-        AgentRunSession.create(ledger=AgentAuditLedger("question"), system_prompt="system", question="question")
+        AgentRunSession.create(ledger=AgentAuditLedger("question"), question="question")
 
 
-@pytest.mark.parametrize("name", ["review_before_delivery", "allow_text_completion", "prepared_calls"])
+@pytest.mark.parametrize("name", ["review_before_delivery", "allow_text_completion", "prepared_calls", "preferred_cycles"])
 @pytest.mark.parametrize("value", [None, False, True, "", " ", 0, 1, [], {}])
 @pytest.mark.parametrize("configured", [False, True])
 def test_retired_agent_key_cannot_hide_behind_an_empty_model(name, value, configured):
@@ -54,7 +54,6 @@ def test_current_model_configuration_is_unchanged():
         "api_key": "",
         "request_timeout_seconds": 50.0,
         "run_budget_seconds": 80.0,
-        "preferred_cycles": 5,
         "max_output_tokens": 4096,
         "temperature": 0.5,
         "connect_timeout_seconds": 3.0,

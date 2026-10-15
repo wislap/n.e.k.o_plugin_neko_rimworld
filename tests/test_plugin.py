@@ -920,3 +920,15 @@ async def test_budget_settings_persist_validate_and_keep_existing_credentials():
     dashboard = await plugin.dashboard_ui_context()
     assert dashboard["configuration"]["agent_budgets"]["request_timeout_seconds"] == 40
     assert "private-key" not in json.dumps(dashboard)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("arguments", [{"preferred_cycles": 4}, {"budgets": {"preferred_cycles": 4}}])
+async def test_settings_write_rejects_retired_cycle_option_without_persisting(arguments):
+    plugin, _ = make_plugin({})
+    result = await plugin.save_agent_settings(
+        base_url="https://example.com/v1", model="test", ui_nonce=plugin._settings_action_nonce, **arguments,
+    )
+    assert result.error.code == "invalid_agent_settings"
+    assert "preferred_cycles is retired" in str(result.error)
+    assert plugin.config.updates == []

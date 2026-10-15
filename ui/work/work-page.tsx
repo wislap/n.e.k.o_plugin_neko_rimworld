@@ -45,11 +45,6 @@ export function WorkPage({ c, state, openAudit }: { c: WorkController; state: Da
         </Stack> : <EmptyState title="选择一个工作" />}
       </Stack></Card>
     </Grid>
-    {work?.checkpoint ? <Card title="工作笔记"><Stack>
-      <Alert tone="info">这是未经验证的工作交接笔记，属于历史资料。</Alert>
-      <TextBlock text={work.checkpoint.data.work_note} />
-      {work.checkpoint.data.open_questions?.length ? <TextBlock text={"尚待解决：\n" + work.checkpoint.data.open_questions.join("\n")} /> : null}
-    </Stack></Card> : work ? <TextBlock text="尚无工作笔记，可从调查往来了解此前进展。" /> : null}
     {exchange ? <Card title="这次调查的结果"><Stack>
       <TextBlock text={exchange.question} />
       <StatusBadge tone={status === "ok" ? "success" : "warning"} label={exchangeLabel(status, !!active)} />
