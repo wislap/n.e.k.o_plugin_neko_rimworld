@@ -1,4 +1,11 @@
-# World, faction, quest, trade and research consultation
+# v3.2 world, faction, quest, trade and research consultation
+
+The v3.2 product source uses version `3.2.0` in plugin, Mod and bench metadata.
+It also includes the selected situation background: one bounded projection of at
+most 1,000 tokens, backed by a connection-owned 30,000-game-tick snapshot cache.
+That sampled background is separate from the fresh requested facts below; it is
+not a complete inventory, task, research or world-state response. Source version
+alignment does not publish packages or deploy a game DLL.
 
 These capabilities share the existing `rimworld_consult(question)` runtime,
 ordinary JSON projection, observation audit, history and full report. They are
@@ -115,5 +122,21 @@ such as an incomplete quote remains visible separately from transport success.
 Native calculations are synchronous within the shared frame-operation lifetime;
 these operations are not a hard-preemptible global planning service.
 
-The current quick checks and provider-free SDK pipelines establish software and
-native wiring, not live model quality, generalized token savings or deployment.
+## Validation and remaining limits
+
+Provider-free SDK pipelines verify native facts and wiring. The separate six
+first-attempt real consultations delivered five answers; one procurement/research
+question did not deliver after an empty response and a rejected recovery attempt.
+Loaded-journey deadlines and resource-source partitions appeared in actual
+answers, while other wording and evidence-scope issues remain. This is not five
+quality passes or proof that all five domains are equally well exercised.
+
+The latest original30 + standard45 regression compares the recent decision
+improvements only: both arms already contain these capabilities and the selected
+situation background. Public input fell 12.20%, with 74/75 versus 73/75 normal
+completions, unchanged original30 major-issue count and fewer standard45 major
+issues. Some long-tail inputs increased. It does not establish the cost of adding
+the five domains from zero, exact provider costs, universal quality equivalence
+or deployment. The full evidence and original failures remain in workspace
+`.bench-results/consultation-decisions-20261016-v1/` and
+`.bench-results/capability-regression75-20261016-v2/`.

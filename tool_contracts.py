@@ -53,6 +53,8 @@ class ToolSetup:
     #: compose_wiki_tools. Consumers (wiki tool, Def-name recovery) share one
     #: frozen snapshot; None keeps every lookup on the native exact path.
     knowledge_view: Any = None
+    #: Internal preparation source, deliberately absent from the model tool set.
+    situation_provider: Any = None
 
 
 PUBLIC_QUERY_VERSION = "public_query.v2"

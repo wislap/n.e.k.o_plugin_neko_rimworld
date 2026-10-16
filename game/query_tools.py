@@ -6,6 +6,7 @@ import asyncio
 import copy
 import json
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 from ..tool_contracts import PUBLIC_QUERY_VERSION, WORLD_OBSERVATION_VERSION, ToolExecutionError, ToolHandler, ToolSetup, ToolSpec
@@ -13,12 +14,13 @@ from ..schema_serialization import schema_contract
 from .catalog_contract import has_retired_capability_alias
 from .bridge import BridgeServer
 from .observation import Observation
+from .situation import SituationProvider, SITUATION_VERSION
 
 COLONY_STATE_VERSION = "colony_state.v1"
 COLONY_OPERATIONS = frozenset({"inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade", "inspect_resources"})
 
 
-def make_game_tools(catalog: dict[str, Any], query: ToolHandler) -> ToolSetup:
+def make_game_tools(catalog: dict[str, Any], query: ToolHandler, *, situation_provider=None, current_session=None) -> ToolSetup:
     """Build only the public-query backend required by look/count."""
     public = catalog.get("public_query")
     if not isinstance(public, dict) or public.get("version") != PUBLIC_QUERY_VERSION:
@@ -28,7 +30,13 @@ def make_game_tools(catalog: dict[str, Any], query: ToolHandler) -> ToolSetup:
         raise ToolExecutionError("semantic_surface_unavailable", "Current consultation requires world_observation.v2.3 with native state; update the RimWorld Mod.", recoverable=False)
     if has_retired_capability_alias(world):
         raise ToolExecutionError("semantic_surface_unavailable", "The Mod advertises the retired production selection capability; update the RimWorld Mod.", recoverable=False)
-    return _public_tools(catalog, public, query)
+    setup = _public_tools(catalog, public, query)
+    situation = catalog.get("situation_snapshot")
+    if situation is not None:
+        if not isinstance(situation, dict) or situation.get("version") != SITUATION_VERSION or situation.get("operation") != "read_situation":
+            raise ToolExecutionError("invalid_catalog", "Invalid situation snapshot contract.")
+        setup = replace(setup, situation_provider=situation_provider or SituationProvider(query, current_session))
+    return setup
 
 
 def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHandler) -> ToolSetup:
@@ -125,6 +133,7 @@ class CatalogTools:
         self._lock = asyncio.Lock()
         self._key: tuple[BridgeServer, str] | None = None
         self._catalog: dict[str, Any] | None = None
+        self._situation_provider = None
 
     async def load(self) -> ToolSetup:
         async with self._lock:
@@ -133,11 +142,13 @@ class CatalogTools:
             if bridge is None or epoch is None:
                 self._key = None
                 self._catalog = None
+                self._situation_provider = None
                 return ToolSetup(())
             key = (bridge, epoch)
             if key != self._key:
                 self._catalog = None
                 self._key = None
+                self._situation_provider = None
                 try:
                     observation = await self._query({"operation": "query_catalog", "arguments": {}})
                     if not isinstance(observation, Observation):
@@ -176,7 +187,9 @@ class CatalogTools:
                     raise ToolExecutionError("connection_changed", "The response belongs to a new connection.")
                 return result
 
-            return make_game_tools(self._catalog, scoped_query)
+            if self._situation_provider is None and "situation_snapshot" in self._catalog:
+                self._situation_provider = SituationProvider(scoped_query, lambda: bridge.session)
+            return make_game_tools(self._catalog, scoped_query, situation_provider=self._situation_provider)
 
     @staticmethod
     def _validate(catalog: object) -> None:

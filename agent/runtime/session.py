@@ -41,6 +41,7 @@ class AgentRunSession:
     delivery_issue: str | None = None
     context_pruner: ContextPruner = field(default_factory=make_pruner, repr=False)
     evidence_views: list[dict[str, Any]] = field(default_factory=list)
+    situation_context: dict[str, Any] | None = None
 
     def __post_init__(self):
         validate_deployment()

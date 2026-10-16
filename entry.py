@@ -45,7 +45,7 @@ from .workspace.history_tools import make_history_tool
 from .workspace.service import NoCurrentWork, WorkspaceService
 from .workspace.views import WorkspaceViews
 
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "3.2.0"
 DEFAULT_PORT = 48919
 DEFAULT_DIAGNOSTIC_CAPACITY = 200
 MIN_TOKEN_LENGTH = 32
@@ -53,7 +53,7 @@ MAX_TOKEN_LENGTH = 128
 # Cooperative world/action reads have an eight-second game-side lifetime.
 # The transport must allow that operation to return its partial result.
 FRAME_READ_OPERATIONS = frozenset({
-    "survey_space", "inspect_route", "inspect_state", "inspect_actions", "inspect_threats",
+    "survey_space", "inspect_route", "inspect_state", "inspect_actions", "inspect_threats", "read_situation",
     "inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research",
     "evaluate_journey", "evaluate_trade",
 })

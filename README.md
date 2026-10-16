@@ -1,6 +1,24 @@
-# N.E.K.O RimWorld
+# N.E.K.O RimWorld v3.2
 
 Read-only colony consultation through the local RimWorld Mod and an independent model.
+
+## Current source: v3.2
+
+The product version is `3.2.0` (displayed as **v3.2**), aligned with the Mod and
+bench. It includes the selected situation background, world/faction/quest/trade/
+research consultation, exact definition reads, resource-source separation and
+loaded-journey comparisons. This is the current source version, not a claim that
+a v3.2 package or game DLL has been published or deployed. Protocol versions and
+SDK support ranges are independent and unchanged.
+
+The existing `rimworld_consult(question)` entry and shared runtime remain the
+only consultation path. Situation preparation below is distinct from the five
+domains: their detailed state is read only when requested, without automatic
+five-domain scans or a mandatory discovery round.
+
+When the Mod advertises `situation_snapshot.v1`, consultation preparation supplies a native situation snapshot before the first model request. It covers ongoing conditions, visible hostile groups, native alerts, actionable quests and recent archive events. This is background data in a separate user message, not a model tool. The deterministic view uses at most 1,000 tokens; complete original observations remain in the report. Native section priority and recency order are retained, and directly linked Quest sources are grouped without inferring links.
+
+One connection-owned in-memory provider reuses the original sampled snapshot until 30,000 game ticks have elapsed. A consultation fixes one snapshot for all its research requests. The displayed map is the map at sampling; global alert, quest and event scopes remain explicit. Persistent work does not automatically reattach old backgrounds through history, and pure answer-length repair excludes game background. Busy, unsupported or timed-out background reads are disclosed as unavailable while ordinary consultation can continue; world or connection changes still stop the run.
 The host agent sees `rimworld_consult(question)`. No game orders or mutations are executed.
 
 When the Mod advertises `colony_state.v1`, `look` also reads world locations,
@@ -9,8 +27,9 @@ tools evaluate requested journeys and trade baskets. Names resolve in the same
 call; no discovery step or automatic five-domain background is added. See the
 [capability guide](docs/COLONY-CAPABILITIES.md) for arguments and evidence scope.
 
-## Deployed default (2026-10-07)
+## Historical deployed baseline (2026-10-07)
 
+This records the earlier deployed baseline; it does not describe a v3.2 deployment.
 The selected baseline is `v3-subtraction30-20261007-v3`: semantic reads, ordinary-JSON request-scoped pruning, activity composition and deterministic Def-name recovery when supported. There are no deployment switches selecting old input or query strategies. Public live delivery uses text; the delivery critic is retired.
 
 The original30 run delivered30/30 with84 requests and881,860 public input tokens. Its evidence adjudication was18 clean/12 minor/0 major/0 fatal. Selecting this default does not establish v2.4 quality parity or a new quality result. Fixed-evidence first-draft ablations are experiments, not deployed behavior.
@@ -19,7 +38,7 @@ The look/count interface is mandatory: missing or uncompiled public query direct
 
 ## Available reads
 
-With the required current public-query and native-world contracts, the model sees `look`, `count`, `survey_space`, `evaluate_activity`, `inspect_actions`, `inspect_threats`, available `wiki`, and `submit_response`. Consultation admission requires `public_query.v2` and `world_observation.v2.3` with the complete native state contract. Older versions, missing state readers or incomplete state schemas fail before model dispatch. Optional behavior tools and knowledge still depend on their advertised contracts and ready indexes. The activity tool replaces overlapping public path tools while retaining their native readers internally.
+With the required current public-query and native-world contracts, the model sees `look`, `count`, `survey_space`, `evaluate_activity`, `inspect_actions`, `inspect_threats`, available `wiki`, and `submit_response`. When the advertised colony-state contract supports them, `look` adds the five domains and resource-source reads, with `evaluate_journey` and `evaluate_trade` for direct calculations. Consultation admission requires `public_query.v2` and `world_observation.v2.3` with the complete native state contract. Older versions, missing state readers or incomplete state schemas fail before model dispatch. Optional behavior tools and knowledge still depend on their advertised contracts and ready indexes. The activity tool replaces overlapping public path tools while retaining their native readers internally.
 
 - `look`: explicit aspects; physical `state` does not include Pawn health/skills/work/gear. `focus` selects skills/work/capacities/state facets; `stats` requests exact StatDefs; `include=[body_parts]` retains full anatomy detail. Pawn `identity` carries native gender where the schema has it, so pronouns are read rather than guessed from names.
 - `count`: records or stack units, grouping and bounded examples. Holder membership is not ownership.
@@ -80,8 +99,9 @@ rimworld_consult(question)
 ```
 
 Each call creates a new run with a new message list. The model may answer
-directly, read the game through the semantic tools (`look`, `count`, `survey_space`, `evaluate_activity` and advertised
-`inspect_actions` / `inspect_threats`), look
+directly, read the game through the semantic tools (`look`, `count`, `survey_space`,
+`evaluate_activity` and advertised `inspect_actions` / `inspect_threats`,
+`evaluate_journey` / `evaluate_trade`), look
 up definitions through `wiki`, or finish a detailed response through the private
 `submit_response` tool. The prompt recommends a small number of cycles
 but the runtime does not impose a hard step count. Tool and submission errors
@@ -99,6 +119,28 @@ A failed submission retains valid draft fields. Pure short-answer length repair 
 
 Live text answer is limited to180 tokens and answer+detail to12000 characters. Full reports, raw evidence, failures, usage and incomplete status remain visible. Saved reports use their retained full_text; retrieval does not run a reference renderer or the old submission protocol.
 
+## Verification scope
+
+The latest original30 + standard45 regression compares only the recent exact-read,
+resource-source and loaded-journey improvements. **Both arms already contain the
+five domains and the selected situation background.** Public input changed from
+4,310,708 to 3,784,675 tokens (-12.20%); normal completion changed from 74/75 to
+73/75. Original30 major-issue counts were 2 in each arm; standard45 full-text and
+SDK-summary major-issue counts each changed from 5 to 2. Some long-tail inputs
+increased. Seven author attempts have unknown provider usage, so this is not an
+exact cost comparison, proof of universal quality improvement or a comparison
+against a version without the five domains/background.
+
+The separate six-question first-attempt consultation check delivered five
+answers and left one procurement/research question undelivered. Its failures
+and remaining answer issues are retained. Software tests and native pipelines
+verify wiring and facts, not complete model quality. See the
+[capability guide](docs/COLONY-CAPABILITIES.md) for normal-use scope and limits.
+Original evidence is retained outside this repository in workspace
+`.bench-results/consultation-decisions-20261016-v1/` and
+`.bench-results/capability-regression75-20261016-v2/`; historical results are not
+rewritten for this version label.
+
 ## Development and preserved research
 
 Run plugin pytest with UTF-8 in both parent and child processes. Software checks and fixed input equivalence do not prove content quality. Windows-only/platform failures are recorded separately.
@@ -110,7 +152,7 @@ Production reads have one current native-state path. Historical no-state connect
 
 Query-backed selection, mood/profile, resources and population measures are separate from native physical state/Pawn facts. Each public tool is built by its business owner before generic schema serialization; context processing does not rewrite tool semantics. The mixed look adapter and obsolete query Pawn-fact planners are removed. Current catalogs advertising the retired `production` selection alias are rejected even if they retain the supported version numbers; use a matching rebuilt Mod with `bill_giver`. The physical `state.production` facet remains supported. This source cleanup does not certify or promote a new content-quality baseline, and does not deploy the game DLL.
 
-Current tool setup carries only the negotiated tool handlers, query directory and pinned knowledge view. There is no catalog/wiki/mechanism prompt assembly in setup; actual tool descriptions remain the model-facing guidance. Caller-owned work capabilities enter only through `AgentRunSession.capabilities`; they are absent during finalization, and duplicate game/work tool names are rejected. Caller history and native actor/user context keep their original roles.
+Current tool setup carries the negotiated tool handlers, query directory and pinned knowledge view, plus the internal situation provider separately from the model tools. There is no catalog/wiki/mechanism prompt assembly in setup; actual tool descriptions remain the model-facing guidance. Caller-owned work capabilities enter only through `AgentRunSession.capabilities`; they are absent during finalization, and duplicate game/work tool names are rejected. Caller history and native actor/user context keep their original roles.
 
 Workspace storage owns ordinary exchanges, original observations and delivery records. Current schemas and immutable terminal records are required; unsupported schemas fail without migration or reset. Working-note persistence and its history truncation, source digests, tool action and panel have been retired. Existing database files are never rewritten for this removal. Historical implementations remain sealed outside the current tree.
 

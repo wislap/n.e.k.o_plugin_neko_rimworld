@@ -21,6 +21,7 @@ from .prompt import build_runtime_advisory, build_system_prompt
 from .session import AgentRunSession
 from ...tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
 from .tools import ToolRegistry
+from ..context.situation_context import compile_situation, unavailable_situation
 
 
 class LoggerLike(Protocol):
@@ -255,6 +256,8 @@ class AgentRuntime:
         ledger: AgentAuditLedger,
         session: AgentRunSession,
     ) -> None:
+        if session.situation_context is not None:
+            result["situation_context"] = copy.deepcopy(session.situation_context)
         if session.knowledge or session.knowledge_omitted:
             result["knowledge"] = session.knowledge
             result["knowledge_omitted"] = session.knowledge_omitted
@@ -277,6 +280,7 @@ class AgentRuntime:
             "knowledge": session.knowledge,
             "knowledge_omitted": session.knowledge_omitted,
             "evidence_views": copy.deepcopy(session.evidence_views),
+            "situation_context": copy.deepcopy(session.situation_context),
         }
         if session.workspace_id is not None:
             record["workspace_id"] = session.workspace_id
@@ -291,6 +295,44 @@ class AgentRuntime:
 
     def snapshot(self, *, include_latest_details: bool = True) -> dict[str, Any]:
         return self._audit_registry.snapshot(include_latest_details=include_latest_details)
+
+    async def _bind_situation(self, provider, session):
+        try:
+            snapshot = await provider.snapshot()
+        except ToolExecutionError as error:
+            # A busy/failed optional read is isolated. Connection/world changes,
+            # invalid admission, cancellation and execution deadlines still abort.
+            if not error.recoverable or error.code not in {"query_timeout", "bridge_busy", "unsupported"}:
+                raise
+            session.ledger.record("situation_source_failed", {"error_code": error.code, "message": str(error)})
+            context = unavailable_situation(error.code, str(error))
+        else:
+            observation = snapshot.observation.to_dict()
+            response = observation["response"]
+            identity = (response["colony_id"], response["load_epoch"], response.get("connection_epoch"))
+            if session.colony_id is not None and response["colony_id"] != session.colony_id:
+                raise ToolExecutionError("world_changed", "Situation snapshot belongs to another colony.", recoverable=False)
+            session.interaction.sample_identity = identity
+            session.observations.append(observation)
+            payload = response["payload"]
+            if payload["status"] in {"ok", "partial"}:
+                context = compile_situation(snapshot)
+            else:
+                code = payload.get("error_code") or "situation_unavailable"
+                if payload["status"] == "stale_session" or code in {
+                    "world_changed", "connection_changed", "invalid_catalog", "game_offline", "protocol_error",
+                    "stale_session", "session_stale", "invalid_arguments", "object_unavailable", "unsupported_game_implementation",
+                }:
+                    raise ToolExecutionError(code, payload.get("message") or code, recoverable=False)
+                context = unavailable_situation(code, payload.get("message") or code, observation=observation)
+                session.ledger.record("situation_source_failed", {"observation_id": observation["observation_id"], "error_code": code})
+        session.situation_context = context
+        # The caller's question stays last. Dynamic background never becomes an
+        # instruction or an automatically repeated persistent-history attachment.
+        session.messages.insert(len(session.messages) - 1, {
+            "role": "user", "name": "game_situation", "content": context["content"],
+        })
+        session.ledger.record("situation_context_bound", context)
 
     async def _run_loop(
         self,
@@ -311,6 +353,8 @@ class AgentRuntime:
             session,
             submission_updated,
         )
+        if setup.situation_provider is not None:
+            await self._bind_situation(setup.situation_provider, session)
         reserve = min(settings.finalization_reserve_seconds, settings.run_budget_seconds / 2)
         research_deadline = settings.run_budget_seconds - reserve
         finalizing = False
