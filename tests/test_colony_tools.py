@@ -26,12 +26,19 @@ from .test_agent import FakeLogger, settings, turn
 from .test_semantic_tools import catalog as base_catalog, Session, _update
 
 
-OPERATIONS = ("inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade")
+OPERATIONS = ("inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade", "inspect_resources")
 
 
 def catalog():
     value = base_catalog()
     value["colony_state"] = json.loads((Path(__file__).parent / "fixtures/colony_state_catalog.json").read_text(encoding="utf-8-sig"))
+    return value
+
+
+def earlier_catalog():
+    # Exact fixture from plugin 4794078 / Mod d6033ea, before additive parameters.
+    value = base_catalog()
+    value["colony_state"] = json.loads((Path(__file__).parent / "fixtures/colony_state_catalog_d6033ea.json").read_text(encoding="utf-8-sig"))
     return value
 
 
@@ -113,11 +120,14 @@ def test_look_description_advertises_business_domains_only_when_supported():
 @pytest.mark.parametrize("obj,aspects,focus,expected", [
     ({"kind": "world"}, ["places"], {}, {"operation": "inspect_planet", "kind": "world"}),
     ({"kind": "world_object", "category": "settlement", "near": {"kind": "map", "map": "current"}}, ["identity", "location"], {}, {"operation": "inspect_planet", "kind": "world_objects", "category": "settlement", "near": {"kind": "map", "map": "current"}}),
+    ({"kind": "world_objects", "category": "settlement"}, ["identity", "location"], {"faction": {"id": "Faction_6"}}, {"operation": "inspect_planet", "kind": "world_objects", "category": "settlement", "faction": "Faction_6"}),
     ({"kind": "caravan", "name": "采购队"}, ["location", "route", "supplies"], {}, {"operation": "inspect_planet", "kind": "caravans", "names": ["采购队"]}),
     ({"kind": "faction", "names": ["贸易联盟"]}, ["relations", "settlements"], {}, {"operation": "inspect_factions", "names": ["贸易联盟"]}),
     ({"kind": "quest", "id": "Quest42"}, ["requirements", "rewards", "deadlines"], {}, {"operation": "inspect_quests", "ids": ["Quest42"]}),
     ({"kind": "trader", "name": "研究贸易商船", "map": "Map_0"}, ["stock"], {"items": ["ComponentIndustrial"]}, {"operation": "inspect_trade", "names": ["研究贸易商船"], "map": "Map_0", "items": ["ComponentIndustrial"]}),
     ({"kind": "research", "names": ["MicroelectronicsBasics"]}, ["progress", "requirements", "unlocks"], {}, {"operation": "inspect_research", "names": ["MicroelectronicsBasics"]}),
+    ({"kind": "resources", "map": "Map_0"}, ["quantity", "distribution"], {"items": ["ComponentIndustrial"]}, {"operation": "inspect_resources", "map": "Map_0", "items": ["ComponentIndustrial"]}),
+    ({"kind": "research"}, ["requirements", "unlocks"], {"items": ["ComponentIndustrial"]}, {"operation": "inspect_research", "items": ["ComponentIndustrial"]}),
 ])
 async def test_direct_business_reads_preserve_selection_and_native_evidence(obj, aspects, focus, expected):
     data = facts([{"id": "selected", "name": "目标", "location": {"layer_id": 0, "tile_id": 12},
@@ -148,6 +158,83 @@ async def test_both_computations_are_direct_named_reads_with_one_audited_observa
     assert len(reader.session.observations) == 2
     await tools["evaluate_journey"].handler({"caravan": {"name": "采购队"}, "destinations": [{"name": "采购据点"}]})
     assert "include" not in calls[-1]["arguments"]
+
+
+@pytest.mark.asyncio
+async def test_loaded_journey_binds_requested_goods_in_one_read():
+    reader, calls = interaction()
+    tool = next(t for t in reader.tools() if t.name == "evaluate_journey")
+    args = {"caravan": {"name": "采购队"}, "destinations": [{"name": "采购据点"}],
+            "cargo_add": [{"item": "WoodLog", "quantity": 40}],
+            "cargo_remove": [{"item": "Silver", "quantity": 100}], "include": ["supplies"]}
+    Draft202012Validator(tool.parameters).validate(args)
+    await tool.handler(args)
+    assert calls == [{"operation": "evaluate_journey", "arguments": args}]
+    assert len(reader.session.observations) == 1
+
+
+@pytest.mark.asyncio
+async def test_supported_earlier_catalog_keeps_existing_journey_project_and_stock_reads():
+    reader, calls = interaction(source=earlier_catalog())
+    tools = {t.name: t for t in reader.tools()}
+    journey = {"caravan": {"name": "采购队"}, "destinations": [{"name": "采购据点"}], "include": ["supplies"]}
+    await tools["evaluate_journey"].handler(journey)
+    await reader.look({"object": {"kind": "research", "name": "Fabrication"}, "aspects": ["requirements"]})
+    await reader.look({"object": {"kind": "traders", "name": "商船"}, "aspects": ["stock"], "focus": {"items": ["ComponentIndustrial"]}})
+    assert [c["operation"] for c in calls] == ["evaluate_journey", "inspect_research", "inspect_trade"]
+    assert calls[0]["arguments"] == journey
+    assert "items" not in calls[1]["arguments"]
+    assert calls[2]["arguments"]["items"] == ["ComponentIndustrial"]
+    assert "cargo_add" not in tools["evaluate_journey"].parameters["properties"]
+    assert "cargo_remove" not in tools["evaluate_journey"].parameters["properties"]
+    assert "loaded travel" not in tools["evaluate_journey"].description
+    focus = tools["look"].parameters["properties"]["focus"]
+    assert "items" in focus["properties"]  # Still supported for trader stock.
+    assert "faction" not in focus["properties"]
+    assert "Research product" not in focus["description"]
+    assert "focus.faction" not in focus["description"]
+    assert "resource quantities by source" not in tools["look"].description
+    for tool in tools.values():
+        Draft202012Validator.check_schema(tool.parameters)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name,args", [
+    ("evaluate_journey", {"caravan": {"name": "采购队"}, "destinations": [{"name": "采购据点"}], "cargo_add": [{"item": "WoodLog", "quantity": 40}]}),
+    ("evaluate_journey", {"caravan": {"name": "采购队"}, "destinations": [{"name": "采购据点"}], "cargo_remove": [{"item": "WoodLog", "quantity": 40}]}),
+    ("look", {"object": {"kind": "research"}, "aspects": ["requirements"], "focus": {"items": ["ComponentIndustrial"]}}),
+    ("look", {"object": {"kind": "world_objects"}, "aspects": ["identity"], "focus": {"faction": {"id": "Faction_6"}}}),
+    ("look", {"object": {"kind": "resources"}, "aspects": ["quantity"], "focus": {"items": ["WoodLog"]}}),
+])
+async def test_earlier_catalog_does_not_publish_or_dispatch_unsupported_additions(name, args):
+    from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
+    reader, calls = interaction(source=earlier_catalog())
+    tool = next(t for t in reader.tools() if t.name == name)
+    assert not Draft202012Validator(tool.parameters).is_valid(args)
+    with pytest.raises(ToolExecutionError):
+        await tool.handler(args)
+    assert calls == [] and reader.session.observations == []
+
+
+@pytest.mark.asyncio
+async def test_resource_selection_is_explicit_and_product_research_is_unambiguous():
+    from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
+    reader, calls = interaction()
+    schema = next(t.parameters for t in reader.tools() if t.name == "look")
+    args = {"object": {"kind": "resources"}, "aspects": ["distribution"]}
+    assert not Draft202012Validator(schema).is_valid(args)
+    with pytest.raises(SurfaceError, match="requires focus.items"):
+        await reader.look(args)
+    with pytest.raises(SurfaceError, match="not both"):
+        await reader.look({"object": {"kind": "research", "name": "Fabrication"},
+                           "aspects": ["requirements"], "focus": {"items": ["ComponentIndustrial"]}})
+    assert calls == []
+
+
+def test_count_distinguishes_group_limit_from_instance_examples():
+    reader, _ = interaction()
+    description = next(t.description for t in reader.tools() if t.name == "count")
+    assert "With by, detail limits groups, not instance examples" in description
 
 
 @pytest.mark.asyncio
@@ -257,6 +344,16 @@ def call(name, args, index):
 
 
 FLOWS = [
+    ("装40木材再去采购据点是否赶得上？本地还有多少木材？", [
+        ("look", {"object": {"kind": "resources", "map": "current"}, "aspects": ["quantity", "distribution"], "focus": {"items": ["WoodLog"]}}, "inspect_resources", [
+            {"def_name": "WoodLog", "label": "木材", "observed_units": 80, "coverage": "complete_in_scope",
+             "sources": [{"source": "spawned_ground", "units": 40, "records": 2},
+                         {"source": "trader_stock", "holder": {"id": "Ship1", "name": "商船", "channel": "orbital"}, "units": 40, "records": 1}]}]),
+        ("evaluate_journey", {"caravan": {"name": "采购队"}, "destinations": [{"name": "采购据点"}], "cargo_add": [{"item": "WoodLog", "quantity": 40}], "include": ["supplies"]}, "evaluate_journey", [
+            {"destination": {"id": "Settlement1", "name": "采购据点"}, "travel_days_estimate": 1.1,
+             "cargo_scenario": {"status": "ok", "travel_days_estimate": 1.4, "mass_usage": 26.75,
+                                "food_basis": "current_food_only"}}]),
+    ]),
     ("木材补给还剩多久，采购队去任务地点是否赶得上？", [
         ("look", {"object": {"kind": "quest", "name": "木材补给"}, "aspects": ["requirements", "deadlines"]}, "inspect_quests", [{"id": "Quest42", "name": "木材补给", "requirements": [{"item": "WoodLog", "quantity": 40}], "deadlines": [{"kind": "delivery", "remaining_days": 3}]}]),
         ("evaluate_journey", {"caravan": {"name": "采购队"}, "destinations": [{"name": "采购据点"}], "include": ["supplies"]}, "evaluate_journey", [{"destination": {"id": "Settlement1", "name": "采购据点"}, "travel_days_estimate": 1.2, "food_days": 2.8}]),
@@ -265,6 +362,12 @@ FLOWS = [
         ("look", {"object": {"kind": "research", "name": "MicroelectronicsBasics"}, "aspects": ["progress", "requirements"]}, "inspect_research", [{"id": "MicroelectronicsBasics", "progress": {"real": 500, "apparent": 500}, "requirements": {"status": "available"}}]),
         ("look", {"object": {"kind": "trader", "name": "研究贸易商船"}, "aspects": ["stock"], "focus": {"items": ["ComponentIndustrial"]}}, "inspect_trade", [{"id": "Ship1", "stock": [{"item": "ComponentIndustrial", "quantity": 20}]}]),
         ("evaluate_trade", {"trader": {"name": "研究贸易商船"}, "negotiator": {"name": "Lumi"}, "buy": [{"item": "ComponentIndustrial", "quantity": 10}], "sell": [{"item": "WoodLog", "quantity": 100}]}, "evaluate_trade", [{"currency": "Silver", "player_buy_total": 250, "player_sell_total": 50, "player_net_payment": 200, "rounding": "native"}]),
+    ]),
+    ("自产零部件需要什么研究条件？", [
+        ("look", {"object": {"kind": "research"}, "aspects": ["requirements", "unlocks"], "focus": {"items": ["ComponentIndustrial"]}}, "inspect_research", [
+            {"id": "Fabrication", "requirements": {"can_start_now": False,
+             "bench_conditions": [{"bench": {"id": "Bench1", "def": "HiTechResearchBench"},
+                                    "required_facilities_satisfied": False}], "suitable_benches": []}}]),
     ]),
 ]
 
@@ -323,7 +426,7 @@ async def test_integrated_flows_keep_actual_messages_native_evidence_and_full_de
 async def test_no_demand_does_not_add_reads_background_or_prompt_policy(monkeypatch):
     monkeypatch.setattr(AgentAuditLedger, "elapsed_seconds", property(lambda _: 0.0))
     models = []
-    for source in (base_catalog(), catalog()):
+    for source in (base_catalog(), earlier_catalog(), catalog()):
         async def query(_):
             raise AssertionError("No new domain was requested")
 
@@ -335,7 +438,7 @@ async def test_no_demand_does_not_add_reads_background_or_prompt_policy(monkeypa
         runtime = AgentRuntime(tools_provider=provide, audit_registry=AgentAuditRegistry(), logger=FakeLogger(), model_factory=lambda _: model)
         result = await runtime.run("Explain the general concept without checking the game.", settings())
         assert result["observations"] == []
-    assert models[0].inputs[0]["messages"] == models[1].inputs[0]["messages"]
+    assert all(model.inputs[0]["messages"] == models[0].inputs[0]["messages"] for model in models)
 
 
 @pytest.mark.asyncio
@@ -360,3 +463,23 @@ async def test_ordinary_existing_look_keeps_identical_native_work_and_facts():
     assert len(calls[0]) == 1 and calls[0] == calls[1]
     assert results[0] == results[1]
     assert results[1]["facts"][0]["facts"]["identity"]["object"]["paused"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("args,rows,extra", [
+    ({"object": {"kind": "quests", "id": "Quest_1"}, "aspects": ["rewards"]},
+     [{"id": "Quest_1", "rewards": [{"lifecycle": "offered_not_delivered", "items": [{"def": "ComponentIndustrial", "units": 8}]}]}], {}),
+    ({"object": {"kind": "research"}, "aspects": ["requirements"], "focus": {"items": ["ComponentIndustrial"]}},
+     [{"id": "Fabrication", "requirements": {"bench_components": {"matching_buildings": [{"id": "Bench1", "def": "HiTechResearchBench", "required_facilities": [{"def": "MultiAnalyzer", "existing_on_map": 0, "linked": False, "active_linked": False}]}]}}}],
+     {"production_paths": [{"item": {"def": "ComponentIndustrial"}, "recipes": [{"recipe": {"def": "Make_ComponentIndustrial"}, "workbenches": [{"def": "FabricationBench"}], "research": [{"def": "Fabrication"}]}]}]}),
+    ({"object": {"kind": "resources"}, "aspects": ["distribution"], "focus": {"items": ["WoodLog"]}}, [],
+     {"status": "unavailable", "selection": [{"item": "WoodLog", "status": "incomplete"}], "coverage": {"complete": False, "reason": "read_deadline"}}),
+])
+async def test_decision_bindings_survive_projection_and_raw_audit(args, rows, extra):
+    data = {**facts(rows), **extra}
+    reader, _ = interaction(data)
+    result = await reader.look(args)
+    view = json.loads(make_pruner().compile({"tool": "look", "ok": True, "data": result}, arguments=args).content)
+    for key in data:
+        assert view["data"][key] == data[key]
+    assert reader.session.observations[0]["response"]["payload"]["data"] == data

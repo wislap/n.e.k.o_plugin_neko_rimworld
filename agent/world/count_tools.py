@@ -7,7 +7,7 @@ from .semantic_surface import _object_schema, METRICS, GROUPINGS, BY_KINDS, POPU
 def count_spec(directory=None):
     spec = dict(
         name="count",
-        description='Count a selection, e.g. object={"kind":"colonists"},metric="records". units sums stack counts for things; by groups totals, detail returns examples. Scope/completeness govern claims.',
+        description='Count a selection, e.g. object={"kind":"colonists"},metric="records". units sums stack counts for things. With by, detail limits groups, not instance examples; without by, detail returns examples. Scope/completeness govern claims.',
         parameters={
             "type": "object",
             "properties": {

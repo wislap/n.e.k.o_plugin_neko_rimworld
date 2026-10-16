@@ -15,7 +15,7 @@ from .bridge import BridgeServer
 from .observation import Observation
 
 COLONY_STATE_VERSION = "colony_state.v1"
-COLONY_OPERATIONS = frozenset({"inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade"})
+COLONY_OPERATIONS = frozenset({"inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade", "inspect_resources"})
 
 
 def make_game_tools(catalog: dict[str, Any], query: ToolHandler) -> ToolSetup:

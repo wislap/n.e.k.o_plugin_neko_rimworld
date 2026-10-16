@@ -38,6 +38,24 @@ def profile_trait_semantics(result):
     return result
 
 
+def blocked_reading(tool, obj, resolution, native):
+    """Explain the failed phase without changing the retained native receipt."""
+    result = render_blocked(tool, obj, resolution, native)
+    if resolution.get("field") != "def_name" or resolution.get("status") != "incomplete":
+        return result
+    action = ("instance " if obj["kind"] in THING_KINDS else "definition ") + ("counting" if tool == "count" else "reading")
+    result["failure_stage"] = "definition_resolution"
+    result["explanation"] = (
+        "Definition resolution is incomplete; requested " + action + " was not run. "
+        "Quantity remains unknown. Changing map or display limit does not change this definition scan. "
+        "Conclusions needing the missing quantity remain conditional."
+    )
+    for issue in result["issues"]:
+        if issue.get("reason") == "deadline_exceeded":
+            issue["message"] = "Read deadline reached during definition resolution; requested " + action + " was not run."
+    return result
+
+
 class QueryReadings:
     def __init__(self, interaction):
         self.setup = interaction.setup
@@ -122,7 +140,7 @@ class QueryReadings:
         detail = validate_detail(args.get("detail", 0))
         obj, resolution, lookup_native = await self._resolve(original)
         if obj is None:
-            return render_blocked("look", original, resolution, lookup_native)
+            return blocked_reading("look", original, resolution, lookup_native)
         plan = plan_look(self.surface, obj, aspects, detail)
         offset = args.get("offset", 0)
         if type(offset) is not int or not 0 <= offset <= 8192:
@@ -143,7 +161,7 @@ class QueryReadings:
         detail = validate_detail(args.get("detail", 0))
         obj, resolution, lookup_native = await self._resolve(original)
         if obj is None:
-            return render_blocked("count", original, resolution, lookup_native)
+            return blocked_reading("count", original, resolution, lookup_native)
         plan = plan_count(self.surface, obj, metric, by, detail)
         native = await self.execute_native(plan.request)
         return render(plan, native, resolution)

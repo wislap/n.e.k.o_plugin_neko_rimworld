@@ -22,9 +22,10 @@ DOMAINS = {
     "quests": ("inspect_quests", ("identity", "requirements", "rewards", "deadlines")),
     "traders": ("inspect_trade", ("identity", "stock")),
     "research": ("inspect_research", ("progress", "requirements", "unlocks")),
+    "resources": ("inspect_resources", ("quantity", "distribution")),
 }
 ALIASES = {"world_object": "world_objects", "caravan": "caravans", "faction": "factions", "quest": "quests", "trader": "traders"}
-DEFAULTS = {"world": ["places"], "caravans": ["identity", "location", "route"], "factions": ["identity", "relations"], "research": ["progress"]}
+DEFAULTS = {"world": ["places"], "caravans": ["identity", "location", "route"], "factions": ["identity", "relations"], "research": ["progress"], "resources": ["quantity", "distribution"]}
 OPERATIONS = frozenset({*(operation for operation, _ in DOMAINS.values()), "evaluate_journey", "evaluate_trade"})
 
 
@@ -33,6 +34,16 @@ def available_operations(directory):
     if not isinstance(contract, dict) or contract.get("version") != VERSION:
         return frozenset()
     return frozenset(row["operation"] for row in contract.get("operations", []) if isinstance(row, dict) and row.get("operation") in OPERATIONS)
+
+
+def operation_properties(directory, operation):
+    """Additive parameters follow the connected catalog, not a version guess."""
+    if operation not in available_operations(directory):
+        return frozenset()
+    for row in directory["colony_state"]["operations"]:
+        if row.get("operation") == operation:
+            return frozenset(row.get("parameters", {}).get("properties", {}))
+    return frozenset()
 
 
 def colony_kind(value):
@@ -63,6 +74,7 @@ def extend_look_spec(spec, directory):
         ("inspect_quests", "quest requirements/rewards/deadlines"),
         ("inspect_trade", "merchant stock"),
         ("inspect_research", "research progress/prerequisites"),
+        ("inspect_resources", "resource quantities by source"),
     ) if operation in operations]
     spec["description"] += " Also read " + "; ".join(domains) + "."
     if "inspect_trade" in operations:
@@ -70,7 +82,7 @@ def extend_look_spec(spec, directory):
     aliases = [alias for alias, kind in ALIASES.items() if kind in kinds]
     props = spec["parameters"]["properties"]
     selectors = {
-        "kind": {"enum": kinds + aliases},
+        "kind": {"enum": [kind for kind in kinds + aliases if kind != "resources"]},
         "ids": _strings(), "names": _strings(),
         "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
     }
@@ -79,17 +91,33 @@ def extend_look_spec(spec, directory):
             "type": "object", "additionalProperties": False, "required": ["kind"],
             "properties": {"kind": {"const": "map"}, "map": {"type": "string", "default": "current"}},
         }]})
-    if "inspect_trade" in operations:
+    if {"inspect_trade", "inspect_resources"} & operations:
         selectors["map"] = {"type": "string", "default": "current"}
     props["object"]["oneOf"].append({"type": "object", "additionalProperties": False, "required": ["kind"], "properties": selectors})
+    if "inspect_resources" in operations:
+        props["object"]["oneOf"].append({"type": "object", "additionalProperties": False, "required": ["kind"], "properties": {"kind": {"const": "resources"}, "map": {"type": "string", "default": "current"}}})
+        spec["parameters"]["allOf"] = [{"if": {"properties": {"object": {"properties": {"kind": {"const": "resources"}}}}}, "then": {"required": ["focus"], "properties": {"focus": {"required": ["items"]}}}}]
     extra_aspects = list(dict.fromkeys(a for kind in kinds for a in DOMAINS[kind][1]))
     props["aspects"]["items"]["enum"] = list(dict.fromkeys(props["aspects"]["items"]["enum"] + extra_aspects))
     rules = "; ".join(kind + ": " + ",".join(DOMAINS[kind][1]) for kind in kinds)
-    props["aspects"]["description"] += " Colony domains: " + rules + ". Read only requested aspects. Lists default to current/public objects; research to current projects. Names resolve directly, without an ID lookup. category/near apply to world/world_objects/caravans; map and focus.items to traders."
+    maps = "/".join(kind for kind in ("traders", "resources") if kind in kinds)
+    props["aspects"]["description"] += " Colony domains: " + rules + ". Read only requested aspects. Lists default to current/public objects; research to current projects. Names resolve directly. category/near: world/world_objects/caravans." + (" map: " + maps + "." if maps else "")
     props["limit"] = {"type": "integer", "minimum": 1, "maximum": 100, "default": 20, "description": "Colony-domain row limit; use offset=page.next_offset to continue."}
-    if "inspect_trade" in operations:
+    item_kinds = [kind for kind in ("traders", "research", "resources") if "items" in operation_properties(directory, DOMAINS[kind][0])]
+    if item_kinds:
         props["focus"]["properties"]["items"] = _strings()
-        props["focus"]["description"] += " focus.items selects native item Def names or labels in trader stock. For named/ID-selected trader stock, limit/offset page stock; continue with stock.page.next_offset using the same trader. Untargeted trader lists page partners."
+        props["focus"]["description"] += " focus.items: exact item Def names/labels."
+        if "resources" in item_kinds:
+            props["focus"]["description"] += " Required for resources (ground/held/seller quantities)."
+        if "research" in item_kinds:
+            props["focus"]["description"] += " Research product recipes/workbenches/projects instead of project name/ID."
+        if "traders" in item_kinds:
+            props["focus"]["description"] += " Traders: selects stock; selected trader limit/offset continues stock.page.next_offset; untargeted lists page partners."
+        if "research" in kinds and "research" not in item_kinds:
+            spec["parameters"].setdefault("allOf", []).append({"if": {"properties": {"object": {"properties": {"kind": {"const": "research"}}}}}, "then": {"properties": {"focus": {"not": {"required": ["items"]}}}}})
+    if "faction" in operation_properties(directory, "inspect_planet"):
+        props["focus"]["properties"]["faction"] = _reference()
+        props["focus"]["description"] += " focus.faction selects world_objects of that faction."
 
 
 def _list(value, name):
@@ -112,12 +140,12 @@ async def read_colony(interaction, args, kind):
     if operation not in available_operations(interaction.setup.directory):
         raise SurfaceError("The connected Mod does not support " + kind)
     if set(args) - {"object", "aspects", "detail", "offset", "limit", "focus"}:
-        raise SurfaceError("Colony look accepts object, aspects, detail, offset, limit and trader focus.items")
+        raise SurfaceError("Colony look accepts object, aspects, detail, offset, limit and focus.items")
     obj = args["object"]
-    allowed = {"kind", "id", "ids", "name", "names"}
+    allowed = {"kind"} if kind == "resources" else {"kind", "id", "ids", "name", "names"}
     if operation == "inspect_planet":
         allowed |= {"category", "near"}
-    if kind == "traders":
+    if kind in ("traders", "resources"):
         allowed.add("map")
     if set(obj) - allowed:
         raise SurfaceError(kind + " object does not accept " + ", ".join(sorted(set(obj) - allowed)))
@@ -153,12 +181,21 @@ async def read_colony(interaction, args, kind):
             else:
                 request["near"] = _ref(near, "near")
     focus = args.get("focus", {})
-    if not isinstance(focus, dict) or set(focus) - ({"items"} if kind == "traders" else set()):
-        raise SurfaceError("Only traders accept focus.items for colony reads")
+    native_properties = operation_properties(interaction.setup.directory, operation)
+    allowed_focus = {"items"} if kind in ("traders", "research", "resources") and "items" in native_properties else {"faction"} if kind == "world_objects" and "faction" in native_properties else set()
+    if not isinstance(focus, dict) or set(focus) - allowed_focus:
+        raise SurfaceError("The connected Mod does not accept this focus for " + kind)
+    if "faction" in focus:
+        reference = _ref(focus["faction"], "focus.faction")
+        request["faction"] = next(iter(reference.values()))
     if "items" in focus:
-        if "stock" not in aspects:
+        if kind == "traders" and "stock" not in aspects:
             raise SurfaceError("focus.items requires stock aspect")
         request["items"] = _list(focus["items"], "focus.items")
+        if kind == "research" and any(key in request for key in ("ids", "names")):
+            raise SurfaceError("research uses focus.items or project names/IDs, not both")
+    elif kind == "resources":
+        raise SurfaceError("resources requires focus.items")
     return await interaction._world_read(request, operation)
 
 
@@ -167,9 +204,10 @@ def computation_tools(interaction):
     operations = available_operations(interaction.setup.directory)
     result = []
     if "evaluate_journey" in operations:
+        cargo_keys = tuple(key for key in ("cargo_add", "cargo_remove") if key in operation_properties(interaction.setup.directory, "evaluate_journey"))
         async def journey(args):
-            if not isinstance(args, dict) or set(args) - {"caravan", "destinations", "include"}:
-                raise SurfaceError("evaluate_journey accepts caravan, destinations, include")
+            if not isinstance(args, dict) or set(args) - {"caravan", "destinations", "include", *cargo_keys}:
+                raise SurfaceError("evaluate_journey accepts " + ", ".join(("caravan", "destinations", "include", *cargo_keys)))
             request = {"caravan": _ref(args.get("caravan"), "caravan")}
             destinations = args.get("destinations")
             if not isinstance(destinations, list) or not 1 <= len(destinations) <= 16:
@@ -180,11 +218,18 @@ def computation_tools(interaction):
                 raise SurfaceError("journey include accepts supplies")
             if include:
                 request["include"] = list(dict.fromkeys(include))
+            for key in cargo_keys:
+                if key in args:
+                    request[key] = _basket_rows(args[key], key)
             return await interaction._world_read(request, "evaluate_journey")
 
-        result.append(ToolSpec("evaluate_journey", "Compare native travel estimates for an existing player caravan to every requested world destination. Use names directly; no preliminary directory read. include supplies only when needed. Returns assumptions, no orders.", {
+        description = "Compare native travel estimates for an existing player caravan and destinations."
+        if cargo_keys:
+            description += " Optional " + "/".join(cargo_keys) + " item quantities compare current versus loaded travel without moving goods."
+        description += " Names resolve directly; include supplies when needed. Returns assumptions, no orders."
+        result.append(ToolSpec("evaluate_journey", description, {
             "type": "object", "additionalProperties": False, "required": ["caravan", "destinations"],
-            "properties": {"caravan": _reference(), "destinations": {"type": "array", "minItems": 1, "maxItems": 16, "items": _reference()}, "include": {"type": "array", "uniqueItems": True, "items": {"enum": ["supplies"]}}},
+            "properties": {"caravan": _reference(), "destinations": {"type": "array", "minItems": 1, "maxItems": 16, "items": _reference()}, "include": {"type": "array", "uniqueItems": True, "items": {"enum": ["supplies"]}}, **{key: _basket_schema() for key in cargo_keys}},
         }, _guard(journey)))
     if "evaluate_trade" in operations:
         async def trade(args):
@@ -192,24 +237,31 @@ def computation_tools(interaction):
                 raise SurfaceError("evaluate_trade accepts trader, negotiator, buy and sell")
             request = {key: _ref(args.get(key), key, map_allowed=True) for key in ("trader", "negotiator")}
             for key in ("buy", "sell"):
-                rows = args.get(key, [])
-                if not isinstance(rows, list) or len(rows) > 32:
-                    raise SurfaceError(key + " requires at most 32 item/quantity rows")
-                for row in rows:
-                    if not isinstance(row, dict) or set(row) != {"item", "quantity"} or not isinstance(row["item"], str) or not row["item"].strip() or type(row["quantity"]) is not int or row["quantity"] <= 0:
-                        raise SurfaceError(key + " rows require item name and positive integer quantity")
-                request[key] = copy.deepcopy(rows)
+                request[key] = _basket_rows(args.get(key, []), key)
             if not request["buy"] and not request["sell"]:
                 raise SurfaceError("Request at least one buy or sell item")
             return await interaction._world_read(request, "evaluate_trade")
 
-        basket = {"type": "array", "maxItems": 32, "items": {"type": "object", "additionalProperties": False, "required": ["item", "quantity"], "properties": {"item": {"type": "string", "minLength": 1}, "quantity": {"type": "integer", "minimum": 1}}}}
+        basket = _basket_schema()
         result.append(ToolSpec("evaluate_trade", "Quote a requested buy/sell basket from the player's perspective with an existing trader and negotiator. Names resolve directly. Returns native prices, currency, quantities, funds and conditions; performs no trade or automatic substitution.", {
             "type": "object", "additionalProperties": False, "required": ["trader", "negotiator"],
             "properties": {"trader": _reference(map_allowed=True), "negotiator": _reference(map_allowed=True), "buy": basket, "sell": copy.deepcopy(basket)},
             "anyOf": [{"required": ["buy"], "properties": {"buy": {"minItems": 1}}}, {"required": ["sell"], "properties": {"sell": {"minItems": 1}}}],
         }, _guard(trade)))
     return tuple(result)
+
+
+def _basket_schema():
+    return {"type": "array", "maxItems": 32, "items": {"type": "object", "additionalProperties": False, "required": ["item", "quantity"], "properties": {"item": {"type": "string", "minLength": 1}, "quantity": {"type": "integer", "minimum": 1}}}}
+
+
+def _basket_rows(rows, name):
+    if not isinstance(rows, list) or len(rows) > 32:
+        raise SurfaceError(name + " requires at most 32 item/quantity rows")
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {"item", "quantity"} or not isinstance(row["item"], str) or not row["item"].strip() or type(row["quantity"]) is not int or row["quantity"] <= 0:
+            raise SurfaceError(name + " rows require item name and positive integer quantity")
+    return copy.deepcopy(rows)
 
 
 def _guard(handler):
