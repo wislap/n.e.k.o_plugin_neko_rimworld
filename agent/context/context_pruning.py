@@ -656,6 +656,12 @@ def prune(value, arguments=None, *, seen_notes=None):
     geometry = "geometry" in included
     body_parts = "body_parts" in included
     seen = set() if seen_notes is None else set(seen_notes)
+    if isinstance(value, dict) and isinstance(value.get("data"), dict) and value["data"].get("format") == "colony_state.v1":
+        # Business readers already select requested aspects/items natively.
+        # Physical identity projection would discard caravan route/supplies
+        # simply because their row also has id+location. Keep these detached
+        # business facts, local meanings and computation contexts together.
+        return copy.deepcopy(value), seen, []
     if isinstance(value, dict) and value.get("tool") == "inspect_threats":
         # Threat predicates, visibility, target/subject bindings and even unknown
         # extensions stay intact. Generic identity filtering is inappropriate here.

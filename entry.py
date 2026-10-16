@@ -54,6 +54,8 @@ MAX_TOKEN_LENGTH = 128
 # The transport must allow that operation to return its partial result.
 FRAME_READ_OPERATIONS = frozenset({
     "survey_space", "inspect_route", "inspect_state", "inspect_actions", "inspect_threats",
+    "inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research",
+    "evaluate_journey", "evaluate_trade",
 })
 
 

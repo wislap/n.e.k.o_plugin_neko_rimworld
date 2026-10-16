@@ -19,6 +19,7 @@ from typing import Any
 from ..delivery.research_surface import ReadOnlyResearchSurface
 from ...tool_contracts import PUBLIC_QUERY_VERSION, ToolExecutionError, ToolSpec
 from .activity import make_activity_tool
+from .colony_tools import computation_tools
 from .native_state import NativeStateReader, state_contract
 from .look_tools import look_spec, read_look
 from .count_tools import count_spec
@@ -94,6 +95,7 @@ class SemanticInteraction(ReadOnlyResearchSurface):
             specs.append(ToolSpec(tool["name"], tool["description"], tool["parameters"], guarded))
         passthrough = tuple(self.original[name] for name in sorted(PASSTHROUGH_TOOLS) if name in self.original)
         specs.append(make_activity_tool(self))
+        specs.extend(computation_tools(self))
         return (*specs, *passthrough)
 
     def snapshot(self) -> dict[str, Any]:
@@ -139,7 +141,12 @@ class SemanticInteraction(ReadOnlyResearchSurface):
         for key in ("colony_id", "load_epoch", "connection_epoch"):
             if native.get(key) is not None:
                 ordered[key] = native[key]
-        ordered["status"] = native.get("status", "ok")
+        if ordered.get("format") == "colony_state.v1":
+            # A successfully read quote may itself be unavailable/incomplete.
+            # Keep the native business result distinct from transport success.
+            ordered["read_status"] = native.get("status", "ok")
+        else:
+            ordered["status"] = native.get("status", "ok")
         ordered["issues"] = copy.deepcopy(native.get("issues", []))
         ordered["source_kind"] = "native"
         return ordered

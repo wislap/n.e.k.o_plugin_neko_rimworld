@@ -14,6 +14,8 @@ CONTEXT_TOOLS = frozenset(
         "inspect_state",
         "inspect_threats",
         "evaluate_activity",
+        "evaluate_journey",
+        "evaluate_trade",
     }
 )
 RETIRED_ENVIRONMENT_KEYS = (

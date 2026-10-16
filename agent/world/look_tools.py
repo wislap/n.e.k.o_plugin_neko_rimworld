@@ -14,6 +14,7 @@ from .native_state import (
     state_contract,
 )
 from .object_identity import normalize_object_identities
+from .colony_tools import DOMAINS, colony_kind, extend_look_spec, read_colony
 from .query_surface import SurfaceError
 from .semantic_surface import (
     ASPECTS,
@@ -115,6 +116,7 @@ def look_spec(directory):
         "description": "Full body_parts in this same health read.",
     }
 
+    extend_look_spec(spec, directory)
     descriptions = {key: props[key]["description"] for key in ("aspects", "focus")}
     spec["parameters"] = schema_contract(spec["parameters"])
     for key, description in descriptions.items():
@@ -125,6 +127,9 @@ def look_spec(directory):
 async def read_look(interaction, args):
     if not isinstance(args, dict) or not isinstance(args.get("object"), dict):
         raise SurfaceError("look requires object")
+    kind = colony_kind(args["object"].get("kind"))
+    if kind in DOMAINS:
+        return await read_colony(interaction, args, kind)
     unknown = set(args) - {
         "object",
         "aspects",

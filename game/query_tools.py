@@ -14,6 +14,9 @@ from .catalog_contract import has_retired_capability_alias
 from .bridge import BridgeServer
 from .observation import Observation
 
+COLONY_STATE_VERSION = "colony_state.v1"
+COLONY_OPERATIONS = frozenset({"inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade"})
+
 
 def make_game_tools(catalog: dict[str, Any], query: ToolHandler) -> ToolSetup:
     """Build only the public-query backend required by look/count."""
@@ -79,6 +82,24 @@ def _public_tools(catalog: dict[str, Any], public: dict[str, Any], query: ToolHa
 
             world_tools.append(ToolSpec(spec["name"], behavior_descriptions[spec["name"]], schema_contract(spec["parameters"]), inspect))
         directory["native_behavior"] = copy.deepcopy(behavior)
+    colony = catalog.get("colony_state")
+    if colony is not None:
+        if not isinstance(colony, dict) or colony.get("version") != COLONY_STATE_VERSION or not isinstance(colony.get("operations"), list):
+            raise ToolExecutionError("invalid_catalog", "Invalid colony state contract")
+        seen = set()
+        for spec in colony["operations"]:
+            if not isinstance(spec, dict) or not isinstance(spec.get("operation"), str) or spec["operation"] in seen or not isinstance(spec.get("parameters"), dict) or spec["parameters"].get("type") != "object":
+                raise ToolExecutionError("invalid_catalog", "Invalid colony state operation")
+            name = spec["operation"]
+            seen.add(name)
+            if name not in COLONY_OPERATIONS:
+                continue
+
+            async def inspect_colony(arguments, operation=name):
+                return await query({"operation": operation, "arguments": copy.deepcopy(arguments)})
+
+            world_tools.append(ToolSpec(name, "Internal colony state read.", copy.deepcopy(spec["parameters"]), inspect_colony))
+        directory["colony_state"] = copy.deepcopy(colony)
     if isinstance(catalog.get("game_implementation"), dict):
         directory["game_implementation"] = copy.deepcopy(catalog["game_implementation"])
     return ToolSetup(

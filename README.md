@@ -3,6 +3,12 @@
 Read-only colony consultation through the local RimWorld Mod and an independent model.
 The host agent sees `rimworld_consult(question)`. No game orders or mutations are executed.
 
+When the Mod advertises `colony_state.v1`, `look` also reads world locations,
+existing caravans, factions, public quests, trader stock and research. Two direct
+tools evaluate requested journeys and trade baskets. Names resolve in the same
+call; no discovery step or automatic five-domain background is added. See the
+[capability guide](docs/COLONY-CAPABILITIES.md) for arguments and evidence scope.
+
 ## Deployed default (2026-10-07)
 
 The selected baseline is `v3-subtraction30-20261007-v3`: semantic reads, ordinary-JSON request-scoped pruning, activity composition and deterministic Def-name recovery when supported. There are no deployment switches selecting old input or query strategies. Public live delivery uses text; the delivery critic is retired.
