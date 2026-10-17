@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.delivery.claims import check_claims
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
 
 AGGREGATE_TEXT = "总量来自对全部20个匹配实例的完整聚合，明细只展示1条，不影响总量。"
 
@@ -49,7 +49,7 @@ def observations(*results):
 
 
 def assert_contract(entry, text, readings, code=None):
-    """Both public entry points must agree; rejected drafts remain undeliverable."""
+    """Both paths retain the same diagnostics; transport success is not truth certification."""
     if entry == "check_claims":
         rejected = check_claims(text, observations=readings)
         if code:
@@ -58,17 +58,15 @@ def assert_contract(entry, text, readings, code=None):
             assert rejected == []
         return
     draft = SubmissionDraft()
+    result = draft.apply({"answer": text}, observations=readings)
+    diagnostics = draft.snapshot()["claim_diagnostics"]
     if code:
-        with pytest.raises(SubmissionPatchError) as caught:
-            draft.apply({"answer": text}, observations=readings)
-        assert caught.value.code == code
-        assert draft.claims_blocked is True
-        assert draft.full_text is None and draft.agent_text is None
+        assert code in [item["code"] for item in diagnostics]
     else:
-        result = draft.apply({"answer": text}, observations=readings)
-        assert result["agent_text"] == text
-        assert draft.snapshot()["complete"] is True
-        assert draft.claims_blocked is False
+        assert diagnostics == []
+    assert result["agent_text"] == text
+    assert draft.snapshot()["complete"] is True
+    assert draft.claims_blocked is False
 
 
 def mixed_subject_readings():

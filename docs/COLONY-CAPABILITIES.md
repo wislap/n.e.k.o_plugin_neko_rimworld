@@ -21,6 +21,8 @@ parameters. An earlier Mod keeps its supported project/stock/current-cargo reads
 Use `look(object, aspects, limit?, offset?, focus?)`. Names resolve in the same
 read; a directory lookup is not a prerequisite. Existing physical object reads
 keep their existing contract.
+Returned instance IDs and definition names can be reused directly; see
+[object references and focused reads](OBJECT-REFERENCES.md).
 
 | object.kind | aspects |
 |---|---|
@@ -68,6 +70,17 @@ availability. Seller stock is not player inventory; off-map caravan cargo and
 unpaid quest rewards are separate reads. Existing `count` retains its original
 population semantics. With `by`, count `detail` limits groups; it does not return
 instance examples. Ungrouped count with detail returns instance examples.
+
+Physical Thing measures carry one `quantity_basis` beside the numbers: the actual
+held/fog flags and that this read does not establish availability. This does not
+change count defaults or add eligibility checks. Resource `scope.selection`
+identifies the requested exact definitions/labels and resolved definitions;
+complete coverage of those definitions is not coverage of all food or equipment.
+Resource reads exclude fog and include identified public seller stock, so their
+buckets cannot silently replace a count with different population/visibility.
+Trader stock carries `price_basis=market_value_reference_not_negotiated_quote`;
+only a requested `evaluate_trade` supplies the bound contextual quote. These
+headers are on the relevant result, with no extra read or automatic quotation.
 
 ## Direct calculations
 

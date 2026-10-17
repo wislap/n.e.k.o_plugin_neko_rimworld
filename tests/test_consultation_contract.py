@@ -5,7 +5,7 @@ import inspect
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
-    SubmissionDraft, SubmissionPatchError, make_submission_tool,
+    SubmissionDraft, make_submission_tool,
 )
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
@@ -72,11 +72,11 @@ async def test_an_uncompilable_connection_stops_before_model_dispatch():
     assert result["audit"]["error_code"] == "semantic_surface_unavailable"
 
 
-def test_claims_are_mandatory_and_refused_text_cannot_be_delivered():
+def test_claims_are_mandatory_diagnostics_and_cannot_be_disabled():
     draft = SubmissionDraft()
-    with pytest.raises(SubmissionPatchError) as caught:
-        draft.apply({"answer": "Bob是我们的殖民者。"})
-    assert caught.value.code == "identity_claim" and draft.claims_blocked
-    assert draft.full_text is None and draft.agent_text is None
+    result = draft.apply({"answer": "Bob是我们的殖民者。"})
+    assert result["agent_text"] == "Bob是我们的殖民者。"
+    assert draft.claim_diagnostics[0]["code"] == "identity_claim"
+    assert draft.claims_blocked is False and draft.snapshot()["complete"]
     with pytest.raises(TypeError):
         draft.apply({"answer": "Bob是我们的殖民者。"}, claims_supported=False)

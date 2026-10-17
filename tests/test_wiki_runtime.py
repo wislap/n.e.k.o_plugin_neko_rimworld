@@ -167,7 +167,7 @@ async def test_research_close_removes_wiki_and_keeps_obtained_knowledge(runtime_
         ("Steel 是我们的物资。", "ownership_claim"),
     ],
 )
-async def test_wiki_does_not_license_identity_or_ownership(runtime_factory, claim, code):
+async def test_wiki_remains_separate_from_live_claim_diagnostics(runtime_factory, claim, code):
     data = definition()
     # Even evidence-shaped fields in a definition cannot grant live claims.
     data["entries"][0].update(is_free_colonist=True, faction={"is_player": True}, held_by_faction={"is_player": True})
@@ -175,22 +175,20 @@ async def test_wiki_does_not_license_identity_or_ownership(runtime_factory, clai
         [
             turn("", ToolCall("wiki-1", "wiki", '{"query":"Steel"}')),
             turn("", submission_call(claim, claim, "unsupported")),
-            turn("", submission_call("仅查到定义，身份和归属未确认。", "当前存档未读取。", "corrected")),
         ]
     )
     runtime, store, _ = runtime_factory(model, wiki_tool(data))
     result = await runtime.run("确认身份和归属。", settings())
 
-    rejected = next(message for message in model.requests[2] if message.get("tool_call_id") == "unsupported")
-    error = json.loads(rejected["content"])["error"]
-    assert error["code"] == code
-    assert code in {item["code"] for item in error["details"]["rejected_claims"]}
-    assert result["status"] == "ok"
+    assert len(model.requests) == 2  # Diagnostics do not force a correction round.
+    assert code in {item["code"] for item in result["draft"]["claim_diagnostics"]}
+    assert result["status"] == "ok"  # Transport completion, not factual certification.
     assert result["observations"] == []
     assert result["freshness"] is None
     assert result["knowledge"] == [{"query": "Steel", "result": data}]
-    assert claim not in result["answer"]
-    assert claim not in store.read(result["report"]["report_id"])["full_text"]
+    assert claim in result["answer"]
+    assert claim in store.read(result["report"]["report_id"])["full_text"]
+
 
 
 @pytest.mark.asyncio

@@ -130,8 +130,25 @@ class NativeStateReader:
                 "Identity and state come from the reported native observation; this is not an atomic snapshot."
             )
         facts = base["facts"]
-        for offset in range(0, len(facts), 8):
-            batch = facts[offset : offset + 8]
+        readable_facts = facts
+        if not direct and not cell:
+            readable_facts = []
+            for item in facts:
+                ident = item.get("object", {}).get("id")
+                if isinstance(ident, str) and ident:
+                    readable_facts.append(item)
+                else:
+                    # A partial selection can enumerate a row before its ID is
+                    # read. Keep that evidence, but never send its unavailable
+                    # marker as a native target or discard the readable rows.
+                    item["state"] = {
+                        "status": "unavailable",
+                        "reason": "identity_unavailable",
+                        "message": "State was not read because selection did not return a usable object ID.",
+                    }
+                    base["status"] = "partial"
+        for offset in range(0, len(readable_facts), 8):
+            batch = readable_facts[offset : offset + 8]
             if direct:
                 target = {"kind": obj["kind"]}
                 target["id" if "ids" in obj else "name"] = obj.get("ids", obj.get("names"))[0]

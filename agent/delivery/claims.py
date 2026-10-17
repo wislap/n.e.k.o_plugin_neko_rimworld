@@ -1,4 +1,4 @@
-"""提交时的确定性断言检查：把"没读到却断言"的句子挡回去。
+"""提交文本的局部读取依据诊断，不承担自然语言正确性的证明。
 
 背景（实测）：跨五轮实验，反复出现的错误不是数字算错，而是**用读到的少数事实去断言
 它没读到的东西**——
@@ -8,13 +8,12 @@
   * 只读了几个健康汇总值就说"完全健康"（conditions/capacities 未读）
   * 把只返回了一页的集合说成"全部/唯一"（listing partial）
 
-这不是"再加一个裁判模型"，而是**确定性检查**：运行时知道这一轮到底读过哪些事实，
-所以可以在提交时拒绝那些缺少对应证据的高风险断言，并明确告诉模型缺什么、怎么改。
+运行时知道读过哪些事实，但词表与成员重合不能证明一句话的主体、总体或谓词。
+诊断保留供审计，不能据此阻断整份交付或要求补读一个无法确定的总体。
 
 设计边界（必须诚实）：
-  * 这是**缓解**，不是证明。它只覆盖有限的高风险断言类别，靠词表匹配，会有漏报；
-    中文措辞多样，也可能误报。因此它只在该类别**确实缺少证据**时才拒绝，并且
-    把"要读什么"或"要如何限定措辞"写进错误信息，让模型一次可改。
+  * 只覆盖有限的高风险断言类别；中文措辞多样，词表会漏报、误报。
+    无法绑定范围时只指出不确定性，不能把候选读取描述成已确定的断言总体。
   * 它不评判数字是否正确（那是评分器的事），也不判断语义是否恰当。
   * 因果（"因为…所以…"）**有意不覆盖**：字段证据无法判定机制解释，写成任何模式
     都只是假装覆盖。见 CLAIM_CLASSES 的说明。
@@ -166,8 +165,7 @@ QUANTIFIER_TOTAL_PATTERNS = (
     r"\ball\s+\d+",
     r"\d+\s+of\s+\d+\s+are\s+all\b",
 )
-# 排他性断言：只有当子句点名了某个**部分集合里的行标签**时才算越界，
-# 因为“唯一”本身也常用于描述本次返回。
+# 排他词只用于定位可能相关的句子。成员重合不能确定比较总体，更不能证明越界。
 QUANTIFIER_LABEL_PATTERNS = (r"唯一", r"仅有", r"只有", r"全部", r"所有", r"\bonly\b")
 
 # 聚合叙述 vs 明细列举：返回契约允许“完整聚合 + 部分明细页”，所以
@@ -500,7 +498,11 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
             if subject is not None:
                 index["labels"].setdefault(value, subject)
 
-    def collection(node: Mapping[str, Any], subject: str | None, refresh_key: str | None, sequence: int | None) -> None:
+    def collection(
+        node: Mapping[str, Any], subject: str | None, refresh_key: str | None,
+        sequence: int | None, path: tuple[str, ...], sample: tuple[Any, ...] | None,
+        scopes: tuple[Any, ...],
+    ) -> None:
         rows = None
         for key in _ROW_KEYS:
             value = node.get(key)
@@ -525,6 +527,19 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
             and all(isinstance(measure, Mapping) and measure.get("complete") is True for measure in measures.values())
         )
         signature = _population_signature(node, total)
+        if signature is not None:
+            # Aggregation and listing must share their observed world/sample,
+            # owner and relation path, not merely equal counts and arguments.
+            signature = json.dumps([signature, subject, path, sample, scopes], sort_keys=True, default=str)
+        binding = {
+            "subject": subject,
+            "path": path,
+            "scopes": scopes,
+            "sample": sample,
+        }
+        # Missing scopes are not a common population. Keep separate receipts
+        # ambiguous instead of authorizing them through coincident row labels.
+        population_key = json.dumps(binding, sort_keys=True, default=str) if scopes else None
         if rows is None:
             # 只算聚合的结果节点没有明细键（limit 0）。它不构成“部分列举”，
             # 但必须记录，否则它的聚合完整性就丢了——实测（v1.10）就是这种节点
@@ -534,8 +549,12 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
                     "total": total,
                     "returned": 0,
                     "complete": True,
+                    "scan_complete": node.get("scan_complete") is True,
+                    "fields_complete": node.get("fields_complete") is True,
                     "aggregate_complete": bool(aggregate_complete),
                     "signature": signature,
+                    "population_key": population_key,
+                    "scope_binding": binding,
                     "refresh_key": (refresh_key, total) if refresh_key is not None else None,
                     "snapshot_sequence": sequence,
                     "labels": set(),
@@ -578,8 +597,12 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
                     and total == len(rows)
                 ),
                 "complete": bool(complete),
+                "scan_complete": node.get("scan_complete") is True,
+                "fields_complete": node.get("fields_complete") is True,
                 "aggregate_complete": bool(aggregate_complete),
                 "signature": signature,
+                "population_key": population_key,
+                "scope_binding": binding,
                 "refresh_key": (refresh_key, total) if refresh_key is not None else None,
                 "snapshot_sequence": sequence,
                 "labels": labels,
@@ -701,7 +724,7 @@ def build_read_index(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any
             refresh_key = json.dumps(
                 [sample[:-1], local, path, scopes], sort_keys=True, ensure_ascii=False, default=str
             )
-        collection(node, local, refresh_key, sequence)
+        collection(node, local, refresh_key, sequence, path, sample, scopes)
         # 关系自带的读取口径是**观测自己声明的**，不是模型说的：结果节点上的
         # `scope.relation` 指出这是哪个关系，`scope.args` 是解析后的参数（默认值
         # 也已展开）。健康名单按 `visible_only` 区分“只看界面上显示的”与“含隐藏
@@ -966,58 +989,19 @@ def _cited_numbers(clause: str) -> set[int]:
 
 
 def _quantifier_rejections(text: str, index: Mapping[str, Any]) -> list[dict]:
-    """全称/排他量词必须能拿出“整个集合都被读过”的依据。
+    """Report local population uncertainty without guessing a prose referent.
 
-    这是**确定性**检查，不是语义判断：Mod 的返回信封里已经带着
-    `page.has_more` / `matched` / `listing`。两条都很窄：
-
-      * 量词与一个数字**紧邻**，且该数字等于某个 partial 集合的 total；或
-      * 子句点名了某个 partial 集合里**已返回的行标签**
-
-    唯一豁免：子句只是在陈述“聚合覆盖了全部 N 项”，且该集合的聚合确实完整
-    （见 `_licenses_aggregate_narration`）。
-
-    这个宽度是实测调出来的：第一版用裸词（“全部/所有/唯一”）加“存在 partial 即拒”，
-    在 105 份已复核答案上误报 49 条（其中 0 条复核有 issue）。
+    Equal counts and shared members identify candidate observations, not the
+    population quantified by a sentence. Consider complete and partial reads
+    together: a broad partial Pawn listing cannot invalidate a complete narrow
+    colonist comparison, and the narrow comparison cannot complete that listing.
+    No diagnostic instructs the model to exhaust an inferred population.
     """
-    partial = [item for item in index["collections"] if not item["complete"] and not item.get("superseded")]
-    if not partial:
+    collections = [item for item in index["collections"] if not item.get("superseded")]
+    if not any(not item["complete"] for item in collections):
         return []
-    rejected: list[dict] = []
+    diagnostics: list[dict] = []
     reported: set[tuple[int, int]] = set()
-
-    def record(hit: re.Match[str], item: Mapping[str, Any], reason: str) -> None:
-        start, end = _clause_span(text, hit.start())
-        if (start, end) in reported:
-            return
-        reported.add((start, end))
-        total = item["total"]
-        shape = f"matched={total}, returned={item['returned']}" if total is not None else f"returned={item['returned']}"
-        rejected.append(
-            dict(
-                code="incomplete_quantifier_claim",
-                label="对不完整集合使用全称/排他量词",
-                quote=hit.group(0),
-                start=hit.start(),
-                end=hit.end(),
-                clause=text[start:end],
-                clause_start=start,
-                clause_end=end,
-                hint=(
-                    f"本轮有一次读取只返回了部分结果（{shape}，listing partial）：{reason}。"
-                    f"请先读完，或把措辞改成“已返回的 {item['returned']} 项中……”并说明总数未完整列举。"
-                ),
-            )
-        )
-
-    def first_citing(cited: set[int], clause: str) -> Mapping[str, Any] | None:
-        for item in partial:
-            if isinstance(item["total"], int) and item["total"] in cited:
-                return item
-        for item in partial:
-            if any(label in clause for label in item["labels"]):
-                return item
-        return None
 
     def owner_is_bound(item, clause):
         owner = item.get("subject")
@@ -1025,27 +1009,54 @@ def _quantifier_rejections(text: str, index: Mapping[str, Any]) -> list[dict]:
             return True
         return owner in clause or any(name in clause for name in index.get("subject_names", {}).get(owner, ()))
 
+    def record(hit: re.Match[str], candidates: list[Mapping[str, Any]], clause: str, *, numeric: bool) -> None:
+        partial = [item for item in candidates if not item["complete"]]
+        if not partial or all(
+            _licenses_aggregate_narration(clause, item, require_noun=not numeric) for item in partial
+        ):
+            return
+        start, end = _clause_span(text, hit.start())
+        if (start, end) in reported:
+            return
+        reported.add((start, end))
+        # A missing scope is not a wildcard shared by unrelated result nodes.
+        keys = {item.get("population_key") or ("unscoped", id(item)) for item in candidates}
+        resolved = len(keys) == 1
+        item = partial[0]
+        hint = (
+            "相同数字或成员出现在不完整读取中，但不能仅据此确定这句话的比较总体。"
+            "请核对本句实际采用的总体、字段和观察样本；不要自动扩大读取范围。"
+        )
+        if not resolved:
+            hint = (
+                "相关数字或成员出现在不同范围或样本的读取中，无法将本句量词绑定到某一总体。"
+                "完整窄集合与不完整宽集合不能互相证明或否定；按实际比较范围解释即可。"
+            )
+        diagnostics.append(
+            dict(
+                code="incomplete_quantifier_claim",  # stable diagnostic code, not a submission rejection
+                label="量词的读取范围待核对",
+                quote=hit.group(0), start=hit.start(), end=hit.end(),
+                clause=text[start:end], clause_start=start, clause_end=end,
+                binding="candidate" if resolved else "unresolved",
+                candidate_count=len(candidates),
+                scope_binding=item.get("scope_binding") if resolved else None,
+                hint=hint,
+            )
+        )
+
     for pattern in QUANTIFIER_TOTAL_PATTERNS:
         for hit in re.finditer(pattern, text):
             if _hit_is_negated(text, hit, index):
                 continue
             start, end = _clause_span(text, hit.start())
             clause = text[start:end]
-            # 只看量词附近的数字：远处出现同一个数字不算数这个集合。
             local = _cited_numbers(hit.group(0))
-            item = next(
-                (
-                    c
-                    for c in partial
-                    if isinstance(c["total"], int) and c["total"] in local and owner_is_bound(c, clause)
-                ),
-                None,
-            )
-            if item is None:
-                continue
-            if _licenses_aggregate_narration(clause, item, require_noun=False):
-                continue
-            record(hit, item, f"这句话用“{hit.group(0)}”数了一个只返回了 {item['returned']} 项的集合")
+            candidates = [
+                item for item in collections
+                if isinstance(item["total"], int) and item["total"] in local and owner_is_bound(item, clause)
+            ]
+            record(hit, candidates, clause, numeric=True)
 
     for pattern in QUANTIFIER_LABEL_PATTERNS:
         for hit in re.finditer(pattern, text):
@@ -1053,16 +1064,12 @@ def _quantifier_rejections(text: str, index: Mapping[str, Any]) -> list[dict]:
                 continue
             start, end = _clause_span(text, hit.start())
             clause = text[start:end]
-            item = next(
-                (c for c in partial if owner_is_bound(c, clause) and any(label in clause for label in c["labels"])),
-                None,
-            )
-            if item is None:
-                continue
-            if _licenses_aggregate_narration(clause, item):
-                continue
-            record(hit, item, f"这句话把只返回了 {item['returned']} 项的集合当成已知全体")
-    return rejected
+            candidates = [
+                item for item in collections
+                if owner_is_bound(item, clause) and any(label in clause for label in item["labels"])
+            ]
+            record(hit, candidates, clause, numeric=False)
+    return diagnostics
 
 
 def check_claims(answer: str, detail=None, *, observations=(), index: Mapping[str, Any] | None = None) -> list[dict]:
@@ -1119,11 +1126,11 @@ def check_claims(answer: str, detail=None, *, observations=(), index: Mapping[st
 
 
 def describe(rejected: Iterable[Mapping[str, Any]]) -> str:
-    """把拒绝原因写成模型可一次修正的说明。"""
+    """Render local diagnostics without claiming they prove an unsupported fact."""
     lines = []
     for item in rejected:
         location = f"{item.get('path', item.get('field', 'answer'))}[{item.get('start', 0)}:{item.get('end', 0)}]"
-        lines.append(f"{location} {item['label']}（“{item['quote']}”）缺少本轮证据。{item['hint']}")
+        lines.append(f"{location} {item['label']}（“{item['quote']}”）。{item['hint']}")
     return " ".join(lines)
 
 

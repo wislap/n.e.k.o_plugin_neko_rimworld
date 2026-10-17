@@ -87,7 +87,14 @@ class SubmissionDraft:
     agent_text: str | None = None
     revision: int = 0
     errors: dict[str, dict[str, str]] = field(default_factory=dict)
-    # Refused claims never enter committed delivery text or degraded fallbacks.
+    # Rendered text may precede an invalid candidate patch. Its two parts always
+    # retain their own matching version; these are transport states, not truth
+    # certification of the author's conclusions.
+    rendered_revision: int | None = None
+    agent_revision: int | None = None
+    claim_diagnostics: list[dict[str, Any]] = field(default_factory=list)
+    # Kept for callers reading the existing draft state. NLP checks no longer
+    # block submission or force another model call.
     claims_blocked: bool = False
 
     def snapshot(self) -> dict[str, Any]:
@@ -98,9 +105,15 @@ class SubmissionDraft:
             "full_text": self.full_text,
             "agent_text": self.agent_text,
             "revision": self.revision,
+            "rendered_revision": self.rendered_revision,
+            "agent_revision": self.agent_revision,
+            "claim_diagnostics": copy.deepcopy(self.claim_diagnostics),
             "saved_fields": [key for key in ("answer", "detail") if getattr(self, key)],
             "errors": copy.deepcopy(self.errors),
-            "complete": bool(self.full_text and self.agent_text and not self.errors),
+            "complete": bool(
+                self.full_text and self.agent_text and not self.errors
+                and self.rendered_revision == self.agent_revision == self.revision
+            ),
         }
 
     def apply(self, patch: Mapping[str, Any], *, observations=()) -> dict[str, Any]:
@@ -129,37 +142,39 @@ class SubmissionDraft:
         if changed:
             self.revision += 1
         self.errors.pop("delivery", None)
+        self.claims_blocked = False
         if not self.errors:
-            from .claims import check_claims, describe
+            from .claims import check_claims
 
-            rejected = check_claims(self.answer, self.detail, observations=observations)
-            if rejected:
-                self.claims_blocked = True
-                raise SubmissionPatchError(
-                    rejected[0]["code"],
-                    "Unsupported claim needs evidence from this run: " + describe(rejected),
-                    {
-                        "saved_fields": self.snapshot()["saved_fields"],
-                        "rejected_claims": rejected,
-                        "required_fields": list(dict.fromkeys(item.get("field", "answer") for item in rejected)),
-                    },
-                )
-            self.claims_blocked = False
-        self.full_text = self.agent_text = None
-        short = ""
-        try:
-            short = rendered_authored_text(self.answer, self.language) if "answer" not in self.errors else ""
-            detail = self.detail if "detail" not in self.errors and "answer" not in self.errors else None
-            full = "\n\n".join(part for part in (short, detail if detail != short else None) if part)
-            if full:
-                self.full_text = validate_full_text(full)
-            if not short:
-                raise HandoffValidationError(
-                    "invalid_submission", "Provide the short answer text; detail cannot replace it."
-                )
-            self.agent_text = validate_agent_text(short)
-        except HandoffValidationError as error:
-            self.errors["delivery"] = {"code": error.code, "message": str(error)}
+            # Heuristic language checks provide audit diagnostics, not a proof
+            # of correctness and not an authority to discard authored text.
+            self.claim_diagnostics = check_claims(self.answer, self.detail, observations=observations)
+            short = rendered_authored_text(self.answer, self.language)
+            full = "\n\n".join(part for part in (short, self.detail if self.detail != short else None) if part)
+            try:
+                if full:
+                    # Validate the replacement before retiring a previous pair.
+                    # A combined transport overflow leaves its authored fields
+                    # saved without destroying the earlier rendered version.
+                    rendered = validate_full_text(full)
+                    self.full_text = rendered
+                    self.rendered_revision = self.revision
+                    self.agent_text = None
+                    self.agent_revision = None
+                if not short:
+                    raise HandoffValidationError(
+                        "invalid_submission", "Provide the short answer text; detail cannot replace it."
+                    )
+                self.agent_text = validate_agent_text(short)
+                self.agent_revision = self.revision
+            except HandoffValidationError as error:
+                self.errors["delivery"] = {"code": error.code, "message": str(error)}
+        else:
+            # Valid fields remain saved for repair, while a previously rendered
+            # report/callback pair stays intact at its recorded older revision.
+            # Never render a new summary beside an old report after a bad patch.
+            self.claim_diagnostics = []
+        short = rendered_authored_text(self.answer, self.language) if "answer" not in self.errors else ""
         if self.errors:
             required = [key for key in self.errors if key != "delivery"]
             if "delivery" in self.errors:
@@ -187,7 +202,9 @@ class SubmissionDraft:
                 )
             raise SubmissionPatchError(first["code"], " ".join(item["message"] for item in self.errors.values()) + repair, details)
         self.claims_blocked = False
-        return validate_submission(self.full_text, self.agent_text)
+        result = validate_submission(self.full_text, self.agent_text)
+        result["delivery"]["claim_warning_count"] = len(self.claim_diagnostics)
+        return result
 
 
 def submission_parameters(*, answer_only=False):
@@ -218,7 +235,8 @@ def make_submission_tool(draft: SubmissionDraft, observations, on_update=None, *
             raise ToolExecutionError(error.code, str(error), details=error.details) from None
         if on_update is not None:
             on_update(draft.snapshot(), "submission_patch_accepted",
-                      {"saved_fields": draft.snapshot()["saved_fields"], "revision": draft.revision})
+                      {"saved_fields": draft.snapshot()["saved_fields"], "revision": draft.revision,
+                       "claim_diagnostics": copy.deepcopy(draft.claim_diagnostics)})
         return result
 
     parameters = submission_parameters(answer_only=answer_only)

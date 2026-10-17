@@ -753,6 +753,44 @@ def _measures_for(kind, metric="units"):
     return measures
 
 
+def _compose_blocks(blocks):
+    """Coalesce compatible aspect selections before the strict query compiler.
+
+    A dotted identity field and a facet's child block can select the same leaf
+    (profile.gender). Canonicalize their parent path, not the public compiler's
+    overlap rules. Different options and default/explicit selections still fail.
+    """
+    merged = {}
+
+    def at(path):
+        return merged.setdefault(path, {"at": path})
+
+    for block in blocks:
+        path = block["at"]
+        target = at(path)
+        for key, value in block.items():
+            if key in ("at", "fields"):
+                continue
+            if key in target and target[key] != value:
+                raise SurfaceError("Conflicting aspect option: " + path + "." + key)
+            target[key] = copy.deepcopy(value)
+        fields = block.get("fields", [])
+        if fields is True:
+            if "fields" in target and target["fields"] is not True:
+                raise SurfaceError("Defaults cannot be merged with explicit children")
+            target["fields"] = True
+            continue
+        for name in fields:
+            parent, dot, leaf = name.rpartition(".")
+            field_path = ".".join(filter(None, [path, parent])) if dot else path
+            selected = at(field_path).setdefault("fields", [])
+            if selected is True:
+                raise SurfaceError("Defaults cannot be merged with explicit children")
+            if leaf not in selected:
+                selected.append(leaf)
+    return list(merged.values())
+
+
 def _assemble(surface, tool, obj, aspects, detail, entries, metrics, grouping, needs_rows):
     root, args, where = route_object(obj)
     plan = Plan(
@@ -811,7 +849,7 @@ def _assemble(surface, tool, obj, aspects, detail, entries, metrics, grouping, n
             block["limit"] = entry["limit"]
         blocks.append(block)
     plan.covers = _covers(entries)
-    plan.request = surface.compile({"source": root, "blocks": blocks})
+    plan.request = surface.compile({"source": root, "blocks": _compose_blocks(blocks)})
     plan.root_limit = root_block["limit"]
     return plan
 
@@ -1373,6 +1411,17 @@ def render(plan, native, resolution=None):
         # the author and review see the requested term and the canonical term.
         out["name_resolution"] = copy.deepcopy(resolution["name_resolution"])
     if plan.metrics:
+        if surface.path_type(plan.root, "") == "Thing":
+            # Keep the meaning next to the numbers, once per returned set.
+            # Physical collection membership is not ownership or accessibility;
+            # this adds no new qualification read and does not alter defaults.
+            resolved = out["scope"]["resolved"]
+            out["quantity_basis"] = {
+                "population": "physical_objects",
+                "include_held": resolved.get("include_held", plan.object.get("include_held", True)),
+                "include_fogged": resolved.get("include_fogged", plan.object.get("include_fogged", True)),
+                "availability": "not_established_by_this_read",
+            }
         out["measures"] = dict(result.get("aggregates") or {})
     if plan.grouping:
         by = plan.grouping[0]

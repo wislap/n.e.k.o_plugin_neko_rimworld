@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.delivery.claims import build_read_index, check_claims
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
 
 TEXT = "Rescue_Patient 的全部11项能力均已读取。"
 
@@ -95,16 +95,15 @@ def test_complete_refresh_does_not_authorize_unrelated_health_claim():
     ]
 
 
-def test_submission_can_recover_after_real_partial_rejection():
+def test_submission_refresh_updates_diagnostics_without_blocking_delivery():
     readings = receipts()
     draft = SubmissionDraft()
-    with pytest.raises(SubmissionPatchError) as caught:
-        draft.apply({"answer": TEXT}, observations=readings[:1])
-    assert caught.value.code == "incomplete_quantifier_claim"
-    assert draft.claims_blocked is True
+    first = draft.apply({"answer": TEXT}, observations=readings[:1])
+    assert first["agent_text"] == TEXT
+    assert "incomplete_quantifier_claim" in [c["code"] for c in draft.claim_diagnostics]
     submitted = draft.apply({"answer": TEXT}, observations=readings)
     assert submitted["agent_text"] == TEXT
-    assert draft.claims_blocked is False
+    assert draft.claim_diagnostics == [] and draft.claims_blocked is False
 
 
 def test_complete_receipt_in_request_does_not_refresh():

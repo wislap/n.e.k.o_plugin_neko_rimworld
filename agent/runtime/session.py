@@ -52,11 +52,6 @@ class AgentRunSession:
 
     @property
     def fallback_answer(self) -> str:
-        # A claim rejection never commits text, so a blocked draft must not fall
-        # through to the model's last raw message either: that message is the text
-        # the check refused.
-        if self.submission.claims_blocked and not self.submission.full_text:
-            return "The consultation's draft answer was refused for unsupported claims; review the full result in the plugin panel."
         if self.submission.full_text:
             return self.submission.full_text
         if self.submission.revision or self.submission.errors:
@@ -152,8 +147,8 @@ class AgentRunSession:
     def length_repair_messages(self):
         """A text-length edit needs the saved conclusion, not the game dataset.
 
-        Only a pure text handoff length rejection qualifies. Other invalid or
-        unsupported claims always keep the full research context. Saved detail
+        Only a pure text handoff length rejection qualifies. Structural errors
+        keep the full research context. Saved detail
         is unchanged by the existing length-only submission contract.
         """
         draft = self.submission

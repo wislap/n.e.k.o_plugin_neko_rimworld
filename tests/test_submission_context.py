@@ -13,7 +13,7 @@ def failed(identifier, patch):
     return [
         {'role':'assistant','content':'','tool_calls':[{'id':identifier,'type':'function',
             'function':{'name':'submit_response','arguments':json.dumps(patch)}}]},
-        {'role':'tool','tool_call_id':identifier,'content':json.dumps({'tool':'submit_response','error':{'code':'unsupported_claim'}})},
+        {'role':'tool','tool_call_id':identifier,'content':json.dumps({'tool':'submit_response','error':{'code':'invalid_submission'}})},
     ]
 
 
@@ -25,7 +25,7 @@ def test_only_current_superseded_drafts_are_removed_and_saved_detail_survives():
                          *failed('latest', {'answer':'Latest draft'})]
     session.submission.answer='Latest draft'
     session.submission.detail='SAVED DETAIL'
-    session.submission.errors={'answer':{'code':'unsupported_claim'}}
+    session.submission.errors={'answer':{'code':'invalid_submission'}}
     saved=copy.deepcopy(session.messages)
     view=session.request_messages('repair')
     assert old[0] in view and old[1] in view and source in view
@@ -43,15 +43,17 @@ async def test_runtime_repair_uses_same_calls_and_keeps_saved_report():
     from plugin.plugins.neko_rimworld.message_contracts import ToolCall
     from plugin.plugins.neko_rimworld.tests.test_agent import FakeLogger, settings, turn
 
+    # Structural failures retain valid detail and use the normal repair history,
+    # while NLP diagnostics are no longer a reason to force three model calls.
     detail='本次未取得派系字段，保留未知。'
     class Model:
         calls=0
         async def complete(self,messages,tools,*,timeout):
             self.calls+=1
             if self.calls==1:
-                return turn('',ToolCall('first','submit_response',json.dumps({'answer':'他是我们的殖民者。','detail':detail})))
+                return turn('',ToolCall('first','submit_response',json.dumps({'answer': [], 'detail':detail})))
             if self.calls==2:
-                return turn('',ToolCall('latest','submit_response',json.dumps({'answer':'他是我们的殖民者。'})))
+                return turn('',ToolCall('latest','submit_response',json.dumps({'answer': {}})))
             assert self.calls==3
             assert not any(c.get('id')=='first' for m in messages for c in m.get('tool_calls',[]))
             carrier=next(m for m in messages if m.get('tool_call_id')=='latest')

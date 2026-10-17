@@ -115,7 +115,7 @@ returns a structured `degraded` result instead of stopping the plugin.
 
 Valid caller/colony identity binds persistent work; missing identity or retained work falls back to a standalone consultation. Turns for the same role and colony serialize. History is attached as historical evidence; workspace_history is published only for existing history or an explicit report ID. Reports and exchanges save automatically. No autonomous observation or learning is implied.
 
-A failed submission retains valid draft fields. Pure short-answer length repair sends answer only and preserves detail; other invalid claims keep research evidence. Research closes near the deadline and only submission remains. Existing deadlines and tool/result size bounds remain.
+A failed submission retains valid draft fields. Authored report and short handoff revisions stay paired; invalid updates cannot mix a new summary with an older report. Natural-language claim checks are retained as audit diagnostics and do not reject the whole submission or require another model call. Delivery completion is a format/transport state, not a factual certification. Pure short-answer length repair sends answer only and preserves detail; structural repairs retain research evidence. Research closes near the deadline and only submission remains. Existing deadlines and tool/result size bounds remain.
 
 Live text answer is limited to180 tokens and answer+detail to12000 characters. Full reports, raw evidence, failures, usage and incomplete status remain visible. Saved reports use their retained full_text; retrieval does not run a reference renderer or the old submission protocol.
 

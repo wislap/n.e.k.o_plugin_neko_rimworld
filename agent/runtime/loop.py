@@ -220,7 +220,26 @@ class AgentRuntime:
 
     @staticmethod
     def _attach_handoff(result, session):
-        return attach_agent_handoff(result)
+        draft = session.submission
+        # Reuse only an explicitly authored callback paired with this retained
+        # report. Never summarize tool facts or attach a newer candidate's text
+        # to an older rendered report on a degraded path.
+        if (
+            isinstance(result, Mapping) and not result.get("agent_text")
+            and result.get("answer") == draft.full_text
+            and draft.full_text and draft.agent_text
+            and draft.rendered_revision == draft.agent_revision
+            and draft.rendered_revision is not None
+        ):
+            result = {**result, "agent_text": draft.agent_text,
+                      "submission_mode": "retained_submission"}
+        attached = attach_agent_handoff(result)
+        if (
+            isinstance(result, Mapping) and result.get("answer") == draft.full_text
+            and draft.full_text and draft.rendered_revision == draft.revision
+        ):
+            attached["delivery"]["claim_warning_count"] = len(draft.claim_diagnostics)
+        return attached
 
     async def cancel_all(self) -> None:
         current = asyncio.current_task()
