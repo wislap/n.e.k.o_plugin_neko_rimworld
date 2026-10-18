@@ -25,6 +25,53 @@ def test_empty_view_does_not_create_database(tmp_path):
     assert not path.parent.exists()
 
 
+def test_history_filters_search_all_questions_and_keep_the_original_database(tmp_path):
+    path = tmp_path / "work.sqlite"
+    store = WorkspaceStore(path)
+    for owner, colony, questions in [("Alpha", "colony-a", ["Earlier 100% food", "Later medicine"]),
+                                      ("Beta", "colony-b", ["Earlier food", "Later clothing"])]:
+        work = store.open_work(owner, colony)
+        for question in questions:
+            turn = store.accept(work, owner, question)
+            store.start(work, owner, turn)
+            store.finish(work, owner, turn, {"status": "ok", "answer": "Retained full answer"})
+    store.close()
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    views = WorkspaceViews(path)
+    assert views.read("list", search="Earlier food")["workspaces"][0]["owner"] == "Beta"
+    assert views.read("list", search="100%", current_colony_id="colony-a", colony_only=True)["total"] == 1
+    assert views.read("list", search="%", current_colony_id="colony-b", colony_only=True)["total"] == 0
+    assert views.read("list", search="Alpha")["total"] == 1
+    alpha = views.read("list", search="100%")["workspaces"][0]["workspace_id"]
+    matches = views.read("work", workspace_id=alpha, search="100%")
+    assert matches["total"] == 1 and matches["turns"][0]["question"] == "Earlier 100% food"
+    assert views.read("work", workspace_id=alpha, search="alpha")["total"] == 2
+    assert views.read("list", colony_only=True)["total"] == 0
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+
+
+def test_current_colony_is_sorted_before_other_records_without_changing_saved_rows(tmp_path):
+    path = tmp_path / "work.sqlite"
+    store = WorkspaceStore(path)
+    current = store.open_work("alpha", "current-colony")
+    turn = store.accept(current, "alpha", "Earlier current-colony question")
+    store.start(current, "alpha", turn)
+    store.finish(current, "alpha", turn, {"status": "ok", "answer": "Saved answer"})
+    other = store.open_work("beta", "other-colony")
+    turn = store.accept(other, "beta", "Newer other-colony question")
+    store.start(other, "beta", turn)
+    store.finish(other, "beta", turn, {"status": "ok", "answer": "Other answer"})
+    store.close()
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    ordinary = WorkspaceViews(path).read("list", limit=1)
+    preferred = WorkspaceViews(path).read("list", limit=1, current_colony_id="current-colony")
+    assert ordinary["workspaces"][0]["workspace_id"] == other
+    assert preferred["workspaces"][0]["workspace_id"] == current
+    assert preferred["total"] == 2 and preferred["next_offset"] == 1
+    assert WorkspaceViews(path).read("list", offset=1, limit=1, current_colony_id="current-colony")["workspaces"][0]["workspace_id"] == other
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+
+
 @pytest.mark.asyncio
 async def test_work_history_handoff_and_audit_survive_restart_without_replaying(tmp_path, monkeypatch):
     first, _ = make_plugin({})
@@ -158,3 +205,23 @@ def test_evidence_is_exact_and_hash_checked(tmp_path):
         db.execute(trigger)
     with pytest.raises(ValueError, match="hash check"):
         WorkspaceViews(path).read("observation", workspace_id=wid, turn_id=tid, observation_id="source")
+
+
+def test_reading_index_uses_saved_metadata_and_retains_raw_values(tmp_path):
+    path = tmp_path / "work.sqlite"
+    store = WorkspaceStore(path)
+    wid = store.open_work("alpha", "colony")
+    tid = store.accept(wid, "alpha", "Read facts")
+    store.start(wid, "alpha", tid)
+    source = {"observation_id": "source", "received_at": "2026-10-17T08:00:00Z",
+              "request": {"operation": "query", "arguments": {"requests": [{"from": "Pawn", "select": {"name": {}}}]}},
+              "response": {"payload": {"status": "partial", "error_code": "field_unavailable", "data": {"flag": False, "value": None}}}}
+    store.finish(wid, "alpha", tid, {"status": "ok", "answer": "Facts", "observations": [source]})
+    store.close()
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    indexed = WorkspaceViews(path).read("turn", workspace_id=wid, turn_id=tid)["evidence"][0]
+    assert indexed["request"] == {"operation": "query", "arguments": {"requests": [{"from": "Pawn"}]}}
+    assert indexed["received_at"] == source["received_at"] and "response" not in indexed
+    assert indexed["status"] == "partial" and indexed["error_code"] == "field_unavailable"
+    assert WorkspaceViews(path).read("observation", workspace_id=wid, turn_id=tid, observation_id="source")["observation"] == source
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before

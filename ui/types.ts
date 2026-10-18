@@ -112,6 +112,7 @@ export type AgentRuntimeState = {
 }
 
 export type DashboardState = {
+  settings_saves?: SettingsReceipt[]
   consultations_in_progress?: number
   workspaces?: { revision?: number; active_count?: number }
   action_nonce?: string
@@ -140,15 +141,17 @@ export type DashboardState = {
   updated_at?: string
 }
 
-export type PageId = "work" | "diagnostics" | "settings"
+export type PageId = "work" | "history" | "diagnostics" | "settings"
 export type RunView = "result" | "events" | "observations" | "model"
 export type BudgetValues = Record<string, number | "">
 export const BUDGET_FIELDS = [
-  { key: "connect_timeout_seconds", label: "连接等待", min: 1, max: 30, initial: 10 },
-  { key: "first_response_timeout_seconds", label: "首个有效响应", min: 1, max: 60, initial: 45 },
-  { key: "stream_idle_timeout_seconds", label: "流读取空闲", min: 1, max: 60, initial: 20 },
-  { key: "request_timeout_seconds", label: "单次模型请求上限", min: 3, max: 60, initial: 60 },
-  { key: "run_budget_seconds", label: "整个 Agent 运行上限", min: 10, max: 90, initial: 90 },
-  { key: "finalization_reserve_seconds", label: "结束提交预留", min: 0, max: 30, initial: 15 },
-  { key: "max_output_tokens", label: "单次模型输出上限（token）", min: 64, max: 131072, initial: 32768 },
+  { key: "connect_timeout_seconds", min: 1, max: 30, initial: 10 },
+  { key: "first_response_timeout_seconds", min: 1, max: 60, initial: 45 },
+  { key: "stream_idle_timeout_seconds", min: 1, max: 60, initial: 20 },
+  { key: "request_timeout_seconds", min: 3, max: 60, initial: 60 },
+  { key: "run_budget_seconds", min: 10, max: 90, initial: 90 },
+  { key: "finalization_reserve_seconds", min: 0, max: 30, initial: 15 },
+  { key: "max_output_tokens", min: 64, max: 131072, initial: 32768 },
 ]
+
+export type SettingsReceipt = { operation_id: string; kind: "bridge" | "agent"; state: "saving" | "saved" | "failed" | "unconfirmed"; persisted?: boolean | null; applied?: boolean | null; error_code?: string }

@@ -13,15 +13,15 @@ export type WorkDetails = {
 }
 export type ConsultationResult = {
   status: string; answer?: string; summary?: string; agent_text?: string; caveats?: string[]
-  audit?: { run_id?: string }; report?: { report_id: string; saved: boolean }
+  audit?: { run_id?: string; error_code?: string }; report?: { report_id: string; saved: boolean; export?: { status?: string; reason?: string } }
   delivery?: { handoff_tokens?: number; transport_token_budget?: number; token_budget?: number; submission_mode?: string }
   observations?: unknown[]; usage?: UsageTotals
 }
 export type ExchangeDetails = {
   workspace_id: string; turn_id: string; question: string; status: string; history_saved: boolean
   result: ConsultationResult | null; active?: AgentRun | null; audit_available: boolean
-  evidence: Array<{ observation_id: string; sha256: string }>
-  handoff?: { summary: string; prepared_at: string; history_saved: boolean; report?: { saved?: boolean; export?: { status?: string } } } | null
+  evidence: Array<{ observation_id: string; sha256: string; request?: { operation?: string; arguments?: Record<string, any> }; received_at?: string; status?: string; error_code?: string }>
+  handoff?: { summary: string; prepared_at: string; history_saved: boolean; delivery?: { submission_mode?: string; operational_notice?: boolean }; report?: { saved?: boolean; export?: { status?: string; reason?: string } } } | null
   report?: { report_id: string; full_text: string; state: string }; report_unavailable?: boolean
 }
 export type EvidenceView = { workspace_id: string; turn_id: string; observation_id: string; sha256: string; observation: unknown }

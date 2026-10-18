@@ -18,13 +18,18 @@ from plugin.sdk.plugin import (
     ui,
 )
 
-from .agent.runtime.audit import AgentAuditRegistry
-from .agent.model.model_client import AgentConfigurationError, AgentModelSettings, build_agent_model_settings, parse_agent_model_settings
-from .agent.runtime.loop import AgentRuntime
 from .agent.delivery.handoff import attach_agent_handoff, count_handoff_tokens
+from .agent.model.model_client import (
+    AgentConfigurationError,
+    AgentModelSettings,
+    build_agent_model_settings,
+    parse_agent_model_settings,
+)
 from .agent.reference.mechanism_tools import compose_implementation_knowledge
 from .agent.reference.wiki_tools import compose_wiki_tools, knowledge_directory
-from .tool_contracts import ToolExecutionError, ToolSetup
+from .agent.runtime.audit import AgentAuditRegistry
+from .agent.runtime.loop import AgentRuntime
+from .configuration import SettingsSaveOperations, persist_settings
 from .game.bridge import (
     BridgeBusyError,
     BridgeError,
@@ -41,6 +46,7 @@ from .game.query_tools import CatalogTools
 from .game.state import BridgeStateStore, BridgeStatus, DiagnosticRing, json_safe_copy, utc_now
 from .knowledge import KnowledgeLibrary
 from .reports import ReportError, ReportStore
+from .tool_contracts import ToolExecutionError, ToolSetup
 from .workspace.history_tools import make_history_tool
 from .workspace.service import NoCurrentWork, WorkspaceService
 from .workspace.views import WorkspaceViews
@@ -188,6 +194,7 @@ class NekoRimworldPlugin(NekoPluginBase):
         )
         self._workspace_service = None
         self._consultation_tasks = set()
+        self._settings_saves = SettingsSaveOperations()
 
     @lifecycle(id="startup")
     async def startup(self, **_: object):
@@ -237,6 +244,8 @@ class NekoRimworldPlugin(NekoPluginBase):
 
     @lifecycle(id="shutdown")
     async def shutdown(self, **_: object):
+        if hasattr(self, "_settings_saves"):
+            await self._settings_saves.close()
         calls = [task for task in self._consultation_tasks if task is not asyncio.current_task()]
         for task in calls:
             task.cancel()
@@ -295,6 +304,7 @@ class NekoRimworldPlugin(NekoPluginBase):
             # This process-local nonce makes the credential action callable only by
             # this Hosted UI surface. It is intentionally not displayed or logged.
             snapshot["action_nonce"] = self._settings_action_nonce
+            snapshot["settings_saves"] = self._settings_save_operations().snapshot()
             safe = json_safe_copy(snapshot)
             # Keep the lightweight agent summaries under the audit sanitizer's contract.
             # Full run data is read on demand via get_agent_run_details.
@@ -336,6 +346,8 @@ class NekoRimworldPlugin(NekoPluginBase):
                 "workspace_id": {"type": "string"},
                 "turn_id": {"type": "string"},
                 "observation_id": {"type": "string"},
+                "search": {"type": "string", "maxLength": 256},
+                "colony_only": {"type": "boolean"},
                 "offset": {"type": "integer", "minimum": 0},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 50},
             },
@@ -346,9 +358,10 @@ class NekoRimworldPlugin(NekoPluginBase):
         metadata={"agent_auto": False},
     )
     async def workspace_view(
-        self, action="list", workspace_id="", turn_id="", observation_id="", offset=0, limit=20, **_
+        self, action="list", workspace_id="", turn_id="", observation_id="", offset=0, limit=20, search="", colony_only=False, **_
     ):
         try:
+            game = getattr(self._bridge, "session", None)
             view = await asyncio.to_thread(
                 WorkspaceViews(self.data_path("workspaces") / "work.sqlite").read,
                 action,
@@ -357,6 +370,9 @@ class NekoRimworldPlugin(NekoPluginBase):
                 observation_id=observation_id,
                 offset=offset,
                 limit=limit,
+                current_colony_id=game.colony_id if game is not None else None,
+                search=search,
+                colony_only=colony_only,
             )
             service = self._workspace_service
             active = self._agent_runtime.snapshot(include_latest_details=False)["active_runs"]
@@ -425,6 +441,64 @@ class NekoRimworldPlugin(NekoPluginBase):
                 SdkError("This run is no longer retained (history eviction or plugin reload).", code="run_not_retained")
             )
         return Ok(details)
+
+    def _settings_save_operations(self):
+        if not hasattr(self, "_settings_saves"):
+            self._settings_saves = SettingsSaveOperations()
+        return self._settings_saves
+
+    @ui.action(id="begin_settings_save", label="Save settings", refresh_context=False)
+    @plugin_entry(
+        id="begin_settings_save", name="Save panel settings", timeout=3.0,
+        description="Start one settings save and return a receipt without waiting for persistence.",
+        metadata={"agent_auto": False},
+        input_schema={"type": "object", "additionalProperties": False,
+            "required": ["operation_id", "kind", "ui_nonce"], "properties": {
+                "operation_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+                "kind": {"type": "string", "enum": ["bridge", "agent"]},
+                "ui_nonce": {"type": "string", "writeOnly": True},
+                "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+                "pairing_token": {"type": "string", "writeOnly": True, "maxLength": 128},
+                "base_url": {"type": "string", "maxLength": 2048},
+                "model": {"type": "string", "maxLength": 256},
+                "api_key": {"type": "string", "writeOnly": True, "maxLength": 4096},
+                "budgets": {"type": "object"},
+            }},
+    )
+    async def begin_settings_save(self, operation_id="", kind="", ui_nonce="", _ctx=None, **values):
+        if not self._valid_settings_ui_nonce(ui_nonce):
+            return Err(SdkError("Refresh the panel before saving.", code="ui_only"))
+        if (not isinstance(operation_id, str) or len(operation_id) != 32
+                or any(c not in "0123456789abcdef" for c in operation_id) or kind not in {"bridge", "agent"}):
+            return Err(SdkError("Invalid settings operation.", code="invalid_settings_operation"))
+        allowed = {"port", "pairing_token"} if kind == "bridge" else {"base_url", "model", "api_key", "budgets"}
+        if set(values) - allowed:
+            return Err(SdkError("Unsupported settings fields.", code="invalid_settings_operation"))
+        # Freeze validated invocation input; the existing business save owns all
+        # validation, rollback and activation. No UI request waits on that work.
+        arguments = copy.deepcopy(values)
+        async def execute():
+            save = self.save_bridge_settings if kind == "bridge" else self.save_agent_settings
+            return await save(ui_nonce=ui_nonce, **arguments)
+        try:
+            return Ok(self._settings_save_operations().start(operation_id, kind, execute))
+        except ValueError as error:
+            return Err(SdkError("A settings save is already pending or unavailable.", code=str(error)))
+
+    @ui.action(id="get_settings_save", label="Check settings save", refresh_context=False)
+    @plugin_entry(
+        id="get_settings_save", name="Read settings save receipt", timeout=3.0,
+        description="Read the status of a panel settings save; never repeats a write.",
+        metadata={"agent_auto": False},
+        input_schema={"type": "object", "additionalProperties": False,
+            "required": ["operation_id"], "properties": {
+                "operation_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"}}},
+    )
+    async def get_settings_save(self, operation_id="", **_):
+        try:
+            return Ok(self._settings_save_operations().read(operation_id))
+        except (ValueError, TypeError):
+            return Err(SdkError("This save receipt is no longer available.", code="settings_receipt_unavailable"))
 
     @ui.action(
         id="save_bridge_settings",
@@ -576,14 +650,13 @@ class NekoRimworldPlugin(NekoPluginBase):
                 )
 
             try:
-                await self.config.update(
+                await persist_settings(self.config,
                     {
                         "neko_rimworld": {
                             "port": next_settings.port,
                             "pairing_token": next_settings.pairing_token,
                         }
                     },
-                    timeout=5.0,
                 )
             except Exception as exception:
                 incident = self._record_unexpected(
@@ -740,7 +813,7 @@ class NekoRimworldPlugin(NekoPluginBase):
             return Err(SdkError(str(exception), code="invalid_agent_settings"))
 
         try:
-            await self.config.update(
+            await persist_settings(self.config,
                 {
                     "neko_rimworld": {
                         "agent": {
@@ -759,7 +832,6 @@ class NekoRimworldPlugin(NekoPluginBase):
                         }
                     }
                 },
-                timeout=5.0,
             )
         except Exception as exception:
             incident = self._record_unexpected(

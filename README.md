@@ -2,6 +2,14 @@
 
 Read-only colony consultation through the local RimWorld Mod and an independent model.
 
+Start here: [中文使用指南](docs/QUICKSTART.zh-CN.md) · [English quick start](docs/QUICKSTART.en.md).
+
+The panel includes first-use guidance, saved-answer browsing and explicit settings
+save receipts. A save can be confirmed, rejected or still unconfirmed; the panel
+does not silently repeat a write after a lost reply. Model limits are under
+advanced settings. English and Simplified Chinese follow the host language, with
+English as the fallback. These local changes are not a published release.
+
 ## Current source: v3.2
 
 The product version is `3.2.0` (displayed as **v3.2**), aligned with the Mod and
@@ -112,6 +120,21 @@ bounded for process safety. If the model cannot finish normally, the entry
 returns a structured `degraded` result instead of stopping the plugin.
 
 ## Work, delivery and audit
+
+The panel opens on **本次建议** for the current colony. It shows the existing saved
+short answer first; **查看完整回答** expands the complete authored text without
+another model request. **历史记录** groups past discussions by caller and colony,
+using readable questions and local timestamps. Saved answers remain explicitly
+historical; changing the loaded colony does not rebind an older answer as current.
+
+**调试** is always visible in the top navigation, including on the settings page.
+Its **原始读取记录** tab retains the saved native observations, hashes, failures,
+delivery metadata and execution audit. Record titles come from their original
+operation/root metadata, with original JSON available on demand. The panel never
+rewrites those observations or infers new game facts from a title. Reads use the
+existing read-only workspace API; the database schema, model tools, prompts and
+private settings are unchanged. A transport failure preserves available history
+and supports an explicit refresh rather than silently substituting another answer.
 
 Valid caller/colony identity binds persistent work; missing identity or retained work falls back to a standalone consultation. Turns for the same role and colony serialize. History is attached as historical evidence; workspace_history is published only for existing history or an explicit report ID. Reports and exchanges save automatically. No autonomous observation or learning is implied.
 

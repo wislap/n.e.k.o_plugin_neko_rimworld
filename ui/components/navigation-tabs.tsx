@@ -1,6 +1,8 @@
+import { useI18n } from "@neko/plugin-ui"
 type TabItem = { id: string; label: any }
 
 export function NavigationTabs(props: { id: string; activeId: string; items: TabItem[]; onChange: (id: string) => void; children?: any }) {
+  const { t } = useI18n()
   function onKey(event: KeyboardEvent, index: number) {
     let next = index
     if (event.key === "ArrowRight") next = (index + 1) % props.items.length
@@ -15,7 +17,7 @@ export function NavigationTabs(props: { id: string; activeId: string; items: Tab
     button?.focus()
   }
   return <div className="neko-tabs">
-    <div className="neko-tab-list" role="tablist" aria-label="页面导航">
+    <div className="neko-tab-list" role="tablist" aria-label={t("debug.navigation")} >
       {props.items.map((item, index) => <button key={item.id} type="button" role="tab"
         id={`${props.id}-tab-${item.id}`} aria-controls={`${props.id}-panel-${item.id}`}
         aria-selected={item.id === props.activeId ? "true" : "false"} tabIndex={item.id === props.activeId ? 0 : -1}

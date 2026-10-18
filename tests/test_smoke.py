@@ -40,8 +40,8 @@ def test_hosted_panel_exists() -> None:
     controllers = "\n".join(path.read_text(encoding="utf-8") for path in (root / "ui").rglob("use*.ts"))
     for action in (
         "probe_game_overview",
-        "save_bridge_settings",
-        "save_agent_settings",
+        "begin_settings_save",
+        "get_settings_save",
         "rimworld_consult",
         "get_agent_run_details",
     ):

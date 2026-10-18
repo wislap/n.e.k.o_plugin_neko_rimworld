@@ -1,9 +1,10 @@
-import { useEffect, useLocalState, useRef, useState, useToast } from "@neko/plugin-ui"
+import { useI18n, useEffect, useLocalState, useRef, useState, useToast } from "@neko/plugin-ui"
 import type { AgentRun, PageId, RunView } from "../types"
 import type { PanelServices } from "../services"
 import { actionPayload, normalizedError } from "../format"
 
 export function useDiagnostics(services: PanelServices, page: PageId, setPage: (page: PageId) => void) {
+  const { t } = useI18n()
   const { state, mounted, refresh, refreshing, refreshError, call } = services
   const toast = useToast()
   const [diagnosticMode, setDiagnosticMode] = useLocalState<string>("rimworld:diagnostic-mode", "records")
@@ -34,7 +35,7 @@ export function useDiagnostics(services: PanelServices, page: PageId, setPage: (
   const [reportLoading, setReportLoading] = useState(false)
   const reportSequence = useRef(0)
   const [referenceReportId, setReferenceReportId] = useState("")
-  const [question, setQuestion] = useState("现在殖民地整体情况怎么样？")
+  const [question, setQuestion] = useState(t("debug.sampleQuestion"))
   const [running, setRunning] = useState(false)
   const runningGate = useRef(false)
   const [testResult, setTestResult] = useState<Record<string, any> | null>(null)
@@ -64,7 +65,7 @@ export function useDiagnostics(services: PanelServices, page: PageId, setPage: (
         ? call("workspace_view", { action: "audit", ...target.archive, offset: target.eventOffset, limit: 50 }, 12_000)
         : call("get_agent_run_details", { run_id: target.runId, event_offset: target.eventOffset, event_limit: 50 }, 12_000)))
       if (!mounted.current || sequence !== detailSequence.current) return
-      if (target.archive ? result?.workspace_id !== target.archive.workspace_id || result?.turn_id !== target.archive.turn_id : result?.run_id !== target.runId) throw new Error("返回的会话与当前选择不匹配。")
+      if (target.archive ? result?.workspace_id !== target.archive.workspace_id || result?.turn_id !== target.archive.turn_id : result?.run_id !== target.runId) throw new Error(t("debug.selectionMismatch"))
       setDetail(result)
     } catch (error) {
       if (mounted.current && sequence === detailSequence.current) setDetailError(normalizedError(error))
@@ -91,7 +92,7 @@ export function useDiagnostics(services: PanelServices, page: PageId, setPage: (
       if (selectedReportId) {
         const loaded = actionPayload(await call("rimworld_report", { action: "read", report_id: selectedReportId }, 10_000))
         if (!mounted.current || sequence !== reportSequence.current) return
-        if (loaded?.report?.report_id !== selectedReportId) throw new Error("报告 ID 与当前选择不匹配。")
+        if (loaded?.report?.report_id !== selectedReportId) throw new Error(t("debug.reportMismatch"))
         setReport(loaded.report)
       }
     } catch (error) { if (mounted.current && sequence === reportSequence.current) { setReport(null); setReportError(normalizedError(error)) } }
@@ -125,15 +126,15 @@ export function useDiagnostics(services: PanelServices, page: PageId, setPage: (
   async function runTest() {
     if (runningGate.current) return
     setTestError(null); setTestResult(null)
-    if (!question.trim()) { setTestError(new Error("请输入测试问题。")); return }
+    if (!question.trim()) { setTestError(new Error(t("debug.questionRequired"))); return }
     runningGate.current = true; setRunning(true)
     try {
-      const request = referenceReportId ? `${question.trim()}\n请分析保存的历史报告 ${referenceReportId}。` : question.trim()
+      const request = referenceReportId ? `${question.trim()}\n${t("debug.reportRequest", { id: referenceReportId })}` : question.trim()
       const result = actionPayload(await call("rimworld_consult", { question: request }, 115_000))
       if (mounted.current) {
         setTestResult(result)
-        if (result?.status === "ok") toast.success("咨询完成。")
-        else toast.warning("咨询未正常完成，可在会话详情中查看原因。")
+        if (result?.status === "ok") toast.success(t("debug.consultComplete"))
+        else toast.warning(t("debug.consultIncomplete"))
       }
     } catch (error) { if (mounted.current) setTestError(normalizedError(error)) }
     finally { runningGate.current = false; if (mounted.current) { setRunning(false); await refresh() } }

@@ -1,5 +1,5 @@
 import { NavigationTabs } from "./components/navigation-tabs"
-import { Alert, Button, ErrorBoundary, InlineError, Page, Stack, useEffect, useLocalState } from "@neko/plugin-ui"
+import { Alert, Button, ErrorBoundary, InlineError, Page, Stack, useEffect, useLocalState, useI18n } from "@neko/plugin-ui"
 import type { PluginSurfaceProps } from "@neko/plugin-ui"
 import type { DashboardState, PageId } from "./types"
 import { usePanelServices } from "./services"
@@ -8,13 +8,16 @@ import { useSettings } from "./settings/useSettings"
 import { useWorkView } from "./work/useWorkView"
 import { StatusStrip } from "./components/status-strip"
 import { WorkPage } from "./work/work-page"
+import { HistoryPage } from "./work/history-page"
+import { ReadingRecords } from "./work/reading-records"
 import { DiagnosticsPage } from "./diagnostics/diagnostics-page"
 import { SettingsPage } from "./settings/settings-page"
 import { text } from "./format"
 
 function PanelBody(props: PluginSurfaceProps<DashboardState>) {
+  const { t } = useI18n()
   const services = usePanelServices(props)
-  const [page, setPage] = useLocalState<PageId>("rimworld:v3:page", "work")
+  const [page, setPage] = useLocalState<PageId>("rimworld:advice:page", "work")
   const diagnostics = useDiagnostics(services, page, setPage)
   const settings = useSettings(services)
   const work = useWorkView(services, page)
@@ -30,18 +33,21 @@ function PanelBody(props: PluginSurfaceProps<DashboardState>) {
     timer = setTimeout(tick, 1000)
     return () => { stopped = true; clearTimeout(timer) }
   }, [active])
-  return <Page title="N.E.K.O RimWorld" subtitle="持续调查、历史成果与原始证据">
+  const openReadings = () => { diagnostics.setDiagnosticMode("readings"); setPage("diagnostics") }
+  const openConnectionTest = () => { diagnostics.setDiagnosticMode("test"); setPage("diagnostics") }
+  return <Page title="N.E.K.O RimWorld" subtitle={t("panel.subtitle")}>
     <Stack>
       <StatusStrip c={{ ...services, running: active }} />
-      {services.refreshError ? <InlineError title="状态刷新失败" error={services.refreshError} /> : null}
-      {(props.warnings || []).map((warning, index) => <Alert key={index} tone="warning">{text(warning.message, "界面状态警告", 500)}</Alert>)}
+      {services.refreshError ? <InlineError title={t("panel.refreshError")} error={new Error(t("panel.refreshErrorHelp"))} /> : null}
+      {(props.warnings || []).map((warning, index) => <Alert key={index} tone="warning">{text(warning.message, t("debug.panelWarning"), 500)}</Alert>)}
       <NavigationTabs id="rimworld-main-nav" activeId={page} onChange={id => setPage(id as PageId)} items={[
-        { id: "work", label: "工作" },
-        { id: "diagnostics", label: "诊断" },
-        { id: "settings", label: settings.bridgeDirty || settings.agentDirty ? "设置 · 未保存" : "设置" },
+        { id: "work", label: t("nav.advice") },
+        { id: "history", label: t("nav.history") },
+        { id: "diagnostics", label: t("nav.debug") },
+        { id: "settings", label: t(settings.bridgeDirty || settings.agentDirty ? "nav.settingsDirty" : "nav.settings") },
       ]}>
-        <ErrorBoundary key={page} title="页面内容加载失败">
-          {page === "diagnostics" ? <DiagnosticsPage c={diagnostics} /> : page === "settings" ? <SettingsPage c={settings} /> : <WorkPage c={work} state={services.state} openAudit={diagnostics.openArchive} />}
+        <ErrorBoundary key={page} title={t("debug.pageError")} >
+          {page === "diagnostics" ? <DiagnosticsPage c={diagnostics} readings={<ReadingRecords c={work} openAudit={diagnostics.openArchive} />} /> : page === "settings" ? <SettingsPage c={settings} /> : <div style={{ maxWidth: "1120px", width: "100%", marginInline: "auto", minWidth: 0 }}>{page === "history" ? <HistoryPage c={work} state={services.state} openDiagnostics={openReadings} openSettings={() => setPage("settings")} /> : <WorkPage c={work} state={services.state} openHistory={() => setPage("history")} openDiagnostics={openReadings} openSettings={() => setPage("settings")} openConnectionTest={openConnectionTest} />}</div>}
         </ErrorBoundary>
       </NavigationTabs>
     </Stack>
@@ -49,7 +55,8 @@ function PanelBody(props: PluginSurfaceProps<DashboardState>) {
 }
 
 export default function RimWorldBridgePanel(props: PluginSurfaceProps<DashboardState>) {
-  return <ErrorBoundary title="RimWorld 面板加载失败" fallback={(error, reset) => <Page title="N.E.K.O RimWorld"><Stack><InlineError title="界面错误" error={error} /><Button onClick={reset}>重试显示</Button></Stack></Page>}>
+  const { t } = useI18n()
+  return <ErrorBoundary title={t("debug.panelError")}  fallback={(error, reset) => <Page title="N.E.K.O RimWorld"><Stack><InlineError title={t("debug.displayError")}  error={error} /><Button onClick={reset}>{t("debug.displayRetry")}</Button></Stack></Page>}>
     <PanelBody {...props} />
   </ErrorBoundary>
 }

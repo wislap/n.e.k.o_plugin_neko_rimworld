@@ -1,33 +1,34 @@
-import { Alert, Button, Card, EmptyState, Grid, Stack, StatCard, StatusBadge, TextBlock, Toolbar, ToolbarGroup } from "@neko/plugin-ui"
+import { useI18n, Alert, Button, Card, EmptyState, Grid, Stack, StatCard, StatusBadge, TextBlock, Toolbar, ToolbarGroup } from "@neko/plugin-ui"
 import type { DiagnosticsController } from "./useDiagnostics"
 import { UsageSummary } from "../components/usage-summary"
 import { FailureNotice } from "../components/failure-notice"
 import { progressText, statusTone, text, timing } from "../format"
 
 export function ExecutionOverview({ c }: { c: DiagnosticsController }) {
+  const { t } = useI18n()
   const state = c.state
   const latest = c.latestRun
   const incident = state.last_incident || state.panel_error
   return <Stack>
     <Grid cols={4}>
-      <StatCard label="游戏连接" value={state.connection ? "已认证" : "未连接"} />
-      <StatCard label="游戏会话" value={state.session ? state.session.stale ? "已失效" : "有效" : "未加载"} />
-      <StatCard label="模型配置" value={state.configuration?.agent_configured ? "已配置" : "未配置"} />
-      <StatCard label="运行中的咨询" value={state.agent?.active_count ?? 0} />
+      <StatCard label={t("debug.gameConnection")}  value={state.connection ? t("debug.authenticated") : t("debug.notConnected")} />
+      <StatCard label={t("debug.gameSession")}  value={state.session ? state.session.stale ? t("debug.expired") : t("debug.valid") : t("debug.notLoaded")} />
+      <StatCard label={t("debug.modelConfig")}  value={state.configuration?.agent_configured ? t("debug.configured") : t("debug.notConfigured")} />
+      <StatCard label={t("debug.activeConsultations")}  value={state.agent?.active_count ?? 0} />
     </Grid>
-    {!state.configuration?.token_configured || !state.configuration?.agent_configured ? <Alert tone="warning">连接或模型尚未配置完整。请在设置页完成配置。</Alert> : null}
-    <Card title="最近一次运行与用量"><UsageSummary run={latest} history={state.agent} /></Card>
-    <Card title="最近结果">
+    {!state.configuration?.token_configured || !state.configuration?.agent_configured ? <Alert tone="warning">{t("debug.setupWarning")}</Alert> : null}
+    <Card title={t("debug.latestUsage")} ><UsageSummary run={latest} history={state.agent} /></Card>
+    <Card title={t("debug.latestResult")} >
       {latest ? <Stack>
-        <TextBlock text={text(latest.question, "咨询", 300)} />
+        <TextBlock text={text(latest.question, t("debug.consultation"), 300)} />
         <StatusBadge tone={statusTone(text(latest.result_status || latest.state))} label={text(latest.result_status || latest.state)} />
-        {!latest.terminal ? <Alert tone="info">{progressText(latest)} · 已运行 {timing(latest.duration_ms)}</Alert> : null}
+        {!latest.terminal ? <Alert tone="info">{progressText(latest, t)} · {timing(latest.duration_ms, t)}</Alert> : null}
         {latest.result_status && latest.result_status !== "ok" ? <FailureNotice summary={latest.failure_summary} compact /> : null}
-        <TextBlock text={text(latest.result_summary, "尚未返回最终交接文本。", 1000)} />
-        <Button onClick={() => c.openRun(latest.run_id!)}>查看本次详情</Button>
-      </Stack> : <EmptyState title="还没有运行记录" description="在调试页发起一次咨询，或从 NEKO 对话中调用插件。" />}
+        <TextBlock text={text(latest.result_summary, t("debug.noHandoff"), 1000)} />
+        <Button onClick={() => c.openRun(latest.run_id!)}>{t("debug.viewRun")}</Button>
+      </Stack> : <EmptyState title={t("debug.noRunHistory")}  description={t("debug.noRunHistoryHelp")}  />}
     </Card>
-    {incident ? <Card title="最近异常"><Stack><TextBlock text={text(incident.message, "发生运行异常。", 500)} /><Button onClick={() => { c.setSessionMode("connection"); c.setDiagnosticMode("records") }}>查看连接事件</Button></Stack></Card> : null}
-    <Toolbar><ToolbarGroup><Button tone="primary" onClick={() => { c.setDiagnosticMode("test") }}>进入调试</Button><Button onClick={() => { c.setPage("settings") }}>打开设置</Button></ToolbarGroup></Toolbar>
+    {incident ? <Card title={t("debug.latestIncident")} ><Stack><TextBlock text={text(incident.message, t("debug.runtimeIssue"), 500)} /><Button onClick={() => { c.setSessionMode("connection"); c.setDiagnosticMode("records") }}>{t("debug.viewConnectionEvents")}</Button></Stack></Card> : null}
+    <Toolbar><ToolbarGroup><Button tone="primary" onClick={() => { c.setDiagnosticMode("test") }}>{t("debug.enterTest")}</Button><Button onClick={() => { c.setPage("settings") }}>{t("debug.openSettings")}</Button></ToolbarGroup></Toolbar>
   </Stack>
 }
