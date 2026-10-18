@@ -4,7 +4,6 @@ import copy
 import itertools
 
 import pytest
-
 from plugin.plugins.neko_rimworld.agent.world.query_surface import Surface, SurfaceError
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import _compose_blocks, plan_look
 

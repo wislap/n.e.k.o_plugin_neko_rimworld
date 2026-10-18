@@ -4,7 +4,6 @@ import copy
 import json
 
 import pytest
-
 from plugin.plugins.neko_rimworld.agent.context.model_context import make_pruner
 from plugin.plugins.neko_rimworld.agent.world.query_surface import Surface
 from plugin.plugins.neko_rimworld.agent.world.semantic_surface import normalize_object, plan_count, render

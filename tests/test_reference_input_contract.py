@@ -4,7 +4,6 @@ import copy
 
 import pytest
 from jsonschema import ValidationError, validate
-
 from plugin.plugins.neko_rimworld.agent.world import semantic_surface as s
 from plugin.plugins.neko_rimworld.agent.world.query_surface import Surface
 

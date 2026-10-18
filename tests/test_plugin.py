@@ -7,7 +7,6 @@ import socket
 from typing import Any
 
 import pytest
-
 from plugin.plugins.neko_rimworld import (
     BridgeSettings,
     NekoRimworldPlugin,

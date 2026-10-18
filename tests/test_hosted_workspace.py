@@ -8,7 +8,6 @@ import threading
 from types import SimpleNamespace
 
 import pytest
-
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import count_handoff_tokens
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
