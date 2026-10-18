@@ -5,23 +5,22 @@ from __future__ import annotations
 import asyncio
 import copy
 import hashlib
-import json
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Protocol
 
+from ...message_contracts import PreparedToolCall
+from ...tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
+from ..context.situation_context import compile_situation, unavailable_situation
 from ..delivery.handoff import (
     attach_agent_handoff,
 )
 from ..model.model_client import AgentModelSettings, ModelClient, OpenAICompatibleModelClient
 from ..model.model_requests import MAX_MODEL_ATTEMPTS, _canonical_hash, request_model
 from .audit import AgentAuditCapacityError, AgentAuditLedger, AgentAuditRegistry, AgentRunState
-from ...message_contracts import PreparedToolCall
 from .execution_environment import ExecutionEnvironment
 from .prompt import build_runtime_advisory, build_system_prompt
 from .session import AgentRunSession
-from ...tool_contracts import ToolExecutionError, ToolSetup, ToolSpec
 from .tools import ToolRegistry
-from ..context.situation_context import compile_situation, unavailable_situation
 
 
 class LoggerLike(Protocol):

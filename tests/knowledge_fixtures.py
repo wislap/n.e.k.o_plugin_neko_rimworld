@@ -1,8 +1,8 @@
 """Synthetic publisher-format fixtures, independent of the production reader."""
 import hashlib
 import json
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 
 def publish(directory: Path, document: dict) -> Path:

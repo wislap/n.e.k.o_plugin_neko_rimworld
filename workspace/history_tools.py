@@ -4,8 +4,8 @@ import asyncio
 import copy
 import re
 
-from ..tool_contracts import ToolExecutionError, ToolSpec
 from ..reports import MAX_REPORT_BYTES, ReportError
+from ..tool_contracts import ToolExecutionError, ToolSpec
 
 
 def make_history_tool(*, storage=None, workspace_id=None, owner=None, turn_id=None, report_store=None, question=""):

@@ -55,9 +55,12 @@ def test_single_partial_population_is_a_candidate_not_a_proven_prose_binding():
 def test_equal_numbers_do_not_merge_different_populations_or_samples(difference):
     partial = population("pawns", 3, ["Lumi"], complete=False)
     complete = population("pawns", 3, ["Lumi", "Wonder", "Vicky"], complete=True)
-    if difference == "root": complete["from"] = "spawned_free_colonists"
-    if difference == "map": complete["scope"]["args"]["map_id"] = "Map_1"
-    if difference == "where": complete["scope"]["where"] = {"dead": False}
+    if difference == "root":
+        complete["from"] = "spawned_free_colonists"
+    if difference == "map":
+        complete["scope"]["args"]["map_id"] = "Map_1"
+    if difference == "where":
+        complete["scope"]["where"] = {"dead": False}
     if difference == "owner":
         partial = {"id": "Pawn_Lumi", "name": "Lumi", "inventory": partial}
         complete = {"id": "Pawn_Wonder", "name": "Wonder", "inventory": complete}

@@ -6,8 +6,8 @@ import pytest
 
 from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner
 from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
-from plugin.plugins.neko_rimworld.agent.world.native_state import STATE_FACETS, NativeStateReader
 from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
+from plugin.plugins.neko_rimworld.agent.world.native_state import NativeStateReader
 from plugin.plugins.neko_rimworld.tests.test_activity import NativeInteraction
 from plugin.plugins.neko_rimworld.tests.test_native_on_demand import state_directory
 

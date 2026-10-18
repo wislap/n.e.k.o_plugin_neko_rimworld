@@ -8,25 +8,24 @@ covered by the surface's own tests.
 
 from __future__ import annotations
 
-from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
-
 import json
 from pathlib import Path
 
 import pytest
 
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.message_contracts import ToolCall
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSetup
+from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import (
     SemanticInteraction,
     semantic_interaction_factory,
 )
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSetup
 
-from .test_agent import FakeLogger, settings, turn
+from .test_agent import FakeLogger, settings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CATALOGUE_MARKER = "canonical fields"
@@ -207,7 +206,7 @@ class _Model:
 async def test_wiki_is_the_only_extra_passthrough_and_never_an_observation(tmp_path):
     from dataclasses import replace
 
-    from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore, make_wiki_tool
+    from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import make_wiki_tool
     from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
     from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 
@@ -233,7 +232,7 @@ async def test_wiki_is_the_only_extra_passthrough_and_never_an_observation(tmp_p
 
 
 def test_missing_wiki_does_not_advertise_knowledge():
-    adapter = semantic_interaction_factory(setup_for(), Session(), _update)
+    semantic_interaction_factory(setup_for(), Session(), _update)
     assert "wiki(query)" not in build_system_prompt()
 
 

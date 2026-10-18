@@ -12,6 +12,7 @@ from plugin.plugins.neko_rimworld.agent.world.native_state import state_contract
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
+
 from .test_semantic_tools import Session, _update
 
 

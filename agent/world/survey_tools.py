@@ -1,6 +1,7 @@
 """Model-facing region survey; native geometry and coverage remain catalog-owned."""
 
 import copy
+
 from ...schema_serialization import schema_contract
 
 

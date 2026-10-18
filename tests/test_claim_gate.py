@@ -3,10 +3,14 @@ from __future__ import annotations
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, SubmissionPatchError, make_submission_tool
-from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
-from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
+    SubmissionDraft,
+    SubmissionPatchError,
+    make_submission_tool,
+)
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 
 
 def observation_without_identity():

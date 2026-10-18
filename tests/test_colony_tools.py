@@ -23,8 +23,8 @@ from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 
 from .test_agent import FakeLogger, settings, turn
-from .test_semantic_tools import catalog as base_catalog, Session, _update
-
+from .test_semantic_tools import Session, _update
+from .test_semantic_tools import catalog as base_catalog
 
 OPERATIONS = ("inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade", "inspect_resources")
 

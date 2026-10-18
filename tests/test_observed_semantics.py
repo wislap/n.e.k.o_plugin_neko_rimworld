@@ -1,13 +1,6 @@
-import asyncio
 import copy
 
-import pytest
-
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.world.query_readings import profile_trait_semantics
-from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
-
-from .test_semantic_tools import Session, _update, public_source
 
 
 def test_trait_codes_stay_with_values_without_mutating_evidence():

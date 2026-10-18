@@ -6,12 +6,13 @@ from pathlib import Path
 import pytest
 
 from plugin.plugins.neko_rimworld import knowledge as knowledge_module
-from .knowledge_fixtures import publish
-from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.reference import wiki_tools
 from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore, knowledge_directory, make_wiki_tool
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
+
+from .knowledge_fixtures import publish
 
 
 def entry(name="Steel", label="steel", **changes):
@@ -138,7 +139,7 @@ def test_incomplete_not_found_is_not_an_absence_claim(tmp_path):
 
 
 def test_store_pins_snapshot_until_next_run(tmp_path):
-    path = write_snapshot(tmp_path)
+    write_snapshot(tmp_path)
     store = store_from_directory(tmp_path)
     before = store.query("Steel")
     write_snapshot(tmp_path, [entry("Gold", "gold")])

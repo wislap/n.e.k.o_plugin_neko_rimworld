@@ -6,6 +6,7 @@ import copy
 
 from ...schema_serialization import compact_tools, remove_redundant_constraints
 
+
 def model_tools(tools):
     """Only equivalent schema syntax reduction; each business owner owns its semantics."""
     result = copy.deepcopy(tools)

@@ -16,17 +16,17 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from ..delivery.research_surface import ReadOnlyResearchSurface
 from ...tool_contracts import PUBLIC_QUERY_VERSION, ToolExecutionError, ToolSpec
+from ..delivery.research_surface import ReadOnlyResearchSurface
 from .activity import make_activity_tool
 from .colony_tools import computation_tools
-from .native_state import NativeStateReader, state_contract
-from .look_tools import look_spec, read_look
 from .count_tools import count_spec
+from .look_tools import look_spec, read_look
+from .native_state import NativeStateReader, state_contract
 from .query_readings import QueryReadings
-from .survey_tools import survey_spec
 from .query_surface import Surface, SurfaceError
 from .semantic_surface import pack
+from .survey_tools import survey_spec
 from .world_order import order_world_fields
 
 # Only this explicitly approved non-observation tool survives the adapter.

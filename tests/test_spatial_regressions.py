@@ -1,5 +1,3 @@
-from plugin.plugins.neko_rimworld.agent.world.look_tools import look_spec
-from .consultation_setup import consultation_setup
 """Regression contracts from the V2.1 eight-case trace, without model calls."""
 
 import copy
@@ -7,7 +5,9 @@ import copy
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.world import semantic_surface as surface
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
+from plugin.plugins.neko_rimworld.agent.world.look_tools import look_spec
+
+from .consultation_setup import consultation_setup
 
 
 def test_blocked_definition_lookup_never_certifies_instance_count():
@@ -66,9 +66,11 @@ def test_pawn_map_and_single_id_route_without_dropping_scope():
 @pytest.mark.asyncio
 async def test_look_reader_rejects_wrong_kind_aspect_before_guessing():
     from jsonschema import validate
-    from .test_object_tools import Reader
+
     from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
     from plugin.plugins.neko_rimworld.agent.world.query_surface import SurfaceError
+
+    from .test_object_tools import Reader
 
     schema = look_spec(consultation_setup().directory)["parameters"]
     validate({"object": {"kind": "pawn", "id": "p", "map": "m"}, "aspects": ["work"]}, schema)

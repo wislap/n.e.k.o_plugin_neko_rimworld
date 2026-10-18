@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from ...game.state import redact_text
+from ...schema_serialization import schema_contract
 from ...tool_contracts import ToolExecutionError, ToolSpec
 from ..model.tokenization import tokenizer as _tokenizer
-from ...schema_serialization import schema_contract
 
 PLAIN_ANSWER_GUIDANCE = "Standalone conclusion and material conditions; aim <=100 tokens, hard maximum 180."
 PLAIN_DETAIL_GUIDANCE = "Remaining explicitly requested findings/tables only. Full answer+detail <=12000 characters. Omitted retains saved detail; null clears it."

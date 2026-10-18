@@ -1,5 +1,5 @@
 """Saved text changes retain matching caller-provided detail."""
-from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionDraft, HANDOFF_TOKEN_BUDGET
+from plugin.plugins.neko_rimworld.agent.delivery.handoff import HANDOFF_TOKEN_BUDGET, SubmissionDraft
 
 
 def test_text_revision_keeps_saved_detail_without_reconfirmation():

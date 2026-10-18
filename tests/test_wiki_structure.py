@@ -2,8 +2,6 @@
 
 import json
 
-from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import WikiStore
-
 from .test_wiki_tools import entry, store_from_directory, write_snapshot
 
 RECIPE = "Verse.RecipeDef/Make_Wort"

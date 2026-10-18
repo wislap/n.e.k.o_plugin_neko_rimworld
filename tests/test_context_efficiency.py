@@ -1,8 +1,8 @@
 import copy
 
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
-from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 
 
 def test_named_schema_definitions_are_factored_without_changing_valid_calls():
@@ -17,7 +17,8 @@ def test_named_schema_definitions_are_factored_without_changing_valid_calls():
            {'type':'object','required':['requests'],'additionalProperties':False,
             'properties':{'requests':{'type':'array','minItems':1,'items':{'$ref':'#/$defs/activity'}}}}],
            '$defs':{'activity':activity}}
-    saved=copy.deepcopy(raw);short=compact_schema(raw)
+    saved=copy.deepcopy(raw)
+    short=compact_schema(raw)
     assert len(canonical(short)) < len(canonical(raw)) and raw==saved
     for value in ({'actor':{'id':'a'},'target':{'id':'b'}},
                   {'requests':[{'actor':{'id':'a'},'target':{'id':'b'},'recipient':{'id':'p'}}]},
@@ -36,7 +37,8 @@ def test_unrequested_anatomy_filter_also_handles_named_capacity_views():
         'conditions':[{'definition':'Cut','part':0}], 'damaged_present_parts':[parts[0]],
         'missing_parts':[], 'capacities_by_definition':{'Moving':{'level':0}},
         'body_parts':parts,'body_parts_total':64,'body_parts_complete':False}}}]}}
-    saved=copy.deepcopy(raw);view=prune(raw,{'aspects':['health']})[0]['data']['facts'][0]['facts']['health']
+    saved=copy.deepcopy(raw)
+    view=prune(raw,{'aspects':['health']})[0]['data']['facts'][0]['facts']['health']
     assert raw==saved and 'body_parts' not in view and view['condition_part_details']==[parts[0]]
     assert view['conditions']==raw['data']['facts'][0]['facts']['health']['conditions']
     assert view['capacities_by_definition']=={'Moving':{'level':0}}
@@ -53,7 +55,8 @@ def test_grouped_null_states_retain_reasons_roles_unknowns_and_zero():
          'gases':[{'type':'ToxGas','value':180}],'zero':0,'unknown':{'status':'unavailable','reason':'deadline'},
          'occupants':[],'extension':{'status':'ok','native_type':'Keep','received_at':'Keep'},
          'semantics':['Unknown extension meaning must stay']}
-    saved=copy.deepcopy(raw);short=_record_view(raw,{},[])
+    saved=copy.deepcopy(raw)
+    short=_record_view(raw,{},[])
     assert raw==saved and short['field_states_by_status']=={'not_applicable':{'no_hp':['hit_points','max_hit_points']}}
     for k in ('context','sample','status','gases','zero','unknown','occupants','extension','semantics'):
         assert short[k]==raw[k]
@@ -64,7 +67,8 @@ def test_body_keys_reconstruct_from_native_owner_without_dropping_anatomy():
     from plugin.plugins.neko_rimworld.agent.context.context_pruning import _record_view
     parts=[{'key':'Thing_P/body:Human/part:0','index':0,'health':34,'max_health':40},
            {'key':'Thing_P/body:Human/part:1','index':1,'health':None,'max_health':25}]
-    raw={'body_parts':parts,'body_parts_complete':False};saved=copy.deepcopy(raw)
+    raw={'body_parts':parts,'body_parts_complete':False}
+    saved=copy.deepcopy(raw)
     short=_record_view(raw,{'include':['body_parts']},[])
     assert raw==saved and short['body_parts_owner']=={'pawn_id':'Thing_P','body_definition':'Human'}
     restored=[{'key':'Thing_P/body:Human/part:'+str(r['index']),**r} for r in short['body_parts']]

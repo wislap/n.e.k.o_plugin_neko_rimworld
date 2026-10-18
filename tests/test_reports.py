@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-from .consultation_setup import semantic_tool_provider
-
 import asyncio
 import json
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
-from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.agent.model.model_client import ModelClientError
-from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import (
     SubmissionDraft,
     SubmissionPatchError,
     count_handoff_tokens,
 )
+from plugin.plugins.neko_rimworld.agent.model.model_client import ModelClientError
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.reports import ReportError, ReportStore
 
+from .consultation_setup import semantic_tool_provider
 from .test_agent import FakeLogger, ScriptedModel, query_tool, settings, submitted_turn, turn
 from .test_plugin import make_plugin
 
@@ -35,8 +34,8 @@ def record(index=1, **extra):
 
 @pytest.mark.asyncio
 async def test_internal_report_tool_preserves_historical_evidence_without_current_observations():
-    from plugin.plugins.neko_rimworld.message_contracts import ToolCall
     from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
+    from plugin.plugins.neko_rimworld.message_contracts import ToolCall
     from plugin.plugins.neko_rimworld.workspace.history_tools import make_history_tool
 
     store = ReportStore()
@@ -145,7 +144,7 @@ def test_report_store_survives_restart_is_immutable_and_bounded(tmp_path):
         store.read(f"{1:032x}")
     with pytest.raises(ReportError):
         store.read("../secrets")
-    (tmp_path / ("a" * 32 + ".json")).write_text("not json")
+    (tmp_path / ("a" * 32 + ".json")).write_text("not json", encoding="utf-8")
     assert ReportStore(tmp_path).list()["total"] == 2
 
 

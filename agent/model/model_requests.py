@@ -9,8 +9,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from ...game.state import redact_text
-from ..runtime.audit import AgentRunState
 from ...message_contracts import AssistantTurn
+from ..runtime.audit import AgentRunState
 from .model_client import ModelClientError
 
 MAX_MODEL_ATTEMPTS = 3

@@ -1,5 +1,4 @@
 
-from .consultation_setup import semantic_tool_provider
 import copy
 import json
 
@@ -7,6 +6,8 @@ import pytest
 
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
+
+from .consultation_setup import semantic_tool_provider
 
 
 def failed(identifier, patch):

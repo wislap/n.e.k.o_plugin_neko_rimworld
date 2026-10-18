@@ -1,16 +1,16 @@
 import asyncio
 import copy
-from types import SimpleNamespace
 import json
+from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.message_contracts import ToolCall
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
 from plugin.plugins.neko_rimworld.agent.world.activity import make_activity_tool
-from plugin.plugins.neko_rimworld.agent.world.native_state import NativeStateReader
 from plugin.plugins.neko_rimworld.agent.world.look_tools import read_look
+from plugin.plugins.neko_rimworld.agent.world.native_state import NativeStateReader
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 
 
 class NativeInteraction:

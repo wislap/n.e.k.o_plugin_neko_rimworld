@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .consultation_setup import semantic_tool_provider
-
 import asyncio
 import copy
 import json
@@ -11,11 +9,11 @@ import pytest
 
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.game.observation import Observation
 from plugin.plugins.neko_rimworld.game.protocol import decode_envelope
 from plugin.plugins.neko_rimworld.game.query_tools import CatalogTools, make_game_tools
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 
 from .test_agent import FakeLogger, settings, submission_call
 

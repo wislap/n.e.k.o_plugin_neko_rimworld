@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import copy
 from dataclasses import dataclass
-from typing import Any
 
 from .observation import Observation
 

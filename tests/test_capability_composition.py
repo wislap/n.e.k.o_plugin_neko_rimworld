@@ -6,19 +6,16 @@ from dataclasses import replace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
-from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
-from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.agent.model.model_client import ModelClientError
 from plugin.plugins.neko_rimworld.agent.runtime import loop
-from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger
-from plugin.plugins.neko_rimworld.message_contracts import ToolCall
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.execution_environment import compose_tools
-from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
-from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 from plugin.plugins.neko_rimworld.game.observation import Observation
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolSpec
 
 from .test_agent import FakeLogger, settings, turn
 from .test_semantic_tools import public_source

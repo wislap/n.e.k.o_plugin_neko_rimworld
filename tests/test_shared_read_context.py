@@ -4,7 +4,7 @@ import json
 import jsonschema
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner, _record_view, prune
+from plugin.plugins.neko_rimworld.agent.context.context_pruning import ContextPruner, _record_view
 from plugin.plugins.neko_rimworld.schema_serialization import remove_redundant_constraints
 
 
@@ -24,7 +24,8 @@ def environment_read():
 
 
 def test_same_read_environment_shares_only_exact_fields_without_merging_scopes_or_hazards():
-    raw=environment_read();saved=copy.deepcopy(raw)
+    raw=environment_read()
+    saved=copy.deepcopy(raw)
     result=_record_view(raw,{},[])['data']
     shared=result['environment_shared']
     assert shared['path_cell_coverage']==raw['data']['environment']['path_cell_coverage']
@@ -39,15 +40,23 @@ def test_same_read_environment_shares_only_exact_fields_without_merging_scopes_o
 @pytest.mark.parametrize('change',['different','missing','null','existing_shared'])
 def test_environment_uncertainty_and_different_sample_content_are_not_hoisted(change):
     raw=environment_read()
-    if change=='different':raw['data']['path_environment']['path_cell_coverage']['complete']=True
-    elif change=='missing':raw['data']['path_environment'].pop('path_cell_coverage')
-    elif change=='null':raw['data']['path_environment']['path_cell_coverage']=None
-    else:raw['data']['environment_shared']={'extension':'independent'}
+    if change=='different':
+        raw['data']['path_environment']['path_cell_coverage']['complete']=True
+    elif change=='missing':
+        raw['data']['path_environment'].pop('path_cell_coverage')
+    elif change=='null':
+        raw['data']['path_environment']['path_cell_coverage']=None
+    else:
+        raw['data']['environment_shared']={'extension':'independent'}
     result=_record_view(raw,{},[])['data']
-    if change=='existing_shared':assert result['environment_shared']=={'extension':'independent'}
-    else:assert 'path_cell_coverage' not in result['environment_shared']
-    if change=='missing':assert 'path_cell_coverage' not in result['path_environment']
-    else:assert result['path_environment']['path_cell_coverage']==raw['data']['path_environment']['path_cell_coverage']
+    if change=='existing_shared':
+        assert result['environment_shared']=={'extension':'independent'}
+    else:
+        assert 'path_cell_coverage' not in result['environment_shared']
+    if change=='missing':
+        assert 'path_cell_coverage' not in result['path_environment']
+    else:
+        assert result['path_environment']['path_cell_coverage']==raw['data']['path_environment']['path_cell_coverage']
 
 
 def test_activity_world_inheritance_preserves_every_distinct_read_actor_stage_and_sample():
@@ -56,7 +65,8 @@ def test_activity_world_inheritance_preserves_every_distinct_read_actor_stage_an
         'observation_id':'read-'+actor,'sample':{'started_tick':tick,'finished_tick':tick+1},
         'context':{'actor_id':actor,'user_id':'Patient'},'native_cost':cost}}
         for actor,tick,cost in [('Near',8,440),('Middle',9,412)]]
-    raw={'tool':'evaluate_activity','data':{'observations':rows}};saved=copy.deepcopy(raw)
+    raw={'tool':'evaluate_activity','data':{'observations':rows}}
+    saved=copy.deepcopy(raw)
     result=_record_view(raw,{},[])['data']
     for original,row in zip(rows,result['observations']):
         assert row['kind']==original['kind'] and row['actor']==original['actor']
@@ -70,7 +80,8 @@ def test_activity_world_inheritance_preserves_every_distinct_read_actor_stage_an
 
 
 def test_nested_equal_sample_and_context_inherit_only_exact_ancestor_values():
-    sample={'game_tick':8,'atomic':False};context={'actor_id':'Near','user_id':None}
+    sample={'game_tick':8,'atomic':False}
+    context={'actor_id':'Near','user_id':None}
     raw={'sample':sample,'context':context,'facts':[{'sample':copy.deepcopy(sample),'context':copy.deepcopy(context),
           'value':0},{'sample':{'game_tick':9,'atomic':False},'context':{'actor_id':'Middle','user_id':None},'value':None}]}
     result=_record_view(raw,{},[])
@@ -94,7 +105,8 @@ def test_schema_reduction_keeps_accepted_values_and_recursive_references():
          'properties':{'kind':{'type':'string','enum':['pawn','thing']},'value':{'$ref':'#/$defs/node'}},
          '$defs':{'node':{'type':'object','properties':{'child':{'$ref':'#/$defs/node'}}},
                   'unused':{'type':'string','minLength':100}}}
-    saved=copy.deepcopy(raw);short=remove_redundant_constraints(raw)
+    saved=copy.deepcopy(raw)
+    short=remove_redundant_constraints(raw)
     assert set(short['$defs'])=={'node'} and 'type' not in short['properties']['kind']
     for value in ({'kind':'pawn'}, {'kind':'thing','value':{'child':{}}}, {'kind':1}, {'kind':True},
                   {'kind':'unknown'}, {}, {'kind':'pawn','unexpected':1}):
@@ -150,7 +162,8 @@ def test_grouped_unknown_nulls_keep_exact_fields_and_failure_reasons():
                          'eligible':{'status':'unavailable','reason':'native_timeout'},
                          'density':{'status':'observed','reason':'native_value'}},
          'coverage':{'complete':False},'context':{'actor_id':'Near','user_id':'Patient'}}
-    saved=copy.deepcopy(raw);result=_record_view(raw,{},[])
+    saved=copy.deepcopy(raw)
+    result=_record_view(raw,{},[])
     assert result['field_states_by_status']=={'unavailable':{'native_timeout':['cost','eligible']}}
     assert result['density']==0 and result['coverage']==raw['coverage'] and result['context']==raw['context']
     assert 'cost' not in result and 'eligible' not in result and raw==saved

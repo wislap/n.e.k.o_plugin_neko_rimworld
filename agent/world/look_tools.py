@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 
 from ...schema_serialization import schema_contract
+from .colony_tools import DOMAINS, colony_kind, extend_look_spec, read_colony
 from .native_state import (
     PHYSICAL,
     STATE_ASPECTS,
@@ -14,7 +15,6 @@ from .native_state import (
     state_contract,
 )
 from .object_identity import normalize_object_identities
-from .colony_tools import DOMAINS, colony_kind, extend_look_spec, read_colony
 from .query_surface import SurfaceError
 from .semantic_surface import (
     ASPECTS,

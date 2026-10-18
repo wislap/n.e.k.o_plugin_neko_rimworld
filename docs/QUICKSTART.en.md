@@ -7,8 +7,8 @@ You need the RimWorld Bridge Mod, Harmony, the N.E.K.O RimWorld plugin, and an O
 ## Connect the game
 
 1. Enable Harmony and N.E.K.O RimWorld Bridge in the game's Mod list and restart as prompted.
-2. In Mod Settings, open **N.E.K.O RimWorld Bridge** and select **Enable local N.E.K.O bridge**.
-3. Choose **Generate new pairing token**, copy the code and port, and leave the settings screen so the game saves them.
+2. In Mod Settings, open **N.E.K.O RimWorld Bridge**. Choose **Generate new pairing code**, then select **Enable N.E.K.O connection**.
+3. Copy the **Connection port** and **Pairing code**, then close the settings window to save and apply them.
 4. Start the RimWorld plugin in N.E.K.O's plugin manager. Open its panel's **Settings**, enter the same port and pairing code, then select **Save and apply connection settings**.
 5. Load your colony. Once the panel shows **Game connected**, you can open the connection check and read a brief colony overview. This does not call a model.
 
@@ -27,7 +27,7 @@ Leave the API key blank to keep the saved key. Saved keys are not returned to th
 - **Saving**: wait for this operation to finish; switching panel pages is fine. You do not need to submit again.
 - **Saved and applied**: the write was acknowledged, or an authoritative configuration read confirmed it, and the plugin applied it.
 - **Not applied**: review the information shown before trying again.
-- **Unconfirmed**: the changes may already have been written. Your draft remains available. Check the same save's status first; after a plugin reload, review the current settings before deciding whether to save again.
+- **Unconfirmed**: the changes may already have been written. Check the same save's status first; after a plugin reload, review the current settings before deciding whether to save again. Fully closing or reloading the panel discards unsaved input.
 
 An uncertain reply never causes an automatic second write or a success message. Closing or reloading the plugin can interrupt a save. Up to 20 receipts are retained during the current plugin process.
 

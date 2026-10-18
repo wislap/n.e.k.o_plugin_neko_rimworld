@@ -7,7 +7,6 @@ import json
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.reference.mechanism_tools import compose_implementation_knowledge
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 from plugin.plugins.neko_rimworld.mechanisms.index import build_index
 from plugin.plugins.neko_rimworld.mechanisms.store import MechanismStore

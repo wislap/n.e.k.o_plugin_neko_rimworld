@@ -14,7 +14,7 @@ from .test_wiki_tools import entry, write_snapshot
 
 def publish(root, name="Steel", label="钢铁", generation="1"):
     source = write_snapshot(root, [entry(name, label)])
-    document = json.loads(source.read_text())
+    document = json.loads(source.read_text(encoding="utf-8"))
     record = json.dumps(document.pop("entries")[0], ensure_ascii=False).encode()
     body = b'{"entries":[' + record + b"]," + json.dumps(document, ensure_ascii=False).encode()[1:]
     filename = "snapshot-" + generation * 32 + ".json"
@@ -37,7 +37,7 @@ def publish(root, name="Steel", label="钢铁", generation="1"):
             }
         ],
     }
-    (root / "ready.json").write_text(json.dumps(ready, ensure_ascii=False))
+    (root / "ready.json").write_text(json.dumps(ready, ensure_ascii=False), encoding="utf-8")
     return ready
 
 
@@ -89,7 +89,7 @@ def test_invalid_directory_is_not_replaced_with_slow_legacy_import(tmp_path, mut
         ready["data_file"] = "../current.json"
     else:
         ready["snapshot"]["sha256"] = "0" * 64
-    (tmp_path / "ready.json").write_text(json.dumps(ready))
+    (tmp_path / "ready.json").write_text(json.dumps(ready), encoding="utf-8")
     library = KnowledgeLibrary(tmp_path)
     assert library.open_view() is None
     assert not library.refresh()
@@ -112,7 +112,7 @@ def test_changed_payload_is_rejected_and_old_view_is_pinned(tmp_path):
 def test_record_hash_is_checked_not_only_directory_metadata(tmp_path):
     ready = publish(tmp_path)
     ready["entries"][0]["sha256"] = "0" * 64
-    (tmp_path / "ready.json").write_text(json.dumps(ready))
+    (tmp_path / "ready.json").write_text(json.dumps(ready), encoding="utf-8")
     view = KnowledgeLibrary(tmp_path).open_view()
     with pytest.raises(ValueError, match="checksum"):
         view.read_entry("Verse.ThingDef/Steel")

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from plugin.plugins.neko_rimworld.agent.context.situation_context import compile_situation
+from plugin.plugins.neko_rimworld.agent.delivery.claims import check_claims
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
@@ -18,14 +19,14 @@ from plugin.plugins.neko_rimworld.game.observation import Observation
 from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 from plugin.plugins.neko_rimworld.game.situation import SituationProvider, SituationSnapshot
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
-from plugin.plugins.neko_rimworld.workspace.storage import WorkspaceStorage
-from plugin.plugins.neko_rimworld.workspace.runtime import WorkspaceAgent
-from plugin.plugins.neko_rimworld.agent.delivery.claims import check_claims
 from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
+from plugin.plugins.neko_rimworld.workspace.runtime import WorkspaceAgent
+from plugin.plugins.neko_rimworld.workspace.storage import WorkspaceStorage
+
 from .consultation_setup import consultation_setup
 from .test_runtime_repair import LOG, settings, submit
-from .test_semantic_tools import public_source, Session, _update
+from .test_semantic_tools import Session, _update, public_source
 
 
 def native(tick=10, *, items=None):

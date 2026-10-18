@@ -1,10 +1,12 @@
 """Current public-query selection, mood/profile, resources and population measures."""
 
 from __future__ import annotations
+
 import copy
 from typing import Any
-from .query_surface import SurfaceError
+
 from .native_state import observed_id_reference
+from .query_surface import SurfaceError
 from .semantic_surface import (
     DEF_KINDS,
     THING_KINDS,

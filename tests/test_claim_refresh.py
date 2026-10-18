@@ -16,7 +16,7 @@ TEXT = "Rescue_Patient 的全部11项能力均已读取。"
 
 
 def receipts():
-    return json.loads((Path(__file__).parent / "fixtures/rescue_capacity_refresh.json").read_text())
+    return json.loads((Path(__file__).parent / "fixtures/rescue_capacity_refresh.json").read_text(encoding="utf-8"))
 
 
 def result(observation):

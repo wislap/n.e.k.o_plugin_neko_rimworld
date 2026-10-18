@@ -1,14 +1,14 @@
-from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 import asyncio
 import copy
 
 import pytest
 
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
+from plugin.plugins.neko_rimworld.agent.runtime.prompt import build_system_prompt
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
 from plugin.plugins.neko_rimworld.game.observation import Observation
 from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 
 from .test_semantic_tools import Session, _update, public_source
 

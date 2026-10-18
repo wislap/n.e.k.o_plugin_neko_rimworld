@@ -1,18 +1,18 @@
 """Actual current catalog gates old/incomplete connections before model dispatch."""
 import copy
 import json
-from pathlib import Path
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
-from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
-from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditRegistry
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
+from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
-from .test_agent import FakeLogger,settings
 
+from .test_agent import FakeLogger, settings
 
 SOURCE=Path(__file__).parent/"fixtures/current_query_catalog.json"
 
@@ -38,16 +38,22 @@ def altered(change):
     if change.startswith("public_"):
         source["public_query"]["version"]="public_query.v1" if change=="public_v1" else "public_query.v99"
     elif change.startswith("world_"):
-        if change=="world_missing":source.pop("world_observation")
-        else:source["world_observation"]["version"]="world_observation.v2.2" if change=="world_v22" else "world_observation.v99"
+        if change=="world_missing":
+            source.pop("world_observation")
+        else:
+            source["world_observation"]["version"]="world_observation.v2.2" if change=="world_v22" else "world_observation.v99"
     elif change=="state_missing":
         source["world_observation"]["tools"]=[tool for tool in source["world_observation"]["tools"] if tool["name"]!="inspect_state"]
     elif change.startswith("section_"):
         state(source)["parameters"]["properties"]["sections"]["items"]["enum"].remove(change.removeprefix("section_"))
-    elif change=="bad_properties":state(source)["parameters"]["properties"]=None
-    elif change=="bad_sections":state(source)["parameters"]["properties"]["sections"]="wrong"
-    elif change=="bad_section_items":state(source)["parameters"]["properties"]["sections"]["items"]=None
-    else:state(source)["parameters"]["properties"].pop(change)
+    elif change=="bad_properties":
+        state(source)["parameters"]["properties"]=None
+    elif change=="bad_sections":
+        state(source)["parameters"]["properties"]["sections"]="wrong"
+    elif change=="bad_section_items":
+        state(source)["parameters"]["properties"]["sections"]["items"]=None
+    else:
+        state(source)["parameters"]["properties"].pop(change)
     return source
 
 

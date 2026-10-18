@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .consultation_setup import semantic_tool_provider
-
 import asyncio
 import copy
 import json
@@ -17,12 +15,14 @@ from plugin.plugins.neko_rimworld import (
     _parse_settings,
     _query_summary,
 )
-from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry, AgentRunState
 from plugin.plugins.neko_rimworld.agent.model.model_client import AgentModelSettings, build_agent_model_settings
+from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry, AgentRunState
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.game.protocol import QUERY_RESULT, Payload, SessionDescriptor, make_envelope
 from plugin.plugins.neko_rimworld.game.query_tools import CatalogTools
 from plugin.plugins.neko_rimworld.game.state import BridgeStateStore, DiagnosticRing
+
+from .consultation_setup import semantic_tool_provider
 
 TOKEN = "0123456789abcdef0123456789abcdef"
 

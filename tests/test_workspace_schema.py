@@ -9,6 +9,7 @@ import pytest
 from ..workspace.store import WorkspaceStore
 from ..workspace.views import WorkspaceViews
 
+
 def snapshot(path):
     with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
         schema = db.execute("SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY name").fetchall()

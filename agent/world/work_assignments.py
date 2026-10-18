@@ -17,15 +17,24 @@ def observed_work(fact):
 
 def summarize_work_assignments(facts, coverage):
     """Count existing assignment rows, never infer runnable jobs or missing zeros."""
-    actors=set();unknown=set();by_type={};complete=True;activities={};precedence=[]
+    actors=set()
+    unknown=set()
+    by_type={}
+    complete=True
+    activities={}
+    precedence=[]
     for fact in facts:
         ident=fact.get("object",{}).get("id")
-        if not isinstance(ident,str):complete=False;continue
-        if ident in actors:complete=False
+        if not isinstance(ident,str):
+            complete=False
+            continue
+        if ident in actors:
+            complete=False
         actors.add(ident)
         work=observed_work(fact)
         table=work.get("work_types",[]) if isinstance(work,dict) else []
-        if not isinstance(table,list):table=[]
+        if not isinstance(table,list):
+            table=[]
         job=work.get("current_job") if isinstance(work,dict) else None
         activities[ident]=job.get("definition") if isinstance(job,dict) else None
         assigned=[row for row in table if isinstance(row,dict) and type(row.get("priority")) is int and row["priority"]>0]
@@ -35,17 +44,29 @@ def summarize_work_assignments(facts, coverage):
                 for row in sorted(assigned,key=lambda row:(row["priority"],-row["natural_priority"],row.get("definition","")))] if order_known else None,
             "order_known":order_known})
         if not isinstance(work,dict) or work.get("status")!="observed" or work.get("work_types_complete") is not True:
-            complete=False;unknown.add(ident)
+            complete=False
+            unknown.add(ident)
         for row in table:
-            if not isinstance(row,dict):complete=False;unknown.add(ident);continue
+            if not isinstance(row,dict):
+                complete=False
+                unknown.add(ident)
+                continue
             definition=row.get("definition")
-            if not isinstance(definition,str):complete=False;unknown.add(ident);continue
+            if not isinstance(definition,str):
+                complete=False
+                unknown.add(ident)
+                continue
             entry=by_type.setdefault(definition,{"assigned":set(),"disabled":set(),"unassigned":set()})
             priority=row.get("priority")
-            if type(priority) is int and priority>0:entry["assigned"].add(ident)
-            elif priority==0 and type(priority) is int:entry["unassigned"].add(ident)
-            elif type(priority) is not int:complete=False;unknown.add(ident)
-            if row.get("disabled") is True:entry["disabled"].add(ident)
+            if type(priority) is int and priority>0:
+                entry["assigned"].add(ident)
+            elif priority==0 and type(priority) is int:
+                entry["unassigned"].add(ident)
+            elif type(priority) is not int:
+                complete=False
+                unknown.add(ident)
+            if row.get("disabled") is True:
+                entry["disabled"].add(ident)
     exact=bool(actors) and complete and coverage.get("listing")=="complete" and coverage.get("matched")==len(actors)
     return {
         "scope":"Objects actually read for this look selection, before display-size cropping; not automatically the whole colony.",

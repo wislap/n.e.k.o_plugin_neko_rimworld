@@ -2,7 +2,6 @@
 
 import copy
 import json
-from types import SimpleNamespace
 
 import jsonschema
 import pytest
@@ -22,9 +21,10 @@ from plugin.plugins.neko_rimworld.tests.test_native_on_demand import route_recor
     ('survey_space', ['environment', 'objects', 'geometry']),
 ])
 def test_published_include_rejects_diagnostics_and_preserves_real_selection(name, allowed):
-    from .consultation_setup import consultation_setup
     from plugin.plugins.neko_rimworld.agent.world.look_tools import look_spec
     from plugin.plugins.neko_rimworld.agent.world.survey_tools import survey_spec
+
+    from .consultation_setup import consultation_setup
     directory = consultation_setup().directory
     spec = look_spec(directory) if name == 'look' else survey_spec(next(t for t in directory['world_observation']['tools'] if t['name'] == name))
     published = model_tools([{'type': 'function', 'function': spec}])[0]['function']

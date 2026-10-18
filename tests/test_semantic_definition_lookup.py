@@ -38,6 +38,7 @@ def test_exact_definition_lookup_uses_negotiated_index_and_retains_label_union()
 def test_capability_selection_schema_includes_native_meanings():
     import json
     from pathlib import Path
+
     from plugin.plugins.neko_rimworld.agent.world.semantic_surface import _object_schema
     from plugin.plugins.neko_rimworld.game.query_tools import make_game_tools
 

@@ -7,16 +7,16 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from ..context.model_context import CONTEXT_TOOLS, make_pruner, validate_deployment
+from ...message_contracts import AssistantTurn
 from ..context.context_pruning import ContextPruner
+from ..context.model_context import CONTEXT_TOOLS, make_pruner, validate_deployment
 from ..delivery.handoff import SubmissionDraft
 from .audit import AgentAuditLedger
 from .prompt import build_system_prompt
-from ...message_contracts import AssistantTurn
 
 if TYPE_CHECKING:
-    from ..world.semantic_tools import SemanticInteraction
     from ...tool_contracts import ToolSpec
+    from ..world.semantic_tools import SemanticInteraction
 
 
 @dataclass(slots=True)

@@ -1,7 +1,7 @@
 """The public population-measure contract."""
 
 from ...schema_serialization import schema_contract
-from .semantic_surface import _object_schema, METRICS, GROUPINGS, BY_KINDS, POPULATIONS
+from .semantic_surface import GROUPINGS, METRICS, POPULATIONS, _object_schema
 
 
 def count_spec(directory=None):

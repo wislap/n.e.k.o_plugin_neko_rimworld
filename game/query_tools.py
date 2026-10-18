@@ -9,12 +9,19 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
-from ..tool_contracts import PUBLIC_QUERY_VERSION, WORLD_OBSERVATION_VERSION, ToolExecutionError, ToolHandler, ToolSetup, ToolSpec
 from ..schema_serialization import schema_contract
-from .catalog_contract import has_retired_capability_alias
+from ..tool_contracts import (
+    PUBLIC_QUERY_VERSION,
+    WORLD_OBSERVATION_VERSION,
+    ToolExecutionError,
+    ToolHandler,
+    ToolSetup,
+    ToolSpec,
+)
 from .bridge import BridgeServer
+from .catalog_contract import has_retired_capability_alias
 from .observation import Observation
-from .situation import SituationProvider, SITUATION_VERSION
+from .situation import SITUATION_VERSION, SituationProvider
 
 COLONY_STATE_VERSION = "colony_state.v1"
 COLONY_OPERATIONS = frozenset({"inspect_planet", "inspect_factions", "inspect_quests", "inspect_trade", "inspect_research", "evaluate_journey", "evaluate_trade", "inspect_resources"})

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .consultation_setup import semantic_tool_provider
-
 import asyncio
 import json
 from typing import Any
@@ -9,14 +7,27 @@ from typing import Any
 import httpx
 import pytest
 
-from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditCapacityError, AgentAuditLedger, AgentAuditRegistry, AgentRunState
-from plugin.plugins.neko_rimworld.agent.model.model_client import AgentModelSettings, ModelClientError, OpenAICompatibleModelClient, build_agent_model_settings, parse_agent_model_settings
-from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.model import model_requests
-from plugin.plugins.neko_rimworld.agent.runtime.audit import MAX_EVENTS_PER_RUN
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSpec
+from plugin.plugins.neko_rimworld.agent.model.model_client import (
+    AgentModelSettings,
+    ModelClientError,
+    OpenAICompatibleModelClient,
+    build_agent_model_settings,
+    parse_agent_model_settings,
+)
+from plugin.plugins.neko_rimworld.agent.runtime.audit import (
+    MAX_EVENTS_PER_RUN,
+    AgentAuditCapacityError,
+    AgentAuditLedger,
+    AgentAuditRegistry,
+    AgentRunState,
+)
+from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.game.observation import Observation
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError, ToolSpec
+
+from .consultation_setup import semantic_tool_provider
 
 
 def query_tool(handler):

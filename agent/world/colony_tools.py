@@ -12,7 +12,6 @@ import copy
 from ...tool_contracts import ToolSpec
 from .query_surface import SurfaceError
 
-
 VERSION = "colony_state.v1"
 DOMAINS = {
     "world": ("inspect_planet", ("places",)),

@@ -2,23 +2,21 @@
 
 from __future__ import annotations
 
-from .consultation_setup import semantic_tool_provider
-
 import copy
 import json
 from dataclasses import replace
 
 import pytest
 
+from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import wiki_spec
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
-from plugin.plugins.neko_rimworld.message_contracts import ToolCall
-from plugin.plugins.neko_rimworld.agent.reference.wiki_tools import wiki_spec
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
 from plugin.plugins.neko_rimworld.agent.runtime.tools import ToolRegistry
-from plugin.plugins.neko_rimworld.agent.world.semantic_tools import semantic_interaction_factory
+from plugin.plugins.neko_rimworld.message_contracts import ToolCall
 from plugin.plugins.neko_rimworld.reports import ReportStore
 
+from .consultation_setup import semantic_tool_provider
 from .test_agent import FakeLogger, settings, submission_call, turn
 from .test_semantic_tools import setup_for
 

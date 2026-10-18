@@ -590,7 +590,8 @@ def _record_view(value, arguments, removed):
                 if isinstance(rows, list) and len(rows) > 1 and all(isinstance(r, dict) and isinstance(r.get("key"), str) and type(r.get("index")) is int for r in rows):
                     prefixes = {r["key"].removesuffix('/part:'+str(r["index"])) for r in rows}
                     if len(prefixes) == 1:
-                        prefix = next(iter(prefixes)); pieces = prefix.split('/body:')
+                        prefix = next(iter(prefixes))
+                        pieces = prefix.split('/body:')
                         if len(pieces) == 2 and all(pieces) and all(r['key'] == prefix+'/part:'+str(r['index']) for r in rows):
                             result["body_parts_owner"] = {"pawn_id":pieces[0],"body_definition":pieces[1]}
                             short = [{k:copy.deepcopy(v) for k,v in r.items() if k != 'key'} for r in rows]

@@ -1,7 +1,5 @@
 """Caller-prepared work uses the same execution and delivery as single queries."""
 
-from .consultation_setup import consultation_setup, semantic_tool_provider
-
 import asyncio
 import copy
 import json
@@ -12,9 +10,11 @@ import pytest
 from plugin.plugins.neko_rimworld.agent.delivery.handoff import SubmissionPatchError
 from plugin.plugins.neko_rimworld.agent.model.model_client import build_agent_model_settings
 from plugin.plugins.neko_rimworld.agent.runtime.audit import AgentAuditLedger, AgentAuditRegistry
-from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
 from plugin.plugins.neko_rimworld.agent.runtime.loop import AgentRuntime
 from plugin.plugins.neko_rimworld.agent.runtime.session import AgentRunSession
+from plugin.plugins.neko_rimworld.message_contracts import AssistantTurn, ToolCall
+
+from .consultation_setup import consultation_setup, semantic_tool_provider
 
 LOG = SimpleNamespace(info=lambda *a: None, warning=lambda *a: None, error=lambda *a: None)
 
@@ -42,7 +42,7 @@ def settings():
 
 
 def prepare(question, context=()):
-    config = settings()
+    settings()
     return AgentRunSession.create(
         ledger=AgentAuditLedger(question),
         question=question,
@@ -139,7 +139,6 @@ async def test_preparing_execution_has_one_owner_before_first_model_request():
     release = asyncio.Event()
 
     async def setup():
-        from plugin.plugins.neko_rimworld.tool_contracts import ToolSetup
 
         preparing.set()
         await release.wait()

@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 from plugin.plugins.neko_rimworld.agent.world.semantic_tools import SemanticInteraction
+from plugin.plugins.neko_rimworld.tool_contracts import ToolExecutionError
 
 
 @pytest.mark.asyncio
