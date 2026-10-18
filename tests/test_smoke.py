@@ -1,3 +1,4 @@
+import importlib
 import tomllib
 from pathlib import Path
 
@@ -8,12 +9,16 @@ def test_plugin_manifest_exists() -> None:
     assert manifest.is_file()
     text = manifest.read_text(encoding="utf-8")
     assert 'id = "neko_rimworld"' in text
-    assert 'entry = "plugin.plugins.neko_rimworld:NekoRimworldPlugin"' in text
+    assert 'entry = "plugin.plugins.neko_rimworld.entry:NekoRimworldPlugin"' in text
     assert 'entry = "ui/panel.tsx"' in text
     assert 'mode = "hosted-tsx"' in text
     assert 'permissions = ["state:read", "config:write", "action:call"]' in text
 
     parsed = tomllib.loads(text)
+    module_name, class_name = parsed["plugin"]["entry"].split(":")
+    from plugin.plugins.neko_rimworld import NekoRimworldPlugin
+
+    assert getattr(importlib.import_module(module_name), class_name) is NekoRimworldPlugin
     assert parsed["neko_rimworld"]["pairing_token"] == ""
     assert parsed["neko_rimworld"]["agent"]["api_key"] == ""
     assert parsed["neko_rimworld"]["agent"]["base_url"] == ""

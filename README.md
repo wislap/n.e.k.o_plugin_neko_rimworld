@@ -4,6 +4,14 @@ Read-only colony consultation through the local RimWorld Mod and an independent 
 
 Start here: [中文使用指南](docs/QUICKSTART.zh-CN.md) · [English quick start](docs/QUICKSTART.en.md).
 
+The plugin detail page's dedicated **教程 / Guide** tab walks through downloads,
+separate Mod and plugin installation, pairing, model configuration and the first
+question. The working panel keeps its four original pages. Download the released
+[Bridge Mod v3.2.0 ZIP](https://github.com/wislap/NekoRimWorld/releases/download/v3.2.0/NekoRimWorld-3.2.0.zip)
+for RimWorld; get the separate `.neko-plugin` package from the
+[plugin releases page](https://github.com/wislap/n.e.k.o_plugin_neko_rimworld/releases) when available.
+If no package is listed yet, the guides include optional source-build instructions.
+
 The panel includes first-use guidance, saved-answer browsing and explicit settings
 save receipts. A save can be confirmed, rejected or still unconfirmed; the panel
 does not silently repeat a write after a lost reply. Model limits are under
@@ -16,7 +24,8 @@ The product version is `3.2.0` (displayed as **v3.2**), aligned with the Mod and
 bench. It includes the selected situation background, world/faction/quest/trade/
 research consultation, exact definition reads, resource-source separation and
 loaded-journey comparisons. This is the current source version, not a claim that
-a v3.2 package or game DLL has been published or deployed. Protocol versions and
+a plugin v3.2 package has been published. The Mod is distributed separately at
+[v3.2.0](https://github.com/wislap/NekoRimWorld/releases/tag/v3.2.0). Protocol versions and
 SDK support ranges are independent and unchanged.
 
 The existing `rimworld_consult(question)` entry and shared runtime remain the

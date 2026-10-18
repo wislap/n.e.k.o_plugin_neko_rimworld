@@ -1,5 +1,6 @@
 """Published copy and static Hosted action discovery must match the panel."""
 
+import asyncio
 import json
 import re
 import tomllib
@@ -43,3 +44,42 @@ def test_surface_title_uses_the_same_language_resources_as_the_panel():
     messages = load_plugin_i18n_from_dir(ROOT / "locales", default_locale="en")
     assert resolve_i18n_refs(title, messages, locale="en") == "RimWorld advice"
     assert resolve_i18n_refs(title, messages, locale="zh-CN") == "RimWorld 建议"
+
+
+def test_registered_guide_loads_separately_without_a_running_plugin(monkeypatch):
+    from types import SimpleNamespace
+
+    from plugin.core.state import state
+    from plugin.core.ui_manifest import normalize_plugin_ui_manifest
+    from plugin.server.application.plugins import ui_query_service
+
+    manifest = tomllib.loads((ROOT / "plugin.toml").read_text(encoding="utf-8"))
+    metadata = {
+        "id": "neko_rimworld",
+        "config_path": str(ROOT / "plugin.toml"),
+        "plugin_ui": normalize_plugin_ui_manifest(manifest, plugin_id="neko_rimworld"),
+        "i18n": manifest["plugin"]["i18n"],
+        "entries": manifest["entries"],
+    }
+    monkeypatch.setattr(ui_query_service, "_get_plugin_meta_sync", lambda _: metadata)
+    monkeypatch.setitem(state.plugin_hosts, "neko_rimworld", SimpleNamespace(is_alive=lambda: False))
+    service = ui_query_service.PluginUiQueryService()
+    for locale, title in (("en", "RimWorld setup guide"), ("zh-CN", "RimWorld 使用教程")):
+        result = asyncio.run(service.get_surfaces("neko_rimworld", locale=locale))
+        assert not result["warnings"]
+        assert [row["kind"] for row in result["surfaces"]] == ["panel", "guide"]
+        guide = result["surfaces"][1]
+        assert guide["title"] == title
+        assert guide["available"] and guide["mode"] == "hosted-tsx"
+        assert guide["permissions"] == []
+        context = asyncio.run(service.get_surface_context(
+            "neko_rimworld", kind="guide", surface_id="quickstart", locale=locale,
+        ))
+        assert not context["warnings"]
+        assert context["state"] == {} and context["actions"] == []
+        assert context["config"]["value"] == {} and context["config"]["readonly"]
+        source = asyncio.run(service.get_surface_source(
+            "neko_rimworld", kind="guide", surface_id="quickstart", locale=locale,
+        ))
+        assert source["entry"] == "ui/guide/guide-page.tsx"
+        assert {row["path"] for row in source["dependencies"]} == {"ui/guide/content.ts"}

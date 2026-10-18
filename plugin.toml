@@ -3,7 +3,7 @@ id = "neko_rimworld"
 name = "N.E.K.O RimWorld"
 version = "3.2.0"
 type = "plugin"
-entry = "plugin.plugins.neko_rimworld:NekoRimworldPlugin"
+entry = "plugin.plugins.neko_rimworld.entry:NekoRimworldPlugin"
 description = "RimWorld research agent with persistent colony work and a read-only local game bridge."
 short_description = "Investigate the colony and continue your work across consultations."
 keywords = ["rimworld", "colony", "game", "advisor", "consult", "analysis"]
@@ -26,6 +26,14 @@ entry = "ui/panel.tsx"
 mode = "hosted-tsx"
 context = "dashboard"
 permissions = ["state:read", "config:write", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = { "$i18n" = "guide.surfaceTitle", "default" = "RimWorld setup guide" }
+entry = "ui/guide/guide-page.tsx"
+mode = "hosted-tsx"
+context = "dashboard"
+permissions = []
 
 [plugin_runtime]
 enabled = true

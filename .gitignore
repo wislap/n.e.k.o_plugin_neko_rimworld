@@ -6,6 +6,9 @@ __pycache__/
 .venv/
 venv/
 vendor/
+/.vendor.staging-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+/.vendor.backup-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+/.vendor.backup-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].pending
 dist/
 build/
 *.egg-info/

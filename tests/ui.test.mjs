@@ -22,14 +22,17 @@ async function collect(dir) {
 }
 await collect(path.join(plugin, "ui"));
 const compiled = transform(bundleHostedTsxSource(source, dependencies, "ui/panel.tsx"), { transforms:["typescript","jsx"], jsxPragma:"h", jsxFragmentPragma:"Fragment", production:true }).code.replace(/export\s+default\s+function\s+([\w$]*)\s*\(/, "const __Panel = function $1(");
+const guideEntry = "ui/guide/guide-page.tsx";
+const guideSource = await fs.readFile(path.join(plugin,guideEntry),"utf8");
+const compiledGuide = transform(bundleHostedTsxSource(guideSource, dependencies.filter(item=>item.path!==guideEntry), guideEntry), { transforms:["typescript","jsx"], jsxPragma:"h", jsxFragmentPragma:"Fragment", production:true }).code.replace(/export\s+default\s+function\s+([\w$]*)\s*\(/, "const __Panel = function $1(");
 const flush = async () => { for (let i=0;i<8;i++) await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 1)); };
-function setup(locale = "zh-CN", initialState = {}) {
+function setup(locale = "zh-CN", initialState = {}, surface = "panel") {
   const window = new Window({ url:"http://localhost/ui" });
   window.__NEKO_PAYLOAD={ locale, host:{origin:"http://localhost"}, i18n:{messages,default_locale:"en"} };
   const NativeText = window.Text;
   window.eval(runtime);
   window.Text = NativeText; // happy-dom constructs text through window.Text; browsers use their native DOM implementation.
-  window.eval(compiled+"\nwindow.TestPanel=__Panel;");
+  window.eval((surface === "guide" ? compiledGuide : compiled)+"\nwindow.TestPanel=__Panel;");
   const ui=window.NekoUiKit;
   const root=window.document.createElement("main");window.document.body.append(root);
   const state={ action_nonce:"test-nonce", status:"ready", port:48919, configuration:{token_configured:true,agent_configured:true,agent_api_key_configured:true,agent_base_url:"https://example.com/v1",agent_model:"test"}, agent:{active_count:0,recent_count:0,active_runs:[],recent_runs:[],latest_run:null} };
@@ -56,6 +59,53 @@ function setup(locale = "zh-CN", initialState = {}) {
 
 function summary(id,question){return {run_id:id,question,state:"completed",result_status:"ok",result_summary:question+" summary",event_count:61,revision:61,terminal:true,stage:"completed",latest_event:{event_seq:61,event:"run_completed",cycle:1,elapsed_ms:1000},latest_event_summary:"Run completed.",model_calls:1,tool_calls:1,duration_ms:1000}}
 function detail(id,question,offset=0){return {...summary(id,question),events:[{event_seq:offset+1,event:"model_response_received",elapsed_ms:100,data:{content:question}}],events_page:{offset,limit:50,total:61,has_more:offset===0},result:{status:"ok",answer:question+" full",summary:question+" summary",observations:[]}}}
+
+test("the guide translates every chapter and offers public downloads without running actions",async()=>{
+  for(const locale of ["zh-CN","en","zh-TW","fr"]){
+    const h=setup(locale,{},"guide");try{
+      await flush();
+      assert.equal(h.root.querySelector('#rimworld-main-nav'),null);
+      const chapters=[...h.root.querySelectorAll('section[id^="rimworld-guide-"]')];
+      assert.equal(chapters.length,8);
+      assert.deepEqual(h.root.textContent.match(/\bguide\.(?:title|intro|(?:prepare|mod|plugin|pair|model|chat|answers|help|link|build)\.)/g),null,locale);
+      const chinese=locale.startsWith("zh");
+      assert.match(h.root.textContent,chinese?/从下载安装到第一次咨询/:/From download to your first colony question/);
+      assert.match(h.root.textContent,chinese?/用户插件/:/User Plugin/);
+      assert.match(h.root.textContent,/127\.0\.0\.1/);
+      assert.match(h.root.textContent,/48919/);
+      const links=[...h.root.querySelectorAll('.neko-download')];
+      assert.equal(links.length,7);
+      const external=[];h.window.parent.postMessage=message=>{if(message.type==='neko-hosted-surface-open-external')external.push(message.payload.url)};
+      for(const link of links)link.click();
+      assert.equal(external.length,7,"sandboxed downloads must go through the host external-link handler");
+      assert.ok(external.includes("https://github.com/wislap/NekoRimWorld/releases/download/v3.2.0/NekoRimWorld-3.2.0.zip"));
+      assert.ok(external.includes("https://github.com/wislap/n.e.k.o_plugin_neko_rimworld/releases"));
+      assert.ok(external.every(url=>url.startsWith("https://")));
+      for(const detail of h.root.querySelectorAll('details'))detail.querySelector('summary').click();
+      let jumped=false;chapters[4].scrollIntoView=()=>{jumped=true};
+      h.root.querySelectorAll('nav button')[4].click();await flush();
+      assert.ok(jumped);assert.equal(h.window.document.activeElement,chapters[4]);
+      assert.equal(h.calls.length,0,"reading and jumping through the guide must not call the backend");
+    }finally{await h.close()}
+  }
+});
+
+test("the guide is separate from the four panel pages and never disturbs panel drafts",async()=>{
+  const h=setup();const guide=setup("zh-CN",{},"guide");try{
+    await flush();
+    assert.equal(h.root.querySelectorAll('#rimworld-main-nav-tab-guide').length,0);
+    assert.equal(h.root.querySelectorAll('[role="tablist"] [role="tab"]').length,4);
+    await h.tab("设置");
+    await h.type(h.root.querySelector('input[placeholder="https://example.com/v1"]'),"https://draft.example/v1");
+    await h.type(h.root.querySelectorAll('input[type="password"]')[1],"draft-key");
+    assert.equal(guide.root.querySelectorAll('section[id^="rimworld-guide-"]').length,8);
+    h.render();await flush();
+    assert.equal(h.root.querySelector('input[placeholder="https://example.com/v1"]').value,"https://draft.example/v1");
+    assert.equal(h.root.querySelectorAll('input[type="password"]')[1].value,"draft-key");
+    assert.equal(guide.calls.length,0);
+    assert.ok(h.calls.every(call=>call.id==='workspace_view'));
+  }finally{await guide.close();await h.close()}
+});
 
 test("primary pages preserve drafts across navigation and server refresh",async()=>{
   const h=setup();try{
@@ -213,6 +263,7 @@ test("top navigation supports keyboard selection",async()=>{
     const tab=h.root.querySelector("#rimworld-main-nav-tab-work");tab.focus();
     tab.dispatchEvent(new h.window.KeyboardEvent("keydown",{key:"End",bubbles:true}));await flush();
     assert.equal(h.root.querySelector("#rimworld-main-nav-tab-settings").getAttribute("aria-selected"),"true");
+    assert.equal(h.window.document.activeElement,h.root.querySelector("#rimworld-main-nav-tab-settings"));
     assert.ok(h.root.querySelector('input[type="password"]'));
   }finally{await h.close()}
 });

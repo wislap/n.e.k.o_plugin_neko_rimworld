@@ -13,7 +13,7 @@
     {
       "label": "N.E.K.O: sync neko_rimworld",
       "type": "shell",
-      "command": "uv run --with pip neko-plugin sync neko_rimworld --clean",
+      "command": "uv run neko-plugin sync neko_rimworld --clean",
       "options": {
         "cwd": "${config:nekoPlugin.repoRoot}"
       },

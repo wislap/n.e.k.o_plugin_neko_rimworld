@@ -17,7 +17,8 @@ import { text } from "./format"
 function PanelBody(props: PluginSurfaceProps<DashboardState>) {
   const { t } = useI18n()
   const services = usePanelServices(props)
-  const [page, setPage] = useLocalState<PageId>("rimworld:advice:page", "work")
+  const [storedPage, setPage] = useLocalState<PageId>("rimworld:advice:page", "work")
+  const page = ["work", "history", "diagnostics", "settings"].includes(storedPage) ? storedPage : "work"
   const diagnostics = useDiagnostics(services, page, setPage)
   const settings = useSettings(services)
   const work = useWorkView(services, page)
